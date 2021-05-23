@@ -17,7 +17,6 @@ restrict <- function(location.data, rastr){
 }
 
 range_distances <- function(dat, range.pol){
-#  names(range.pol@data)[names(range.pol@data) == "binomial"] <- "HostCorrectedName" 
   range.pol <- range.pol[range.pol@data$binomial %in% unique(dat$HostCorrectedName), ] # restrict range.pol to match hosts in dat
   
   dat.sets <- split(dat, f = dat$HostCorrectedName)
