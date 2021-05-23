@@ -46,5 +46,6 @@ IUCN_shapefiles/
 IUCN_species_files/
 
 # Misc unneeded 
-"GBIF cleaning"/
+GBIF\ cleaning/
+.Git\ notes
 Misc/
