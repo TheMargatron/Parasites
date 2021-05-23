@@ -12,24 +12,24 @@
 ## calculates vertical distance from sample location to maximum latitude
 
 restrict <- function(location.data, rastr){
-  c.rast <- rasterize(location.data[[1]], rastr, fun = "count")
+  c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
   return(length(Which(c.rast, cells = TRUE))>1) 
 }
 
 range_distances <- function(dat, range.pol){
-  names(range.pol@data)[names(range.pol@data) == "binomial"] <- "HostCorrectedName"
-  range.pol <- range.pol[range.pol@data$HostCorrectedName %in% unique(x$HostCorrectedName),] 
+#  names(range.pol@data)[names(range.pol@data) == "binomial"] <- "HostCorrectedName" 
+  range.pol <- range.pol[range.pol@data$binomial %in% unique(dat$HostCorrectedName), ] # restrict range.pol to match hosts in dat
   
   dat.sets <- split(dat, f = dat$HostCorrectedName)
   
   dat.out <- lapply(dat.sets, function(k){
-    range.sub <- range.pol[range.pol@data$HostCorrectedName == unique(k$HostCorrectedName),] # Don't see why this is necessary
-    range.abs.vals <- abs(geom(range.sub)[, "y"])
+    range.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName), ] # subset range.pol to host of interest
+    range.abs.vals <- abs(raster::geom(range.sub)[, "y"]) # extract coordinates from range.sub and convert to absolute values
     
     range.max <- max(range.abs.vals)
     range.min <- min(range.abs.vals)
-    range.span <- distGeo(c(0, range.max), c(0, range.min))
-    range.area <- sum(areaPolygon(range.sub))
+    range.span <- geosphere::distGeo(c(0, range.max), c(0, range.min))
+    range.area <- sum(geosphere::areaPolygon(range.sub))
     range.median <- median(range.max, range.min)
     
     range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
@@ -39,14 +39,14 @@ range_distances <- function(dat, range.pol){
                                "RangeArea" = range.area,
                                "RangeMedian" = range.median)
     
-    k$zeros <- 0
+    k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
     
-    k$EquatorwardsDist <- distGeo(k[,c("zeros","Latitude")], c(0,range.min))
+    k$EquatorwardsDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.min))
     k$EquatorwardsProp <- k$EquatorwardsDist/range.span
-    k$MedianDist <- distGeo(k[,c("zeros","Latitude")], c(0,range.median))
-    k$MedianProp <- k$EquatorwardsDist/(range.span/2)
+    k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median))
+    k$MedianProp <- k$MedianDist/(range.span/2)
     
-    k <- k %>% select(-zeros)
+    k$zeros <- NULL
     
     return(list(k, range.traits))
   })
