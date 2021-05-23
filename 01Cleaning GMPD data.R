@@ -346,9 +346,9 @@ IUCN_Data <- raster::bind(IUCN_Data_List)
 
 ############################################### Distance metrics and range traits #############################
 
-Distances_Data <- range_distances(GMPD_60Filter_Data, IUCN_Data)
-GMPD_Dists_Data <- Distances_Data[[1]]
-GMPD_Trait_Data <- merge(Distances_Data[[2]], GMPD_Trait_Data, by = "HostCorrectedName", all = TRUE)
+Distances_Data <- range_distances(GMPD_Data, IUCN_Data)
+GMPD_Data <- merge(GMPD_Data, Distances_Data[["DistanceMetrics"]], all.x = TRUE)
+GMPD_Trait_Data <- merge(Distances_Data[["RangeTraits"]], GMPD_Trait_Data, by = "HostCorrectedName", all = TRUE)
 
 ############################################### Write files ###################################################
 
