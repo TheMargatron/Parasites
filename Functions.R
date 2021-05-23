@@ -1,0 +1,58 @@
+# Functions of various purposes
+# Written by Margaret Bolton mb804@exeter.ac.uk
+
+# restrict (location.data, rastr)
+## rasterizes location data from a data frame and returns TRUE if more than one cell is occupied
+## location.data = dataframe with Longitude and Latitude
+## rastr = empty raster of chosen resolution, e.g. raster(resolution = (60/60))
+
+# range_distances (dat, range.pol)
+## extracts maximum, minimum, and median latitude from range polygons
+## extracts range area and range span (vertical distance between maximum and minimum latitudes)
+## calculates vertical distance from sample location to maximum latitude
+
+restrict <- function(location.data, rastr){
+  c.rast <- rasterize(location.data[[1]], rastr, fun = "count")
+  return(length(Which(c.rast, cells = TRUE))>1) 
+}
+
+range_distances <- function(dat, range.pol){
+  names(range.pol@data)[names(range.pol@data) == "binomial"] <- "HostCorrectedName"
+  range.pol <- range.pol[range.pol@data$HostCorrectedName %in% unique(x$HostCorrectedName),] 
+  
+  dat.sets <- split(dat, f = dat$HostCorrectedName)
+  
+  dat.out <- lapply(dat.sets, function(k){
+    range.sub <- range.pol[range.pol@data$HostCorrectedName == unique(k$HostCorrectedName),] # Don't see why this is necessary
+    range.abs.vals <- abs(geom(range.sub)[, "y"])
+    
+    range.max <- max(range.abs.vals)
+    range.min <- min(range.abs.vals)
+    range.span <- distGeo(c(0, range.max), c(0, range.min))
+    range.area <- sum(areaPolygon(range.sub))
+    range.median <- median(range.max, range.min)
+    
+    range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
+                               "RangeMax" = range.max,
+                               "RangeMin" = range.min,
+                               "RangeSpan" = range.span,
+                               "RangeArea" = range.area,
+                               "RangeMedian" = range.median)
+    
+    k$zeros <- 0
+    
+    k$EquatorwardsDist <- distGeo(k[,c("zeros","Latitude")], c(0,range.min))
+    k$EquatorwardsProp <- k$EquatorwardsDist/range.span
+    k$MedianDist <- distGeo(k[,c("zeros","Latitude")], c(0,range.median))
+    k$MedianProp <- k$EquatorwardsDist/(range.span/2)
+    
+    k <- k %>% select(-zeros)
+    
+    return(list(k, range.traits))
+  })
+  
+  out <- do.call(rbind, lapply(dat.out, function(dat) dat[[1]]))
+  range.traits <- do.call(rbind, lapply(dat.out, function(dat) dat[[2]]))
+  
+  return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
+}
