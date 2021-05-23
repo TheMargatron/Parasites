@@ -37,3 +37,14 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Oversized files
+Data/
+Figures/
+GBIF_manual_download/
+IUCN_shapefiles/
+IUCN_species_files/
+
+# Misc unneeded 
+"GBIF cleaning"/
+Misc/
