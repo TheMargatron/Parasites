@@ -12,7 +12,7 @@
 ## GMPD_Raw_Data 
 ## Country_Match
 
-############################################## Libraries ######################################################
+############################################## Libraries and data #############################################
 
 library(CoordinateCleaner)  # cleaning geographic data
 library(geosphere)          # calculating distances
