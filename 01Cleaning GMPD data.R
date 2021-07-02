@@ -23,12 +23,12 @@ library(rgdal)              # read shapefiles
 library(stringr)            #
 library(tidyverse)          #  beware of conflicts (mainly with raster)
 
-source(here("Functions.R"))
+source(here::here("Functions.R"))
 
-GMPD_Raw_Data <- read.csv(here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
+GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
 nrow(GMPD_Raw_Data) #Beginning with 24323 rows
 
-IUCN_Mammals <- readOGR(here("Data/IUCN"), "MAMMALS") #this takes a while
+IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
 
 ############################################## Basic data cleaning ############################################
 
@@ -286,7 +286,7 @@ GMPD_Data <- GMPD_Data %>%
                     species = "HostCorrectedName",
                     countries = "countrycode",
                     tests = c("capitals","centroids","institutions", "countries"),
-                    range_ref = IUCN_mammals,
+                    range_ref = IUCN_Mammals,
                     value = "clean")
 nrow(GMPD_Data) #8157
 
@@ -323,6 +323,7 @@ Host_Par_Loc_Nest <- GMPD_Data %>%
   select(HostCorrectedName, ParasiteCorrectedName, Longitude, Latitude) %>%
   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
   nest(Location = c(Longitude, Latitude))
+nrow(Host_Par_Loc_Nest) # 1165
 
 # Restricting to those that occupy at least two 60/60 res grid squares
 
@@ -332,9 +333,11 @@ Host_Par_Loc_Nest <- Host_Par_Loc_Nest %>%
   mutate(Across60 = restrict(Location, rastr = Rastr_60)) %>%
   filter(Across60) %>%
   select(-Across60)
+nrow(Host_Par_Loc_Nest) # 886
 
 GMPD_Data <- merge(GMPD_Data, Host_Par_Loc_Nest[c(1, 2)], by = c("HostCorrectedName", "ParasiteCorrectedName"), 
                    sort = FALSE, all.x = FALSE)
+nrow(GMPD_Data) # 5868
 
 # Saving relevant subset of IUCN data
 
@@ -352,10 +355,10 @@ GMPD_Trait_Data <- merge(Distances_Data[["RangeTraits"]], GMPD_Trait_Data, by = 
 
 ############################################### Write files ###################################################
 
-write.csv(GMPD_Data, file = here("Data/Data back ups/GMPD_Data.csv"), row.names = FALSE)
-write.csv(GMPD_Trait_Data, file = here("Data/Data back ups/GMPD_Trait_Data.csv"), row.names = FALSE)
-write.csv(GMPD_Location_Data, file = here("Data/Data back ups/GMPD_Location_Data.csv"), row.names = FALSE)
-saveRDS(Host_Par_Loc_Nest, file = here("Data/Data back ups/Host_Par_Loc_Nest"))
-saveRDS(IUCN_Data_List, file = here("Data/Data back ups/IUCN_Data_List")) # too large to commit 
+write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data.csv"), row.names = FALSE)
+write.csv(GMPD_Trait_Data, file = here::here("Data/Data back ups/GMPD_Trait_Data.csv"), row.names = FALSE)
+write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data.csv"), row.names = FALSE)
+saveRDS(Host_Par_Loc_Nest, file = here::here("Data/Data back ups/Host_Par_Loc_Nest"))
+saveRDS(IUCN_Data_List, file = here::here("Data/Data back ups/IUCN_Data_List")) # too large to commit 
 
 rm(list = ls(pattern = "_Temp$"))
