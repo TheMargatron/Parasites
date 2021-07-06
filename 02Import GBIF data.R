@@ -16,36 +16,28 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 
 Taxon_Key <- taxize::get_gbifid_(Hostlist, method = "backbone")
 Taxon_Key <- lapply(names(Taxon_Key), function(name) {
-  Taxon_Key[[name]]["SpeciesID"] <- name
+  Taxon_Key[[name]]["HostCorrectedName"] <- name
   return(Taxon_Key[[name]])
 })
 
-Taxon_Key2_Temp <- Taxon_Key %>%
+Taxon_Key <- Taxon_Key %>%
   bind_rows() %>%
   filter(class == "Mammalia")
 
 # Probably a better way of doing this but this works for now
 # Using the taxonkey which gives the same number of search results as the species name 
-Taxon_Key2_Temp$CountKey <- unlist(lapply(Taxon_Key2_Temp$usagekey, function(key) occ_count(taxonKey = key, georeferenced = TRUE)))
-Taxon_Key2_Temp$CountSpc <- unlist(lapply(Taxon_Key2_Temp$SpeciesID, function(spc) occ_search(scientificName = spc, hasCoordinate = TRUE, limit = 0)$meta$count))
+Taxon_Key$CountKey <- unlist(lapply(Taxon_Key$usagekey, function(key) occ_count(taxonKey = key, georeferenced = TRUE)))
+Taxon_Key$CountSpc <- unlist(lapply(Taxon_Key$HostCorrectedName, function(spc) occ_search(scientificName = spc, hasCoordinate = TRUE, limit = 0)$meta$count))
 
-Taxon_Key2_Temp <- Taxon_Key2_Temp %>%
+Taxon_Key <- Taxon_Key %>%
   filter(CountKey == CountSpc) %>%
-  select(usagekey, SpeciesID)
-
-Occ_Temp <- unlist(lapply(Hostlist, function(host) occ_search(scientificName = host, hasCoordinate = TRUE, return = "meta")$count))
-Occ_Temp <- data.frame(TaxonKey = Occ_Temp, SpeciesName = Hostlist)
-
-Both_Temp <- merge(Occ_Temp, Taxon_Key2_Temp, by = "SpeciesID")
-
-View(Both_Temp[which(Both_Temp$SpCount != Both_Temp$Count),])
-
+  select(usagekey, HostCorrectedName)
 
 ################## actual download ##################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
 occ_download(
-  pred_in("taxonKey", Taxon_Key2_Temp[1, "usagekey"]),
+  pred_in("taxonKey", Taxon_Key$usagekey),
   pred("classKey", ""),
   pred("hasCoordinate", TRUE),
   format = "SIMPLE_CSV"
