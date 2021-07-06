@@ -33,20 +33,18 @@ Taxon_Key <- Taxon_Key %>%
   filter(CountKey == CountSpc) %>%
   select(usagekey, HostCorrectedName)
 
-################## actual download ##################
+############################################## actual download ################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
-occ_download(
+Download_Key <- occ_download(
   pred_in("taxonKey", Taxon_Key$usagekey),
-  pred("classKey", ""),
   pred("hasCoordinate", TRUE),
   format = "SIMPLE_CSV"
 )
 
-occ_download_get("0317209-200613084148143", path = here::here("Data/GBIF/"))
+occ_download_get(Download_Key, path = here::here("Data/GBIF/"))
 
-Occ2_Temp <- occ_download_import(key = "0317209-200613084148143", path = here::here("Data/GBIF/"))
-
+Occ2_Temp <- occ_download_import(Download_Key, path = here::here("Data/GBIF/"))
 
 ########### old code ##############
 
