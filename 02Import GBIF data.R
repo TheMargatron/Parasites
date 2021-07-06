@@ -13,8 +13,10 @@ GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = T
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
 
 ############################################## Getting taxon keys #############################################
+# Adding synonymous species names not picked up by taxize
+Taxonlist <- c(Hostlist, "Pekania pennanti", "Taurotragus oryx", "Mustela vison")
 
-Taxon_Key <- taxize::get_gbifid_(Hostlist, method = "backbone")
+Taxon_Key <- taxize::get_gbifid_(Taxonlist, method = "backbone")
 Taxon_Key <- lapply(names(Taxon_Key), function(name) {
   Taxon_Key[[name]]["HostCorrectedName"] <- name
   return(Taxon_Key[[name]])
@@ -24,14 +26,15 @@ Taxon_Key <- Taxon_Key %>%
   bind_rows() %>%
   filter(class == "Mammalia")
 
+############################################## Not using for now ##############################################
 # Probably a better way of doing this but this works for now
 # Using the taxonkey which gives the same number of search results as the species name 
-Taxon_Key$CountKey <- unlist(lapply(Taxon_Key$usagekey, function(key) occ_count(taxonKey = key, georeferenced = TRUE)))
-Taxon_Key$CountSpc <- unlist(lapply(Taxon_Key$HostCorrectedName, function(spc) occ_search(scientificName = spc, hasCoordinate = TRUE, limit = 0)$meta$count))
+# Taxon_Key$CountKey <- unlist(lapply(Taxon_Key$usagekey, function(key) occ_count(taxonKey = key, georeferenced = TRUE)))
+# Taxon_Key$CountSpc <- unlist(lapply(Taxon_Key$HostCorrectedName, function(spc) occ_search(scientificName = spc, hasCoordinate = TRUE, limit = 0)$meta$count))
 
-Taxon_Key <- Taxon_Key %>%
-  filter(CountKey == CountSpc) %>%
-  select(usagekey, HostCorrectedName)
+# Taxon_Key <- Taxon_Key %>%
+#   filter(CountKey == CountSpc) %>%
+#   select(usagekey, HostCorrectedName)
 
 ############################################## actual download ################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
@@ -42,23 +45,7 @@ Download_Key <- occ_download(
   format = "SIMPLE_CSV"
 )
 
-occ_download_get(Download_Key, path = here::here("Data/GBIF/"))
+Download_Get <- occ_download_get(Download_Key, path = here::here("Data/GBIF/"), overwrite = TRUE)
 
-Occ2_Temp <- occ_download_import(Download_Key, path = here::here("Data/GBIF/"))
-
-########### old code ##############
-
-gbif.import <- function(host){
-  gbifsize <- occ_search(scientificName = host, hasCoordinate = TRUE, return = "meta")$count
-  if(gbifsize < 100000){
-    temp.gbif <- occ_data(scientificName = host, hasCoordinate = T, limit = 100000)
-    #temp.gbif <- select(temp.gbif, one_of(gbif.cols))
-    
-  } else{
-    warning(paste("Too many occurrences, manually download and import", host, "data"))
-    #paste("Too many occurrences, manually download and import", host, "data")
-    #NULL
-  }
-}
-
+GBIF_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
 
