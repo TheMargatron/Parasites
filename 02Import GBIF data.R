@@ -42,3 +42,5 @@ Download_Get <- occ_download_get(Download_Key, path = here::here("Data/GBIF/"), 
 
 GBIF_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
 
+saveRDS(Download_Key, here::here("Data/GBIF/Download_Key"))
+saveRDS(Download_Get, here::here("Data/GBIF/Download_Get"))
