@@ -29,21 +29,11 @@ Taxon_Keys <- Taxon_Keys %>%
 Taxon_Key_Search <- Taxon_Keys %>%                     # keeping full list separate to match misnamed species later
   filter(status == "ACCEPTED" & matchtype == "EXACT") 
 
-############################################## Not using for now ##############################################
-# Probably a better way of doing this but this works for now
-# Using the taxonkey which gives the same number of search results as the species name 
-# Taxon_Key$CountKey <- unlist(lapply(Taxon_Key$usagekey, function(key) occ_count(taxonKey = key, georeferenced = TRUE)))
-# Taxon_Key$CountSpc <- unlist(lapply(Taxon_Key$HostCorrectedName, function(spc) occ_search(scientificName = spc, hasCoordinate = TRUE, limit = 0)$meta$count))
-
-# Taxon_Key <- Taxon_Key %>%
-#   filter(CountKey == CountSpc) %>%
-#   select(usagekey, HostCorrectedName)
-
 ############################################## actual download ################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
 Download_Key <- occ_download(
-  pred_in("taxonKey", Taxon_Key$usagekey),
+  pred_in("taxonKey", Taxon_Keys$usagekey),
   pred("hasCoordinate", TRUE),
   format = "SIMPLE_CSV"
 )
