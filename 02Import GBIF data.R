@@ -16,15 +16,18 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 # Adding synonymous species names not picked up by taxize
 Taxonlist <- c(Hostlist, "Pekania pennanti", "Taurotragus oryx", "Mustela vison")
 
-Taxon_Key <- taxize::get_gbifid_(Taxonlist, method = "backbone")
-Taxon_Key <- lapply(names(Taxon_Key), function(name) {
-  Taxon_Key[[name]]["HostCorrectedName"] <- name
-  return(Taxon_Key[[name]])
+Taxon_Keys <- taxize::get_gbifid_(Taxonlist, method = "backbone")
+Taxon_Keys <- lapply(Taxonlist, function(name) {
+  Taxon_Keys[[name]]["HostCorrectedName"] <- name
+  return(Taxon_Keys[[name]])
 })
 
-Taxon_Key <- Taxon_Key %>%
+Taxon_Keys <- Taxon_Keys %>%
   bind_rows() %>%
   filter(class == "Mammalia")
+
+Taxon_Key_Search <- Taxon_Keys %>%                     # keeping full list separate to match misnamed species later
+  filter(status == "ACCEPTED" & matchtype == "EXACT") 
 
 ############################################## Not using for now ##############################################
 # Probably a better way of doing this but this works for now
