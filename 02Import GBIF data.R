@@ -33,7 +33,7 @@ Taxon_Key_Search <- Taxon_Keys %>%                     # keeping full list separ
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
 Download_Key <- occ_download(
-  pred_in("taxonKey", Taxon_Keys$usagekey),
+  pred_in("taxonKey", Taxon_Key_Search$usagekey),
   pred("hasCoordinate", TRUE),
   format = "SIMPLE_CSV"
 )
