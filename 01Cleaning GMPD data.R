@@ -287,8 +287,7 @@ GMPD_Data <- GMPD_Data %>%
                     countries = "countrycode",
                     tests = c("capitals","centroids","institutions", "countries"),
                     range_ref = IUCN_Mammals,
-                    value = "clean",
-                    report = TRUE)
+                    value = "clean")
 nrow(GMPD_Data) #8157
 
 GMPD_Data <- GMPD_Data %>%                        # Can't remember why cc_iucn is done seperately like this..

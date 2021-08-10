@@ -68,9 +68,7 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                centroids_detail = "country",
                                inst_rad = 100,
                                zeros_rad = 0.5,
-                               value = "clean",
-                               report = TRUE)
+                               value = "clean")
 
 
-GBIF_Data <- GBIF_Data_Temp
-
+# Next bit is coordinateUncertainty, coordinatePrecision, eventDate, issue, then having a look at images on a map. 
