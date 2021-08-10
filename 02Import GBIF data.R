@@ -5,6 +5,9 @@
 ############################################## Libraries and data #############################################
 
 library(here)
+library(CoordinateCleaner)
+#library(countrycode)
+#library(maps)
 library(rgbif)
 library(taxize)
 library(tidyverse)
@@ -40,7 +43,34 @@ Download_Key <- occ_download(
 
 Download_Get <- occ_download_get(Download_Key, path = here::here("Data/GBIF/"), overwrite = TRUE)
 
-GBIF_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
+GBIF_Raw_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
 
 saveRDS(Download_Key, here::here("Data/GBIF/Download_Key"))
 saveRDS(Download_Get, here::here("Data/GBIF/Download_Get"))
+
+Download_Key <- readRDS(here::here("Data/GBIF/Download_Key"))
+Download_Get <- readRDS(here::here("Data/GBIF/Download_Get"))
+
+############################################## Cleaning data ##################################################
+
+GBIF_Data <- filter(GBIF_Raw_Data, countryCode != "" & countryCode != "XK" & countryCode != "ZZ")
+GBIF_Data$countryCode <- countrycode(GBIF_Data$countryCode, origin = "iso2c", destination = "iso3c")
+
+#country_codes_temp <- unique(GBIF_Data$countryCode)
+
+GBIF_Data <- clean_coordinates(x = GBIF_Data,
+                               lon = "decimalLongitude", 
+                               lat = "decimalLatitude", 
+                               countries = "countryCode",
+                               tests = c("capitals", "centroids", "countries", "gbif", "institutions", "seas", "zeros"), # think about whether I need duplicates or outlier tests
+                               capitals_rad = 10000,
+                               centroids_rad = 1000,
+                               centroids_detail = "country",
+                               inst_rad = 100,
+                               zeros_rad = 0.5,
+                               value = "clean",
+                               report = TRUE)
+
+
+GBIF_Data <- GBIF_Data_Temp
+
