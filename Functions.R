@@ -16,6 +16,7 @@ restrict <- function(location.data, rastr){
   return(length(Which(c.rast, cells = TRUE))>1) 
 }
 
+
 range_distances <- function(dat, range.pol){
   range.pol <- range.pol[range.pol@data$binomial %in% unique(dat$HostCorrectedName), ] # restrict range.pol to match hosts in dat
   
@@ -55,3 +56,24 @@ range_distances <- function(dat, range.pol){
   
   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
 }
+
+
+gbif_plotter <- function(synonym_row){
+  species_dat <- filter(GBIF_Data_Temp, species == synonym_row["GBIFName"])
+  species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
+  
+  ggplot() + coord_fixed() +
+    borders("world", colour = "gray50", fill = "gray50") +
+    
+    geom_polygon(data = species_IUCN, 
+                 aes(x = long, y = lat, group = group),
+                 colour = "black",
+                 fill = NA) +
+    
+    geom_point(data = species_dat,
+               aes(x = decimalLongitude, y = decimalLatitude),
+               colour = "blue") +
+    
+    ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
+}
+

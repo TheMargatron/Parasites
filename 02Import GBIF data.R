@@ -222,34 +222,27 @@ GBIF_Data_Temp <- GBIF_Data %>%
 # Next bit is issue, then having a look at images on a map. 
 
 ## Mapping ##
+
 Host_Synonyms
 
-gbif_plotter <- function(Species){
-  species_dat <- filter(GBIF_Data, species == Species)
-  current_dir <- here::here(paste0("GBIF cleaning/", Species))
-  species_IUCN <- fortify(IUCN_Data_List[[Species]])
-  
-  if(!dir.exists(current_dir)){
-    dir.create(current_dir)
-  }
-  
-  png(file = paste0(current_dir, "/", Species, ".png"), width = 500, height = 500, pointsize = 12)
-  
-  par(mfrow = c(2, 1))
-  
-  print(ggplot() + coord_fixed() +
-          borders("world", colour = "gray50", fill = "gray50") +
-          geom_polygon(data = species_IUCN, 
-                       aes(x = long, y = lat, group = group),
-                       colour = "black",
-                       fill = NA) +
-          geom_point(data = species_dat,
-                     aes(x = decimalLongitude, y = decimalLatitude),
-                     colour = "blue"))
-  dev.off()
-}
+GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter)
+names(GBIF_Plots) <- Host_Synonyms$IUCNName
 
+## Going through them manually and finding species with sus data points
 
+Sus_GBIF_Data <- c("Leopardus geoffroyi / 3 / Geoffroy's cat in the USA                 / probably outliers test",
+  "Capreolus capreolus                  / 4 / Roe deer in the USA and Korea             / probably outliers test",
+  "Cervus elaphus                       / 5 / Subspecies issues                         / IUCN polygons then maybe outliers",
+  "Meles meles                          / 6 / Subspecies issues                         / IUCN polygons then maybe outliers",
+  "Panthera pardus                      / 8 / Leopards in Europe                        / Tricky one",
+  "Alces alces                          / 9 / Mooses in the UK and Europe               / Tricky one",
+  "Canis lupus                          / 10/ Wolves everywhere                         / Tricky one",
+  "Mustela erminea                      / 11/ Stoats in Southern Europe                 / Uncertain if sus or okay",
+  "Mustela putorias                     / 13/ Polecats in the Azores, Canaries, Oceania / maybe outliers?",
+  "Nyctereutes procyonoides             / 14/ Raccoon dogs in the Ireland and Europe    / Tricky one",
+  "Puma concolor                        / 20/ Cougar in Europe                          / outliers",
+  "Panthera leo                         / 22/ Lion in New Zealand                       / outliers? but south Asia",
+  "Odocoileus hemionus                  / 25/ Mule deer in Florida                      / outliers? but maybe ok")
 
 
 
