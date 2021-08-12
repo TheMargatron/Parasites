@@ -38,7 +38,7 @@ Taxon_Keys <- Taxon_Keys %>%
   filter(class == "Mammalia") %>%
   filter(status == "ACCEPTED" & matchtype == "EXACT")
 
-############################################## actual download ################################################
+############################################## Actual download ################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
 Download_Key <- occ_download(
@@ -129,27 +129,23 @@ GBIF_Data %>%
 # I could use similar reasoning as I did for coordinate uncertainty and apply 0.05 as a cut off
 
 GBIF_Data %>%
-  filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   pull(coordinatePrecision) %>%
   hist(main = "Histogram of coordinate precision, no max") %>%
   print()
 
 GBIF_Data %>%
-  filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   filter(coordinatePrecision <= 0.1) %>%
   pull(coordinatePrecision) %>%
   hist(main = "Histogram of coordinate precision, max 0.1") %>%
   print()
 
 GBIF_Data %>%
-  filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   filter(coordinatePrecision <= 0.05) %>%
   pull(coordinatePrecision) %>%
   hist(main = "Histogram of coordinate precision, max 0.05") %>%
   print()
 
 GBIF_Data %>%
-  filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   filter(coordinatePrecision <= 0.01) %>%
   pull(coordinatePrecision) %>%
   hist(main = "Histogram of coordinate precision, max 0.01") %>%
@@ -165,15 +161,68 @@ GBIF_Data %>%
   hist(breaks = "years",
        main = "Histogram of event dates")
 
+## Basis of record ##
+
+# https://data-blog.gbif.org/post/living-specimen-to-preserved-specimen-understanding-basis-of-record/
+
+# base map for plotting species data
+
+base_map <- ggplot() + coord_fixed() +
+  borders("world", colour = "gray50", fill = "gray50") 
+
+# Using Chrysocyon brachyurus as an example for specimens in basis of record
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "black",
+               fill = NA) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Chrysocyon brachyurus"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "blue") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Chrysocyon brachyurus" & basisOfRecord == "FOSSIL_SPECIMEN"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             color = "red") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Chrysocyon brachyurus" & basisOfRecord == "PRESERVED_SPECIMEN"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             color = "green") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Chrysocyon brachyurus" & basisOfRecord == "LIVING_SPECIMEN"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             color = "orange")
+
+## Locality ##
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "black",
+               fill = NA) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Chrysocyon brachyurus"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "blue") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Chrysocyon brachyurus" & 
+                             str_detect(locality, regex("zoo", ignore_case = TRUE))),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "red")
+
 # Filtering
 
 GBIF_Data_Temp <- GBIF_Data %>%
   filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
-  filter(coordinatePrecision <= 0.01 | is.na(coordinatePrecision))
+  filter(coordinatePrecision <= 0.01 | is.na(coordinatePrecision)) %>%
+  filter(!str_detect(basisOfRecord, "_SPECIMEN")) %>%
+  filter(!str_detect(locality, regex("zoo", ignore_case = TRUE)))
 
 # Next bit is issue, then having a look at images on a map. 
 
 ## Mapping ##
+Host_Synonyms
 
 gbif_plotter <- function(Species){
   species_dat <- filter(GBIF_Data, species == Species)
@@ -186,13 +235,15 @@ gbif_plotter <- function(Species){
   
   png(file = paste0(current_dir, "/", Species, ".png"), width = 500, height = 500, pointsize = 12)
   
+  par(mfrow = c(2, 1))
+  
   print(ggplot() + coord_fixed() +
           borders("world", colour = "gray50", fill = "gray50") +
           geom_polygon(data = species_IUCN, 
                        aes(x = long, y = lat, group = group),
                        colour = "black",
                        fill = NA) +
-          geom_point(data = species_dat, 
+          geom_point(data = species_dat,
                      aes(x = decimalLongitude, y = decimalLatitude),
                      colour = "blue"))
   dev.off()
