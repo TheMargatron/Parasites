@@ -59,7 +59,7 @@ range_distances <- function(dat, range.pol){
 
 
 gbif_plotter <- function(synonym_row){
-  species_dat <- filter(GBIF_Data_Temp, species == synonym_row["GBIFName"])
+  species_dat <- filter(GBIF_Data, species == synonym_row["GBIFName"])
   species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
   
   ggplot() + coord_fixed() +
