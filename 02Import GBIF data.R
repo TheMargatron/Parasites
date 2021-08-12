@@ -20,26 +20,29 @@ IUCN_Data_List <- readRDS(here::here("Data/Data back ups/IUCN_Data_List"))
 
 ############################################## Getting taxon keys #############################################
 # Adding synonymous species names not picked up by taxize
-Taxonlist <- c(Hostlist, "Pekania pennanti", "Taurotragus oryx", "Mustela vison")
+Host_Synonyms <- data.frame("IUCNName" = Hostlist, "GBIFName" = Hostlist, stringsAsFactors = FALSE)
+Host_Synonyms <- Host_Synonyms %>%
+  mutate(GBIFName = case_when(GBIFName == "Neovison vison"   ~ "Mustela vison",
+                              GBIFName == "Tragelaphus oryx" ~ "Taurotragus oryx",
+                              GBIFName == "Martes pennanti"  ~ "Pekania pennanti",
+                              TRUE                       ~ GBIFName))
 
-Taxon_Keys <- taxize::get_gbifid_(Taxonlist, method = "backbone")
-Taxon_Keys <- lapply(Taxonlist, function(name) {
-  Taxon_Keys[[name]]["HostCorrectedName"] <- name
+Taxon_Keys <- taxize::get_gbifid_(Host_Synonyms$GBIFName, method = "backbone")
+Taxon_Keys <- lapply(Host_Synonyms$GBIFName, function(name) {
+  Taxon_Keys[[name]]["GBIFName"] <- name
   return(Taxon_Keys[[name]])
 })
 
 Taxon_Keys <- Taxon_Keys %>%
   bind_rows() %>%
-  filter(class == "Mammalia")
-
-Taxon_Key_Search <- Taxon_Keys %>%                     # keeping full list separate to match misnamed species later
-  filter(status == "ACCEPTED" & matchtype == "EXACT") 
+  filter(class == "Mammalia") %>%
+  filter(status == "ACCEPTED" & matchtype == "EXACT")
 
 ############################################## actual download ################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
 Download_Key <- occ_download(
-  pred_in("taxonKey", Taxon_Key_Search$usagekey),
+  pred_in("taxonKey", Taxon_Keys$usagekey),
   pred("hasCoordinate", TRUE),
   format = "SIMPLE_CSV"
 )
