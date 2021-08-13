@@ -67,12 +67,11 @@ gbif_plotter <- function(synonym_row){
     
     geom_polygon(data = species_IUCN, 
                  aes(x = long, y = lat, group = group),
-                 colour = "black",
-                 fill = NA) +
+                 colour = "red", fill = "red") +
     
     geom_point(data = species_dat,
                aes(x = decimalLongitude, y = decimalLatitude),
-               colour = "blue") +
+               colour = "black", shape = 1, alpha = 0.5) +
     
     ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
 }
