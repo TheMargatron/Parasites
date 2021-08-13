@@ -58,21 +58,41 @@ range_distances <- function(dat, range.pol){
 }
 
 
-gbif_plotter <- function(synonym_row){
-  species_dat <- filter(GBIF_Data, species == synonym_row["GBIFName"])
-  species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
-  
-  ggplot() + coord_fixed() +
-    borders("world", colour = "gray50", fill = "gray50") +
+gbif_plotter <- function(synonym_row, dat, data_type){
+  if (data_type == "base"){
+    species_dat <- filter(dat, species == synonym_row["GBIFName"])
+    species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
     
-    geom_polygon(data = species_IUCN, 
-                 aes(x = long, y = lat, group = group),
-                 colour = "red", fill = "red") +
+    ggplot() + coord_fixed() +
+      borders("world", colour = "gray50", fill = "gray50") +
+      
+      geom_polygon(data = species_IUCN, 
+                   aes(x = long, y = lat, group = group),
+                   colour = "red", fill = "red") +
+      
+      geom_point(data = species_dat,
+                 aes(x = decimalLongitude, y = decimalLatitude),
+                 colour = "black", shape = 1, alpha = 0.5) +
+      
+      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
     
-    geom_point(data = species_dat,
-               aes(x = decimalLongitude, y = decimalLatitude),
-               colour = "black", shape = 1, alpha = 0.5) +
+  } else if (data_type == "tested"){
+    species_dat <- filter(dat, species == synonym_row["GBIFName"])
+    species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
     
-    ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
+    ggplot() + coord_fixed() +
+      borders("world", colour = "gray50", fill = "gray50") +
+      
+      geom_polygon(data = species_IUCN, 
+                   aes(x = long, y = lat, group = group),
+                   colour = "white", fill = "white") +
+      
+      geom_point(data = species_dat,
+                 aes(x = decimalLongitude, y = decimalLatitude, colour = .summary),
+                 shape = 1, alpha = 0.5) +
+      
+      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
+    
+  }
 }
 
