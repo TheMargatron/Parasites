@@ -56,7 +56,7 @@ GMPD_Data <- GMPD_Data %>%
                                        HostCorrectedName == "Equus burchellii" ~ "Equus quagga",                        # IUCN name differs
                                        HostCorrectedName == "Taurotragus oryx" ~ "Tragelaphus oryx",                    # IUCN name differs
                                        TRUE                                    ~ HostCorrectedName)) %>%
-  select(-ParasiteReportedName, -HostReportedName, -HasBinomialName, -NativeRange, -Intensity, -IntensityMeasure, -SampleNotes) %>%   #not used
+  dplyr::select(-ParasiteReportedName, -HostReportedName, -HasBinomialName, -NativeRange, -Intensity, -IntensityMeasure, -SampleNotes) %>%   #not used
   distinct()                                                                                                            #remove duplicated rows
 nrow(GMPD_Data) #12263
 
@@ -122,7 +122,7 @@ GMPD_Data <- GMPD_Data %>%
                                  length(unique(Prevalence)) > 1 & length(unique(SamplingType)) > 1 & Prevalence == max(Prevalence) ~ "fine",
                                  length(unique(Prevalence)) > 1 & length(unique(SamplingType)) > 1 ~ "not fine")) %>%
   filter(sample_temp == "fine") %>%
-  select(-sample_temp) %>%
+  dplyr::select(-sample_temp) %>%
   ungroup()
 nrow(GMPD_Data) #8819
 
@@ -153,7 +153,7 @@ State_Match <- str_c(state.name, collapse = "|")
 
 # All GMPD location descriptions needing matched to a country, 1984 unique descriptions
 GMPD_Location_Data <- GMPD_Data %>%
-  select(LocationName) %>%
+  dplyr::select(LocationName) %>%
   distinct()
 
 # extracting any country names in descriptions
@@ -263,7 +263,7 @@ GMPD_Location_Data <- GMPD_Location_Data %>%
                                TRUE                                                        ~ "")) %>%
   separate(countries, into = c("A","B","C"), sep = "\\|") %>%
   pivot_longer(cols = c("A","B","C"), values_to = "mapname", values_drop_na = TRUE) %>%
-  select(-name, -states) %>%
+  dplyr::select(-name, -states) %>%
   mutate(mapname = case_when(mapname == "uk"      ~ "uk(?!r)",
                              mapname == "norway"  ~ "norway(?!:bouvet|:svalbard|:jan mayen)",
                              mapname == "finland" ~ "finland(?!:aland)",
@@ -271,7 +271,7 @@ GMPD_Location_Data <- GMPD_Location_Data %>%
                              TRUE                 ~ mapname)) # ignore warning
 
 GMPD_Location_Data <- iso3166 %>%
-  select(a3, mapname) %>%
+  dplyr::select(a3, mapname) %>%
   mutate(mapname = tolower(mapname)) %>%
   right_join(GMPD_Location_Data, by = "mapname") %>%
   rename(countrycode = a3)
@@ -306,11 +306,11 @@ GMPD_Data <- GMPD_Data %>%
 nrow(GMPD_Data) #6750
 
 GMPD_Trait_Data <- GMPD_Data %>%
-  select(HostCorrectedName, ParasiteCorrectedName, Group, HostOrder, HostFamily, HostEnvironment, ParType, ParPhylum, ParClass) %>%
+  dplyr::select(HostCorrectedName, ParasiteCorrectedName, Group, HostOrder, HostFamily, HostEnvironment, ParType, ParPhylum, ParClass) %>%
   unique()
 
 GMPD_Data <- GMPD_Data %>%
-  select(HostCorrectedName, ParasiteCorrectedName, 
+  dplyr::select(HostCorrectedName, ParasiteCorrectedName, 
          Citation, LocationName, Longitude, Latitude, 
          PopulationType, SamplingBasis, Prevalence, 
          HostsSampled, HostSex, HostAge, NumSamples, SamplingType)
@@ -320,7 +320,7 @@ GMPD_Data <- GMPD_Data %>%
 # Creating nested data frame
 
 Host_Par_Loc_Nest <- GMPD_Data %>%
-  select(HostCorrectedName, ParasiteCorrectedName, Longitude, Latitude) %>%
+  dplyr::select(HostCorrectedName, ParasiteCorrectedName, Longitude, Latitude) %>%
   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
   nest(Location = c(Longitude, Latitude))
 nrow(Host_Par_Loc_Nest) # 1165
@@ -332,7 +332,7 @@ Rastr_60 <- raster(resolution = (60/60))
 Host_Par_Loc_Nest <- Host_Par_Loc_Nest %>%
   mutate(Across60 = restrict(Location, rastr = Rastr_60)) %>%
   filter(Across60) %>%
-  select(-Across60)
+  dplyr::select(-Across60)
 nrow(Host_Par_Loc_Nest) # 886
 
 GMPD_Data <- merge(GMPD_Data, Host_Par_Loc_Nest[c(1, 2)], by = c("HostCorrectedName", "ParasiteCorrectedName"), 
