@@ -213,13 +213,12 @@ base_map +
 
 # Filtering
 
-GBIF_Data_Temp <- GBIF_Data %>%
+GBIF_Data <- GBIF_Data %>%
   filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   filter(coordinatePrecision <= 0.01 | is.na(coordinatePrecision)) %>%
   filter(!str_detect(basisOfRecord, "_SPECIMEN")) %>%
-  filter(!str_detect(locality, regex("zoo", ignore_case = TRUE)))
-
-# Next bit is issue, then having a look at images on a map. 
+  filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
+  filter(basisOfRecord != "MATERIAL_SAMPLE")
 
 ## Mapping ##
 
@@ -227,6 +226,8 @@ Host_Synonyms
 
 GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter)
 names(GBIF_Plots) <- Host_Synonyms$IUCNName
+
+write.csv(Host_Synonyms, file = here::here("GBIF cleaning/GBIF_issues.csv"), row.names = TRUE)
 
 ## Going through them manually and finding species with sus data points
 
@@ -242,7 +243,29 @@ Sus_GBIF_Data <- c("Leopardus geoffroyi / 3 / Geoffroy's cat in the USA         
   "Nyctereutes procyonoides             / 14/ Raccoon dogs in the Ireland and Europe    / Tricky one",
   "Puma concolor                        / 20/ Cougar in Europe                          / outliers",
   "Panthera leo                         / 22/ Lion in New Zealand                       / outliers? but south Asia",
-  "Odocoileus hemionus                  / 25/ Mule deer in Florida                      / outliers? but maybe ok")
+  "Odocoileus hemionus                  / 25/ Mule deer in Florida                      / outliers? but maybe ok",
+  "Odocoileus virginianus               / 26/ White tailed deer in Eurasia              / IUCN with buffer?",
+  "Mustela vison                        / 27/ American mink everywhere                  / IUCN with buffer?",
+  "Procyon lotor                        / 28/ Raccoons in Eurasia                       / IUCN with buffer?",
+  "Bison bison                          / 29/ Bison in Europe and Africa                / outliers",
+  "Mephitis mephitis                    / 32/ Striped skunk in Europe                   / outliers",
+  "Rangifer tarandus                    / 34/ Reindeer in UK and Europe (Excl. North)   / Tricky one",
+  "Ursus arctos                         / 35/ Brown bears in the UK                     / Tricky one",
+  "Vulpes lagopus                       / 38/ Arctic foxes in EU, USA, Asia             / IUCN with buffer?",
+  "Rupicapra rupicapra                  / 39/ Chamois in New Zealand                    / IUCN with buffer?",
+  "Urocyon cinereoargenteus             / 40/ Gray fox in Europe                        / outliers",
+  "Dama dama                            / 41/ Fallow deer all over the place            / IUCN with buffer?",
+  "Genetta genetta                      / 43/ Genets in Europe but within IUCN          / Non-native IUCN?",
+  "Felis silvestris                     / 45/ Wildcats in East Asia and southern UK     / outliers and ignore UK?",
+  "Hyaena hyaena                        / 47/ Striped hyena in Namibia                  / IUCN with buffer?",
+  "Mustela nivalis                      / 48/ Least weasel in Oceania                   / IUCN with buffer?",
+  "Canis aureus                         / 49/ Golden jackal in Africa                   / Tricky one",
+  "Cervus nippon                        / 51/ Sika deer all over the place              / Tricky one, IUCN?",
+  "Martes melampus                      / 52/ Japanese martens in South Korea           / Tricky one, IUCN?",
+  "Aepyceros melampus                   / 54/ Impala in USA and West Africa             / outliers or IUCN",
+  "Crocuta crocuta                      / 58/ Spotted hyena in East Asia                / outliers or IUCN",
+  "Taurotragus oryx                     / 61/ Eland in West Africa                      / outliers or IUCN",
+  "Equus quagga                         / 62/ Plains zebra in West Africa               / outliers or ignore")
 
 
 
