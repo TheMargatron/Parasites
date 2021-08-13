@@ -224,10 +224,32 @@ GBIF_Data <- GBIF_Data %>%
 
 Host_Synonyms
 
-GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter)
+GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
 names(GBIF_Plots) <- Host_Synonyms$IUCNName
 
 write.csv(Host_Synonyms, file = here::here("GBIF cleaning/GBIF_issues.csv"), row.names = TRUE)
+
+## Running outliers for mapping ## 
+
+GBIF_Outliers_Test <- clean_coordinates(x = GBIF_Data,
+                                        lon = "decimalLongitude",
+                                        lat = "decimalLatitude",
+                                        species = "species",
+                                        tests = c("outliers"),
+                                        outliers_method = "distance",
+                                        outliers_td = 2000)
+
+GBIF_Outliers_Test <- clean_coordinates(x = GBIF_Data,
+                                        lon = "decimalLongitude",
+                                        lat = "decimalLatitude",
+                                        species = "species",
+                                        tests = c("outliers"),
+                                        outliers_method = "quantile",
+                                        outliers_mtp = 5)
+
+GBIF_Plots_Test <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Outliers_Test, data_type = "tested")
+names(GBIF_Plots) <- Host_Synonyms$IUCNName
+
 
 ## Going through them manually and finding species with sus data points
 
