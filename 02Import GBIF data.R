@@ -257,16 +257,9 @@ temp2 <- apply(Host_Synonyms, MARGIN = 1, species_outlier, dat = GBIF_Data)
 temp2 <- bind_rows(temp2)
 
 ### Temporary plotting to get outlier parameters
-Species <- c("Mustela putorius",
-             "Neovison vison",
-             "Procyon lotor",
-             "Ursus arctos",
-             "Vulpes lagopus",
-             "Rupicapra rupicapra",
-             "Dama dama",
-             "Mustela nivalis",
-             "Cervus nippon",
-             "Tragelaphus oryx",
+
+# iucn test
+Species <- c("Connochaetes gnou",
              "Lynx lynx")
 
 species_dat <- GBIF_Data %>%
@@ -274,16 +267,15 @@ species_dat <- GBIF_Data %>%
                              species == "Taurotragus oryx" ~ "Tragelaphus oryx",
                              species == "Pekania pennanti" ~ "Martes pennanti",
                              TRUE                          ~ species)) %>%
-  filter(str_detect(species, str_c(Species, collapse = "|"))) %>%
-  rename(binomial = species) #%>%
- # filter(binomial == Species)
+  filter(species == Species[1]) %>%
+  rename(binomial = species)
 
 species_dat$out <-  cc_iucn(x = species_dat,
-                            range = IUCN_Mammals,
+                            range = IUCN_Data_List[[Species[1]]],
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 0,
+                            buffer = 2,
                             value = "flagged")
 
 base_map +
@@ -300,5 +292,35 @@ base_map +
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "orange") +
   
-  ggtitle(Species)
+  ggtitle(Species[1])
+beep(2)
 
+
+#outlier test
+Species <- "Connochaetes gnou"
+
+species_dat <- filter(GBIF_Data, species == Species)
+
+species_dat$out <- cc_outl(x = species_dat,
+                           lon = "decimalLongitude",
+                           lat = "decimalLatitude",
+                           method = "quantile",
+                           mltpl = 5,
+                           value = "flagged")
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[[Species]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "white",
+               fill = "white") +
+  #  split points into two so I can easily switch between them and ensures outliers are plotted on top
+  geom_point(data = filter(species_dat, out),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  geom_point(data = filter(species_dat, !out),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  ggtitle(Species)
+beep(2)
