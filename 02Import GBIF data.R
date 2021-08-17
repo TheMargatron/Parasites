@@ -11,6 +11,7 @@ library(here)
 #library(lubridate)
 #library(maps)
 library(rgbif)
+library(spatialEco)
 library(taxize)
 library(tidyverse)
 
@@ -41,18 +42,18 @@ Taxon_Keys <- Taxon_Keys %>%
 ############################################## Actual download ################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
-Download_Key <- occ_download(
-  pred_in("taxonKey", Taxon_Keys$usagekey),
-  pred("hasCoordinate", TRUE),
-  format = "SIMPLE_CSV"
-)
-
-saveRDS(Download_Key, here::here("Data/GBIF/Download_Key"))
-Download_Key <- readRDS(here::here("Data/GBIF/Download_Key"))
-
-Download_Get <- occ_download_get(Download_Key, path = here::here("Data/GBIF/"), overwrite = TRUE)
-
-saveRDS(Download_Get, here::here("Data/GBIF/Download_Get"))
+# Download_Key <- occ_download(
+#   pred_in("taxonKey", Taxon_Keys$usagekey),
+#   pred("hasCoordinate", TRUE),
+#   format = "SIMPLE_CSV"
+# )
+# 
+# saveRDS(Download_Key, here::here("Data/GBIF/Download_Key"))
+# Download_Key <- readRDS(here::here("Data/GBIF/Download_Key"))
+# 
+# Download_Get <- occ_download_get(Download_Key, path = here::here("Data/GBIF/"), overwrite = TRUE)
+# 
+# saveRDS(Download_Get, here::here("Data/GBIF/Download_Get"))
 Download_Get <- readRDS(here::here("Data/GBIF/Download_Get"))
 
 GBIF_Raw_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
@@ -222,24 +223,21 @@ GBIF_Data <- GBIF_Data %>%
 
 ## Mapping ##
 
-Host_Synonyms
-
 GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
 names(GBIF_Plots) <- Host_Synonyms$IUCNName
 
-write.csv(Host_Synonyms, file = here::here("GBIF cleaning/GBIF_issues.csv"), row.names = TRUE)
-
 ## Running outliers for mapping ## 
 
-GBIF_Outliers_Test <- clean_coordinates(x = GBIF_Data,
-                                        lon = "decimalLongitude",
-                                        lat = "decimalLatitude",
-                                        species = "species",
-                                        tests = c("outliers"),
-                                        outliers_method = "distance",
-                                        outliers_td = 2000)
+# Distance method seems a bit bats. Look at Leopardus geoffroyi [[3]]
+GBIF_Outliers_dist$cc_outl2 <- cc_outl(x = GBIF_Data,
+                                      lon = "decimalLongitude",
+                                      lat = "decimalLatitude",
+                                      species = "species",
+                                      method = "distance",
+                                      tdi = 1000,
+                                      value = "flagged")
 
-GBIF_Outliers_Test <- clean_coordinates(x = GBIF_Data,
+GBIF_Outliers_quantile <- clean_coordinates(x = GBIF_Data,
                                         lon = "decimalLongitude",
                                         lat = "decimalLatitude",
                                         species = "species",
@@ -247,47 +245,31 @@ GBIF_Outliers_Test <- clean_coordinates(x = GBIF_Data,
                                         outliers_method = "quantile",
                                         outliers_mtp = 5)
 
-GBIF_Plots_Test <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Outliers_Test, data_type = "tested")
+GBIF_Plots_Test <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Outliers_dist, data_type = "tested")
 names(GBIF_Plots) <- Host_Synonyms$IUCNName
 
+temp <- apply(Host_Synonyms, MARGIN = 1, species_outlier, dat = GBIF_Data)
+temp <- bind_rows(temp)
 
-## Going through them manually and finding species with sus data points
+temp2 <- apply(Host_Synonyms, MARGIN = 1, species_outlier, dat = GBIF_Data)
+temp2 <- bind_rows(temp2)
 
-Sus_GBIF_Data <- c("Leopardus geoffroyi / 3 / Geoffroy's cat in the USA                 / probably outliers test",
-  "Capreolus capreolus                  / 4 / Roe deer in the USA and Korea             / probably outliers test",
-  "Cervus elaphus                       / 5 / Subspecies issues                         / IUCN polygons then maybe outliers",
-  "Meles meles                          / 6 / Subspecies issues                         / IUCN polygons then maybe outliers",
-  "Panthera pardus                      / 8 / Leopards in Europe                        / Tricky one",
-  "Alces alces                          / 9 / Mooses in the UK and Europe               / Tricky one",
-  "Canis lupus                          / 10/ Wolves everywhere                         / Tricky one",
-  "Mustela erminea                      / 11/ Stoats in Southern Europe                 / Uncertain if sus or okay",
-  "Mustela putorias                     / 13/ Polecats in the Azores, Canaries, Oceania / maybe outliers?",
-  "Nyctereutes procyonoides             / 14/ Raccoon dogs in the Ireland and Europe    / Tricky one",
-  "Puma concolor                        / 20/ Cougar in Europe                          / outliers",
-  "Panthera leo                         / 22/ Lion in New Zealand                       / outliers? but south Asia",
-  "Odocoileus hemionus                  / 25/ Mule deer in Florida                      / outliers? but maybe ok",
-  "Odocoileus virginianus               / 26/ White tailed deer in Eurasia              / IUCN with buffer?",
-  "Mustela vison                        / 27/ American mink everywhere                  / IUCN with buffer?",
-  "Procyon lotor                        / 28/ Raccoons in Eurasia                       / IUCN with buffer?",
-  "Bison bison                          / 29/ Bison in Europe and Africa                / outliers",
-  "Mephitis mephitis                    / 32/ Striped skunk in Europe                   / outliers",
-  "Rangifer tarandus                    / 34/ Reindeer in UK and Europe (Excl. North)   / Tricky one",
-  "Ursus arctos                         / 35/ Brown bears in the UK                     / Tricky one",
-  "Vulpes lagopus                       / 38/ Arctic foxes in EU, USA, Asia             / IUCN with buffer?",
-  "Rupicapra rupicapra                  / 39/ Chamois in New Zealand                    / IUCN with buffer?",
-  "Urocyon cinereoargenteus             / 40/ Gray fox in Europe                        / outliers",
-  "Dama dama                            / 41/ Fallow deer all over the place            / IUCN with buffer?",
-  "Genetta genetta                      / 43/ Genets in Europe but within IUCN          / Non-native IUCN?",
-  "Felis silvestris                     / 45/ Wildcats in East Asia and southern UK     / outliers and ignore UK?",
-  "Hyaena hyaena                        / 47/ Striped hyena in Namibia                  / IUCN with buffer?",
-  "Mustela nivalis                      / 48/ Least weasel in Oceania                   / IUCN with buffer?",
-  "Canis aureus                         / 49/ Golden jackal in Africa                   / Tricky one",
-  "Cervus nippon                        / 51/ Sika deer all over the place              / Tricky one, IUCN?",
-  "Martes melampus                      / 52/ Japanese martens in South Korea           / Tricky one, IUCN?",
-  "Aepyceros melampus                   / 54/ Impala in USA and West Africa             / outliers or IUCN",
-  "Crocuta crocuta                      / 58/ Spotted hyena in East Asia                / outliers or IUCN",
-  "Taurotragus oryx                     / 61/ Eland in West Africa                      / outliers or IUCN",
-  "Equus quagga                         / 62/ Plains zebra in West Africa               / outliers or ignore")
+### Temporary plotting to get outlier parameters
 
+species_dat <- filter(GBIF_Data, species == Species)
+species_dat$out_quant <- cc_outl(x = species_dat,
+                                 lon = "decimalLongitude",
+                                 lat = "decimalLatitude",
+                                 method = "quantile",
+                                 mltpl = 5,
+                                 value = "flagged")
 
-
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[[Species]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "white",
+               fill = "white") +
+  
+  geom_point(data = filter(GBIF_Data, species == Species),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "blue")

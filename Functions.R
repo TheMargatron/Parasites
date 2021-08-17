@@ -96,3 +96,15 @@ gbif_plotter <- function(synonym_row, dat, data_type){
   }
 }
 
+species_outlier <- function(synonym_row, dat){
+  species_dat <-  filter(dat, species == synonym_row["GBIFName"])
+  
+  species_dat$outlier <- cc_outl(x = species_dat,
+                                 lon = "decimalLongitude",
+                                 lat = "decimalLatitude",
+                                 method = "quantile",
+                                 mltpl = 5,
+                                 value = "flagged")
+  
+  return(species_dat)
+}
