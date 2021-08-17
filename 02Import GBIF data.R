@@ -11,12 +11,14 @@ library(here)
 #library(lubridate)
 #library(maps)
 library(rgbif)
-library(spatialEco)
+library(rgdal)              # read shapefiles
+#library(spatialEco)
 library(taxize)
 library(tidyverse)
 
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
+IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
 IUCN_Data_List <- readRDS(here::here("Data/Data back ups/IUCN_Data_List"))
 
 ############################################## Getting taxon keys #############################################
@@ -255,21 +257,48 @@ temp2 <- apply(Host_Synonyms, MARGIN = 1, species_outlier, dat = GBIF_Data)
 temp2 <- bind_rows(temp2)
 
 ### Temporary plotting to get outlier parameters
+Species <- c("Mustela putorius",
+             "Neovison vison",
+             "Procyon lotor",
+             "Ursus arctos",
+             "Vulpes lagopus",
+             "Rupicapra rupicapra",
+             "Dama dama",
+             "Mustela nivalis",
+             "Cervus nippon",
+             "Tragelaphus oryx",
+             "Lynx lynx")
 
-species_dat <- filter(GBIF_Data, species == Species)
-species_dat$out_quant <- cc_outl(x = species_dat,
-                                 lon = "decimalLongitude",
-                                 lat = "decimalLatitude",
-                                 method = "quantile",
-                                 mltpl = 5,
-                                 value = "flagged")
+species_dat <- GBIF_Data %>%
+  mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
+                             species == "Taurotragus oryx" ~ "Tragelaphus oryx",
+                             species == "Pekania pennanti" ~ "Martes pennanti",
+                             TRUE                          ~ species)) %>%
+  filter(str_detect(species, str_c(Species, collapse = "|"))) %>%
+  rename(binomial = species) #%>%
+ # filter(binomial == Species)
+
+species_dat$out <-  cc_iucn(x = species_dat,
+                            range = IUCN_Mammals,
+                            lon = "decimalLongitude",
+                            lat = "decimalLatitude",
+                            species = "binomial",
+                            buffer = 0,
+                            value = "flagged")
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[[Species]]), 
+  geom_polygon(data = fortify(IUCN_Data_List[[Species[1]]]), 
                aes(x = long, y = lat, group = group),
                colour = "white",
                fill = "white") +
-  
-  geom_point(data = filter(GBIF_Data, species == Species),
+#  split points into two so I can easily switch between them and ensures outliers are plotted on top
+  geom_point(data = filter(species_dat, out),
              aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "blue")
+             colour = "navy") +
+  
+  geom_point(data = filter(species_dat, !out),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  ggtitle(Species)
+
