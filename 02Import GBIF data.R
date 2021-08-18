@@ -259,8 +259,9 @@ temp2 <- bind_rows(temp2)
 ### Temporary plotting to get outlier parameters
 
 # iucn test
-Species <- c("Connochaetes gnou",
-             "Lynx lynx")
+Species <- c("Mustela erminea",
+             "Mustela nivalis",
+             "Mustela lutreola")
 
 species_dat <- GBIF_Data %>%
   mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
@@ -275,14 +276,14 @@ species_dat$out <-  cc_iucn(x = species_dat,
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 2,
+                            buffer = 1,
                             value = "flagged")
 
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[[Species[1]]]), 
                aes(x = long, y = lat, group = group),
-               colour = "white",
-               fill = "white") +
+               colour = "palegreen4",
+               fill = "palegreen4") +
 #  split points into two so I can easily switch between them and ensures outliers are plotted on top
   geom_point(data = filter(species_dat, out),
              aes(x = decimalLongitude, y = decimalLatitude),
@@ -311,8 +312,8 @@ species_dat$out <- cc_outl(x = species_dat,
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[[Species]]), 
                aes(x = long, y = lat, group = group),
-               colour = "white",
-               fill = "white") +
+               colour = "palegreen4",
+               fill = "palegreen4") +
   #  split points into two so I can easily switch between them and ensures outliers are plotted on top
   geom_point(data = filter(species_dat, out),
              aes(x = decimalLongitude, y = decimalLatitude),
@@ -324,3 +325,98 @@ base_map +
   
   ggtitle(Species)
 beep(2)
+
+## Awkward species ####
+
+### Cervus elaphus ####
+GBIF_Plots[[5]]
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Cervus elaphus"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen4",
+               fill = "palegreen4") +
+  
+  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Cervus canadensis", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen4",
+               fill = "palegreen4") +
+  
+#  split points into two so I can easily switch between them and ensures outliers are plotted on top
+  geom_point(data = filter(GMPD_Raw_Data , HostCorrectedName == "Cervus elaphus"),
+             aes(x = Longitude, y = Latitude),
+             colour = "navy") +
+  ggtitle("Cervus elaphus")
+beep(2)
+
+IUCN_Data_List <- lapply(Hostlist, function(host) IUCN_Mammals[IUCN_Mammals$binomial == host, ])
+names(IUCN_Data_List) <- Hostlist
+IUCN_Data_List <- lapply(IUCN_Data_List, function(host) {host@data <- droplevels(host@data); return(host)})
+
+
+### Meles meles ####
+GBIF_Plots[[6]]
+
+### Alces alces ####
+GBIF_Plots[[9]]
+
+### Canis lupus ####
+GBIF_Plots[[10]]
+
+### Mustela erminea ####
+GBIF_Plots[[12]]
+# Mustela erminea can be confused with M. nivalis. 
+# The M. erminea samples outside its range generally fall within the M nivalis range
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "navy",
+               fill = NA) +
+  
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "firebrick",
+               fill = NA)
+
+# Using the same buffer method as CoordinateCleaner for consistency
+M_erminea_Buff <- rgeos::gBuffer(IUCN_Data_List[["Mustela erminea"]], byid = TRUE, width = 1)
+M_nivalis_overlap <- IUCN_Data_List[["Mustela nivalis"]] - M_erminea_Buff 
+M_nivalis_overlap$binomial <- factor("Mustela erminea")
+
+species_dat <- GBIF_Data %>%
+  filter(species == "Mustela erminea") %>%
+  rename(binomial = species)
+
+species_dat$out <-  cc_iucn(x = species_dat,
+                            range = M_nivalis_overlap,
+                            lon = "decimalLongitude",
+                            lat = "decimalLatitude",
+                            species = "binomial",
+                            buffer = 0.5,
+                            value = "flagged")
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen4",
+               fill = "palegreen4") +
+  
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "white",
+               fill = "white") +
+  #  split points into two so I can easily switch between them and ensures outliers are plotted on top
+  geom_point(data = filter(species_dat, !out),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  geom_point(data = filter(species_dat, out),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  ggtitle("Mustela erminea")
+beep(2)
+
+# Doesn't catch the ones in America but having checked online records they are both subsp. Richardsonii so okay to keep
+
