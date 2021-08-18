@@ -12,7 +12,7 @@
 ## GMPD_Raw_Data 
 ## Country_Match
 
-############################################## Libraries and data #############################################
+# Libraries and data ##########################################################################################
 
 library(CoordinateCleaner)  # cleaning geographic data
 library(geosphere)          # calculating distances
@@ -30,7 +30,9 @@ nrow(GMPD_Raw_Data) #Beginning with 24323 rows
 
 IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
 
-############################################## Basic data cleaning ############################################
+# Basic data cleaning #########################################################################################
+
+## Removing/adjusting unuseable data ##########################################################################
 
 # removing: 
 ## domestic species - may skew results
@@ -72,7 +74,7 @@ GMPD_Data <- GMPD_Data %>%
   mutate(Prevalence = case_when(Prevalence >1 ~ Prevalence/100,
                                 TRUE          ~ Prevalence))
 
-############################################## Sample cleaning ################################################
+## Sample cleaning ############################################################################################
 
 # pseudo-sampling and duplicates
 ## rows where SamplingBasis was "samples" AND HostsSampled was NA are excluded
@@ -126,7 +128,9 @@ GMPD_Data <- GMPD_Data %>%
   ungroup()
 nrow(GMPD_Data) #8819
 
-############################################## Cleaning by location ###########################################
+# Cleaning by location ########################################################################################
+
+## Fixing country names #######################################################################################
 
 # for matching LocationName with iso3166 country names
 ## regex adjustments to iso3166 map names deal with incorrect matches
@@ -278,7 +282,7 @@ GMPD_Location_Data <- iso3166 %>%
 
 GMPD_Data <- full_join(GMPD_Location_Data, GMPD_Data, by = "LocationName")
 
-# CoordinateCleaner tests
+## CoordinateCleaner tests ####################################################################################
 
 GMPD_Data <- GMPD_Data %>%
   clean_coordinates(lon = "Longitude",
@@ -286,18 +290,31 @@ GMPD_Data <- GMPD_Data %>%
                     species = "HostCorrectedName",
                     countries = "countrycode",
                     tests = c("capitals","centroids","institutions", "countries"),
-                    range_ref = IUCN_Mammals,
                     value = "clean")
 nrow(GMPD_Data) #8157
 
+# Saving relevant subset of IUCN data to save space 
+
+Hostlist <- unique(GMPD_Data$HostCorrectedName)
+IUCN_Data_List <- lapply(Hostlist, function(host) IUCN_Mammals[IUCN_Mammals$binomial == host, ])
+names(IUCN_Data_List) <- Hostlist
+
+IUCN_Data_List[["Cervus elaphus"]] <- IUCN_Data_List[["Cervus elaphus"]] + IUCN_Mammals[IUCN_Mammals$binomial == "Cervus canadensis",]
+IUCN_Data_List[["Cervus elaphus"]]$binomial <- "Cervus elaphus"
+
+# IUCN_Data_List <- lapply(IUCN_Data_List, function(host) {host@data <- droplevels(host@data); return(host)}) # They aren't factors at this point anyway
+IUCN_Data <- raster::bind(IUCN_Data_List)
+
+# Filtering by IUCN polygon
+
 GMPD_Data <- GMPD_Data %>%                        # Can't remember why cc_iucn is done seperately like this..
   rename(binomial = HostCorrectedName) %>%
-  cc_iucn(IUCN_Mammals,
+  cc_iucn(IUCN_Data,
           lon = "Longitude",
           lat = "Latitude",
           species = "binomial") %>%
   rename(HostCorrectedName = binomial)
-nrow(GMPD_Data) #7058
+nrow(GMPD_Data) #7114
 
 GMPD_Data <- GMPD_Data %>%
   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
@@ -305,17 +322,7 @@ GMPD_Data <- GMPD_Data %>%
   ungroup()
 nrow(GMPD_Data) #6750
 
-GMPD_Trait_Data <- GMPD_Data %>%
-  dplyr::select(HostCorrectedName, ParasiteCorrectedName, Group, HostOrder, HostFamily, HostEnvironment, ParType, ParPhylum, ParClass) %>%
-  unique()
-
-GMPD_Data <- GMPD_Data %>%
-  dplyr::select(HostCorrectedName, ParasiteCorrectedName, 
-         Citation, LocationName, Longitude, Latitude, 
-         PopulationType, SamplingBasis, Prevalence, 
-         HostsSampled, HostSex, HostAge, NumSamples, SamplingType)
-
-############################################## Restricting by proximity #######################################
+# Restricting by proximity ####################################################################################
 
 # Creating nested data frame
 
@@ -323,7 +330,7 @@ Host_Par_Loc_Nest <- GMPD_Data %>%
   dplyr::select(HostCorrectedName, ParasiteCorrectedName, Longitude, Latitude) %>%
   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
   nest(Location = c(Longitude, Latitude))
-nrow(Host_Par_Loc_Nest) # 1165
+nrow(Host_Par_Loc_Nest) # 1172
 
 # Restricting to those that occupy at least two 60/60 res grid squares
 
@@ -333,27 +340,40 @@ Host_Par_Loc_Nest <- Host_Par_Loc_Nest %>%
   mutate(Across60 = restrict(Location, rastr = Rastr_60)) %>%
   filter(Across60) %>%
   dplyr::select(-Across60)
-nrow(Host_Par_Loc_Nest) # 886
+nrow(Host_Par_Loc_Nest) # 893
 
 GMPD_Data <- merge(GMPD_Data, Host_Par_Loc_Nest[c(1, 2)], by = c("HostCorrectedName", "ParasiteCorrectedName"), 
                    sort = FALSE, all.x = FALSE)
-nrow(GMPD_Data) # 5868
+nrow(GMPD_Data) # 5923
 
-# Saving relevant subset of IUCN data
+
+# Misc ########################################################################################################
+
+# Reducing down IUCN data to match fully cleaned hostlist
 
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
-IUCN_Data_List <- lapply(Hostlist, function(host) IUCN_Mammals[IUCN_Mammals$binomial == host, ])
-names(IUCN_Data_List) <- Hostlist
-IUCN_Data_List <- lapply(IUCN_Data_List, function(host) {host@data <- droplevels(host@data); return(host)})
+IUCN_Data_List <- IUCN_Data_List[Hostlist]
 IUCN_Data <- raster::bind(IUCN_Data_List)
 
-############################################### Distance metrics and range traits #############################
+# Creating Trait dataframe for later and simplifying GMPD_Data to essentials
+
+GMPD_Trait_Data <- GMPD_Data %>%
+  dplyr::select(HostCorrectedName, ParasiteCorrectedName, Group, HostOrder, HostFamily, HostEnvironment, ParType, ParPhylum, ParClass) %>%
+  unique()
+
+GMPD_Data <- GMPD_Data %>%
+  dplyr::select(HostCorrectedName, ParasiteCorrectedName, 
+                Citation, LocationName, Longitude, Latitude, 
+                PopulationType, SamplingBasis, Prevalence, 
+                HostsSampled, HostSex, HostAge, NumSamples, SamplingType)
+
+# Distance metrics and range traits ###########################################################################
 
 Distances_Data <- range_distances(GMPD_Data, IUCN_Data)
 GMPD_Data <- merge(GMPD_Data, Distances_Data[["DistanceMetrics"]], all.x = TRUE)
 GMPD_Trait_Data <- merge(Distances_Data[["RangeTraits"]], GMPD_Trait_Data, by = "HostCorrectedName", all = TRUE)
 
-############################################### Write files ###################################################
+# Write files #################################################################################################
 
 write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data.csv"), row.names = FALSE)
 write.csv(GMPD_Trait_Data, file = here::here("Data/Data back ups/GMPD_Trait_Data.csv"), row.names = FALSE)
