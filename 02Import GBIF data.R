@@ -270,6 +270,7 @@ species_dat <- GBIF_Data %>%
                              species == "Pekania pennanti" ~ "Martes pennanti",
                              TRUE                          ~ species)) %>%
   filter(species == Species[1]) %>%
+  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%   
   rename(binomial = species)
 
 species_dat$out <-  cc_iucn(x = species_dat,
@@ -277,7 +278,7 @@ species_dat$out <-  cc_iucn(x = species_dat,
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 1,
+                            buffer = 3,
                             value = "flagged")
 
 base_map +
@@ -330,6 +331,7 @@ beep(2)
 ## Awkward species ####
 
 ### Alces alces ####
+GBIF_Plots[[9]]
 
 ### Cervus elaphus ####
 GBIF_Plots[[5]]
@@ -399,11 +401,11 @@ beep(2)
 ### Canis lupus ####
 GBIF_Plots[[10]]
 
-subsp <- c("familiaris", "dingo")
+# just need to remove domestic dogs, dingos, and subsp rufus (counted as separate species by iucn red list)
 
 species_dat <- GBIF_Data %>%
   filter(species == "Canis lupus") %>%
-  filter(!str_detect(verbatimScientificName, "familiaris|dingo")) %>%   # removed domestic dogs
+  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%   
   mutate(subsp = case_when(str_detect(verbatimScientificName, "arctos")       ~ "arctos",
                            str_detect(verbatimScientificName, "crassodon")    ~ "crassodon",
                            str_detect(verbatimScientificName, "arabs")        ~ "arabs",
@@ -415,16 +417,8 @@ species_dat <- GBIF_Data %>%
                            str_detect(verbatimScientificName, "italicus")     ~ "italicus",
                            str_detect(verbatimScientificName, "lycaon")       ~ "lycaon",
                            str_detect(verbatimScientificName, "signatus")     ~ "signatus",
-                           str_detect(verbatimScientificName, "rufus")        ~ "rufus",
                            TRUE                                               ~ "lupus")) %>%
   mutate(subsp = as.factor(subsp))
-
-my_colors <- c("chartreuse", "chartreuse", "chartreuse",
-               "orange", "orange", "orange",
-               "deeppink",
-               "darkcyan", "darkcyan",
-               "turquoise", "turquoise", "turquoise")
-my_shapes <- c(0,1,2,0,1,2,2,1,2,0,1,2)
 
 base_map +
   geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Canis lupus", ]), 
@@ -432,11 +426,10 @@ base_map +
                colour = "white",
                fill = "white") +
   
-  geom_point(data = filter(species_dat, subsp != "lupus"),
+  geom_point(data = species_dat,
              aes(x = decimalLongitude, y = decimalLatitude, colour = subsp, shape = subsp)) +
-  scale_color_manual(values = my_colors) +
-  scale_shape_manual(values = my_shapes) +
   
+  scale_shape_manual(values = c(18,0,17,1,16,2,3,4,5,8,15)) +
   #  split points into two so I can easily switch between them and ensures outliers are plotted on top
   ggtitle("Canis lupus")
 beep(2)
