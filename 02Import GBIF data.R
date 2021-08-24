@@ -16,9 +16,10 @@ library(rgdal)              # read shapefiles
 library(taxize)
 library(tidyverse)
 
+GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
-IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
+## IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
 IUCN_Data_List <- readRDS(here::here("Data/Data back ups/IUCN_Data_List"))
 
 ############################################## Getting taxon keys #############################################
@@ -41,7 +42,7 @@ Taxon_Keys <- Taxon_Keys %>%
   filter(class == "Mammalia") %>%
   filter(status == "ACCEPTED" & matchtype == "EXACT")
 
-############################################## Actual download ################################################
+# Actual download #############################################################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
 
 # Download_Key <- occ_download(
@@ -60,7 +61,7 @@ Download_Get <- readRDS(here::here("Data/GBIF/Download_Get"))
 
 GBIF_Raw_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
 
-############################################## Cleaning data ##################################################
+# Cleaning data ###############################################################################################
 
 GBIF_Data <- filter(GBIF_Raw_Data, countryCode != "" & countryCode != "XK" & countryCode != "ZZ")
 GBIF_Data$countryCode <- countrycode(GBIF_Data$countryCode, origin = "iso2c", destination = "iso3c")
@@ -77,11 +78,11 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                zeros_rad = 0.5,
                                value = "clean")
 
-## Issues ## 
+## Issues #### 
 
 c(2, 3, 4, 6, 8, 9, 11, 12, 13, 14, 31, 32, 33, 42)
 
-## Coordinate uncertainty ##
+### Coordinate uncertainty ####
 
 # Raster resolution used later in analysis is 2.5 arcminutes (roughly 0.042 degrees)
 # This corresponds to approx 4625m at the equator
@@ -126,7 +127,7 @@ GBIF_Data %>%
   hist(main = "Histogram of coordinate uncertainty, max 4,500m") %>%
   print()
 
-## Coordinate precision ##
+### Coordinate precision ####
 
 # Raster resolution used later in analysis is 2.5 arcminutes (roughly 0.042 degrees)
 # I could use similar reasoning as I did for coordinate uncertainty and apply 0.05 as a cut off
@@ -154,7 +155,7 @@ GBIF_Data %>%
   hist(main = "Histogram of coordinate precision, max 0.01") %>%
   print()
 
-## Event date ##
+### Event date ####
  ## Not sure whether to filter by date
 GBIF_Data %>%
   mutate(eventDate = case_when(eventDate == "" ~ NA_character_,
@@ -164,7 +165,7 @@ GBIF_Data %>%
   hist(breaks = "years",
        main = "Histogram of event dates")
 
-## Basis of record ##
+### Basis of record ####
 
 # https://data-blog.gbif.org/post/living-specimen-to-preserved-specimen-understanding-basis-of-record/
 
@@ -197,7 +198,7 @@ base_map +
              aes(x = decimalLongitude, y = decimalLatitude),
              color = "orange")
 
-## Locality ##
+### Locality ####
 
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
@@ -214,7 +215,7 @@ base_map +
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "red")
 
-# Filtering
+## Filtering ####
 
 GBIF_Data <- GBIF_Data %>%
   filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
@@ -223,7 +224,7 @@ GBIF_Data <- GBIF_Data %>%
   filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
   filter(basisOfRecord != "MATERIAL_SAMPLE")
 
-## Mapping ##
+### Mapping ####
 
 GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
 names(GBIF_Plots) <- Host_Synonyms$IUCNName
@@ -491,3 +492,50 @@ beep(2)
 
 # Doesn't catch the ones in America but having checked online records they are both subsp. Richardsonii so okay to keep
 
+### Vulpes velox ####
+
+## plotted IUCN polygon + GMPD_Data +  GBIF_Data
+# Not much correspondance between GMPD/IUCN and GBIF. 
+
+## Read wiki for Vulpes macrotis after googling "Vulpes velox fossil" which hinted they might be same
+## Plotted V macrotis polygon with data
+# Turns out the ones at the bottom are probably Vulpes macrotis (Kit fox) because some people treat them as one sp.
+# But if I do the polygon thing (removing those that fit in macrotis) I'll not have any data for the PCA
+
+## Plotted GBIF_Raw_Data, aes(colour = basisOfRecord)
+# Seems like basically all of the records are filtered out by _SPECIMEN so I will take a closer look at them
+
+## Looking through datasets to see if they can be more reliable
+V_velox <- levels(as.factor(species_raw_dat$datasetKey))
+V_velox_titles <- lapply(V_velox, function(uuid){
+  datasets(data = "all", uuid = uuid) %>%
+    pluck("data", "title")
+}) %>%
+  unlist()
+
+V_velox <- data.frame("title" = V_velox_titles, "datasetKey" = V_velox)
+
+## 
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "white",
+               fill = "white") +
+  
+  geom_point(data = filter(GBIF_Raw_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude, colour = datasetKey)) +
+  
+  geom_point(data = filter(GMPD_Data, HostCorrectedName == "Vulpes velox"),
+             aes(x = Longitude, y = Latitude),
+             colour = "palegreen4",
+             shape = 1) #+
+  
+  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Vulpes macrotis", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "skyblue",
+               fill = "skyblue") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") 
