@@ -11,6 +11,14 @@
 ## extracts range area and range span (vertical distance between maximum and minimum latitudes)
 ## calculates vertical distance from sample location to maximum latitude
 
+# gbif_plotter (synonym_row, dat, data_type)
+## methods for plotting gbif_data
+
+library(ggplot2)
+library(RColorBrewer)
+library(raster)
+library(geosphere)
+
 restrict <- function(location.data, rastr){
   c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
   return(length(Which(c.rast, cells = TRUE))>1) 
@@ -68,15 +76,15 @@ gbif_plotter <- function(synonym_row, dat, data_type){
       
       geom_polygon(data = species_IUCN, 
                    aes(x = long, y = lat, group = group),
-                   colour = "red", fill = "red") +
+                   colour = "white", fill = "white") +
       
       geom_point(data = species_dat,
                  aes(x = decimalLongitude, y = decimalLatitude),
-                 colour = "black", shape = 1, alpha = 0.5) +
+                 colour = "navy", shape = 1, alpha = 0.5) +
       
       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
     
-  } else if (data_type == "tested"){
+  } else if (data_type == "bor"){
     species_dat <- filter(dat, species == synonym_row["GBIFName"])
     species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
     
@@ -88,8 +96,9 @@ gbif_plotter <- function(synonym_row, dat, data_type){
                    colour = "white", fill = "white") +
       
       geom_point(data = species_dat,
-                 aes(x = decimalLongitude, y = decimalLatitude, colour = .summary),
-                 shape = 1, alpha = 0.5) +
+                 aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord),
+                 shape = 1) +
+      scale_colour_brewer(palette = "Paired") +
       
       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
     
