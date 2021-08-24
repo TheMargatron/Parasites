@@ -78,6 +78,12 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                zeros_rad = 0.5,
                                value = "clean")
 
+GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
+names(GBIF_Plots) <- Host_Synonyms$IUCNName
+
+GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
+names(GBIF_Plots) <- Host_Synonyms$IUCNName
+
 ## Issues #### 
 
 c(2, 3, 4, 6, 8, 9, 11, 12, 13, 14, 31, 32, 33, 42)
@@ -221,46 +227,14 @@ GBIF_Data <- GBIF_Data %>%
   filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   filter(coordinatePrecision <= 0.01 | is.na(coordinatePrecision)) %>%
   filter(!str_detect(basisOfRecord, "_SPECIMEN")) %>%
+  filter(!str_detect(basisOfRecord, "UNKNOWN")) %>%
   filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
   filter(basisOfRecord != "MATERIAL_SAMPLE")
 
-### Mapping ####
-
-GBIF_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
-names(GBIF_Plots) <- Host_Synonyms$IUCNName
-
-## Running outliers for mapping ## 
-
-# Distance method seems a bit bats. Look at Leopardus geoffroyi [[3]]
-GBIF_Outliers_dist$cc_outl2 <- cc_outl(x = GBIF_Data,
-                                      lon = "decimalLongitude",
-                                      lat = "decimalLatitude",
-                                      species = "species",
-                                      method = "distance",
-                                      tdi = 1000,
-                                      value = "flagged")
-
-GBIF_Outliers_quantile <- clean_coordinates(x = GBIF_Data,
-                                        lon = "decimalLongitude",
-                                        lat = "decimalLatitude",
-                                        species = "species",
-                                        tests = c("outliers"),
-                                        outliers_method = "quantile",
-                                        outliers_mtp = 5)
-
-GBIF_Plots_Test <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Outliers_dist, data_type = "tested")
-names(GBIF_Plots) <- Host_Synonyms$IUCNName
-
-temp <- apply(Host_Synonyms, MARGIN = 1, species_outlier, dat = GBIF_Data)
-temp <- bind_rows(temp)
-
-temp2 <- apply(Host_Synonyms, MARGIN = 1, species_outlier, dat = GBIF_Data)
-temp2 <- bind_rows(temp2)
-
-### Temporary plotting to get outlier parameters
+### Temporary plotting to get outlier parameters ####
 
 # iucn test
-Species <- c("Canis lupus",
+Species <- c("Canis aureus",
              "Mustela erminea",
              "Mustela nivalis",
              "Mustela lutreola")
@@ -271,7 +245,7 @@ species_dat <- GBIF_Data %>%
                              species == "Pekania pennanti" ~ "Martes pennanti",
                              TRUE                          ~ species)) %>%
   filter(species == Species[1]) %>%
-  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%   
+#  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%   
   rename(binomial = species)
 
 species_dat$out <-  cc_iucn(x = species_dat,
@@ -279,7 +253,7 @@ species_dat$out <-  cc_iucn(x = species_dat,
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 3,
+                            buffer = 1,
                             value = "flagged")
 
 base_map +
@@ -301,7 +275,7 @@ beep(2)
 
 
 #outlier test
-Species <- "Connochaetes gnou"
+Species <- "Canis aureus"
 
 species_dat <- filter(GBIF_Data, species == Species)
 
@@ -309,7 +283,7 @@ species_dat$out <- cc_outl(x = species_dat,
                            lon = "decimalLongitude",
                            lat = "decimalLatitude",
                            method = "quantile",
-                           mltpl = 5,
+                           mltpl = 1,
                            value = "flagged")
 
 base_map +
@@ -494,6 +468,8 @@ beep(2)
 
 ### Vulpes velox ####
 
+GBIF_Plots[[77]]
+
 ## plotted IUCN polygon + GMPD_Data +  GBIF_Data
 # Not much correspondance between GMPD/IUCN and GBIF. 
 
@@ -515,6 +491,9 @@ V_velox_titles <- lapply(V_velox, function(uuid){
 
 V_velox <- data.frame("title" = V_velox_titles, "datasetKey" = V_velox)
 
+# Not really useful
+# Just going to re-add the _SPECIMEN samples and then do the macrotis polygon thing
+
 ## 
 
 base_map +
@@ -524,18 +503,11 @@ base_map +
                fill = "white") +
   
   geom_point(data = filter(GBIF_Raw_Data, species == "Vulpes velox"),
-             aes(x = decimalLongitude, y = decimalLatitude, colour = datasetKey)) +
-  
-  geom_point(data = filter(GMPD_Data, HostCorrectedName == "Vulpes velox"),
-             aes(x = Longitude, y = Latitude),
-             colour = "palegreen4",
-             shape = 1) #+
+             aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord)) +
   
   geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Vulpes macrotis", ]), 
                aes(x = long, y = lat, group = group),
                colour = "skyblue",
                fill = "skyblue") +
   
-  geom_point(data = filter(GBIF_Data, species == "Vulpes velox"),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "orange") 
+  ggtitle("Vulpes velox")
