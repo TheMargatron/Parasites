@@ -105,15 +105,34 @@ gbif_plotter <- function(synonym_row, dat, data_type){
   }
 }
 
-species_outlier <- function(synonym_row, dat){
-  species_dat <-  filter(dat, species == synonym_row["GBIFName"])
+species_cleaner <- function(synonym_row, dat){
+  print(synonym_row["GBIFName"])
+  species_dat <- filter(dat, species == synonym_row["GBIFName"])
+  species_dat <- rename(species_dat, binomial = species)
   
-  species_dat$outlier <- cc_outl(x = species_dat,
-                                 lon = "decimalLongitude",
-                                 lat = "decimalLatitude",
-                                 method = "quantile",
-                                 mltpl = 5,
-                                 value = "flagged")
+  if(synonym_row["cc_outl"]){
+    species_dat$outlier <- cc_outl(x = species_dat,
+                                   lon = "decimalLongitude",
+                                   lat = "decimalLatitude",
+                                   method = "quantile",
+                                   species = "binomial",
+                                   mltpl = as.numeric(synonym_row["mltpl"]),
+                                   value = "flagged")
+    
+  } else if(synonym_row["cc_iucn"]){
+    species_IUCN <- IUCN_Data_List[[synonym_row["IUCNName"]]]
+    species_IUCN@binomial <- synonym_row["GBIFName"]
+    species_dat$outlier <- cc_iucn(x = species_dat,
+                                   range = species_IUCN,
+                                   lon = "decimalLongitude",
+                                   lat = "decimalLatitude",
+                                   species = "binomial",
+                                   buffer = as.numeric(synonym_row["buffer"]),
+                                   value = "flagged")
+  } else {
+    species_dat$outlier <- NA
+  }
   
+  species_dat <- rename(species_dat, species = binomial)
   return(species_dat)
 }

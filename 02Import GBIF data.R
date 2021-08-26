@@ -15,6 +15,7 @@ library(rgdal)              # read shapefiles
 #library(spatialEco)
 library(taxize)
 library(tidyverse)
+library(beepr)
 
 GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
@@ -60,11 +61,13 @@ warning("Need to provide GBIF credentials according to ?occ_download (under 'Aut
 Download_Get <- readRDS(here::here("Data/GBIF/Download_Get"))
 
 GBIF_Raw_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
+nrow(GBIF_Raw_Data) #2825164
 
 # Cleaning data ###############################################################################################
 
 GBIF_Data <- filter(GBIF_Raw_Data, countryCode != "" & countryCode != "XK" & countryCode != "ZZ")
 GBIF_Data$countryCode <- countrycode(GBIF_Data$countryCode, origin = "iso2c", destination = "iso3c")
+nrow(GBIF_Data) #2824440
 
 GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                lon = "decimalLongitude", 
@@ -78,8 +81,10 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                zeros_rad = 0.5,
                                value = "clean")
 
+nrow(GBIF_Data) #2639154
+
 GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
-names(GBIF_Plots) <- Host_Synonyms$IUCNName
+names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
 
 GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
 names(GBIF_Plots) <- Host_Synonyms$IUCNName
@@ -231,6 +236,12 @@ GBIF_Data <- GBIF_Data %>%
   filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
   filter(basisOfRecord != "MATERIAL_SAMPLE")
 
+nrow(GBIF_Data) #2130604
+
+GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TRUE, stringsAsFactors = FALSE) 
+
+GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
+
 ### Temporary plotting to get outlier parameters ####
 
 # iucn test
@@ -275,7 +286,7 @@ beep(2)
 
 
 #outlier test
-Species <- "Canis aureus"
+Species <- "Leopardus pardalis"
 
 species_dat <- filter(GBIF_Data, species == Species)
 
@@ -283,7 +294,7 @@ species_dat$out <- cc_outl(x = species_dat,
                            lon = "decimalLongitude",
                            lat = "decimalLatitude",
                            method = "quantile",
-                           mltpl = 1,
+                           mltpl = 5,
                            value = "flagged")
 
 base_map +
