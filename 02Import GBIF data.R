@@ -510,9 +510,6 @@ beep(2)
 ### Alces alces ####
 GBIF_Plots[[9]]
 
-
-### Canis lupus ####
-
 ### Mustela erminea ####
 GBIF_Plots[[12]]
 # Mustela erminea can be confused with M. nivalis. 
