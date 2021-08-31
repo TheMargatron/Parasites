@@ -21,7 +21,7 @@ library(maps)               # iso 3166 country codes and mapnames
 library(raster)             # 
 library(rgdal)              # read shapefiles
 library(stringr)            #
-library(tidyverse)          #  beware of conflicts (mainly with raster)
+library(tidyverse)          # beware of conflicts (mainly with raster)
 
 source(here::here("Functions.R"))
 
@@ -293,7 +293,7 @@ GMPD_Data <- GMPD_Data %>%
                     value = "clean")
 nrow(GMPD_Data) #8157
 
-# Saving relevant subset of IUCN data to save space 
+# Saving relevant subsets of IUCN data to save space 
 
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
 IUCN_Data_List <- lapply(Hostlist, function(host) IUCN_Mammals[IUCN_Mammals$binomial == host, ])
@@ -302,7 +302,6 @@ names(IUCN_Data_List) <- Hostlist
 IUCN_Data_List[["Cervus elaphus"]] <- IUCN_Data_List[["Cervus elaphus"]] + IUCN_Mammals[IUCN_Mammals$binomial == "Cervus canadensis",]
 IUCN_Data_List[["Cervus elaphus"]]$binomial <- "Cervus elaphus"
 
-# IUCN_Data_List <- lapply(IUCN_Data_List, function(host) {host@data <- droplevels(host@data); return(host)}) # They aren't factors at this point anyway
 IUCN_Data <- raster::bind(IUCN_Data_List)
 
 # Filtering by IUCN polygon
@@ -355,6 +354,10 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 IUCN_Data_List <- IUCN_Data_List[Hostlist]
 IUCN_Data <- raster::bind(IUCN_Data_List)
 
+# narrowing down IUCN_Mammals to a more manageable size
+IUCN_Orders <- lapply(unique(IUCN_Data$order_), function(hosts) IUCN_Mammals[IUCN_Mammals$order_ == hosts, ])
+IUCN_Orders <- raster::bind(IUCN_Orders)
+
 # Creating Trait dataframe for later and simplifying GMPD_Data to essentials
 
 GMPD_Trait_Data <- GMPD_Data %>%
@@ -380,5 +383,6 @@ write.csv(GMPD_Trait_Data, file = here::here("Data/Data back ups/GMPD_Trait_Data
 write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data.csv"), row.names = FALSE)
 saveRDS(Host_Par_Loc_Nest, file = here::here("Data/Data back ups/Host_Par_Loc_Nest"))
 saveRDS(IUCN_Data_List, file = here::here("Data/Data back ups/IUCN_Data_List")) # too large to commit 
+saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders")) # too large to commit 
 
 rm(list = ls(pattern = "_Temp$"))
