@@ -20,8 +20,8 @@ library(beepr)
 GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
-## IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
 IUCN_Data_List <- readRDS(here::here("Data/Data back ups/IUCN_Data_List"))
+IUCN_Orders <- readRDS(here::here("Data/Data back ups/IUCN_Orders"))
 
 ############################################## Getting taxon keys #############################################
 # Adding synonymous species names not picked up by taxize
@@ -63,6 +63,7 @@ Download_Get <- readRDS(here::here("Data/GBIF/Download_Get"))
 GBIF_Raw_Data <- occ_download_import(Download_Get, path = here::here("Data/GBIF/"))
 nrow(GBIF_Raw_Data) #2825164
 
+rm(Download_Get)
 # Cleaning data ###############################################################################################
 
 GBIF_Data <- filter(GBIF_Raw_Data, countryCode != "" & countryCode != "XK" & countryCode != "ZZ")
@@ -87,7 +88,7 @@ GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GB
 names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
 
 GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
-names(GBIF_Plots) <- Host_Synonyms$IUCNName
+names(GBIF_bor_Plots) <- Host_Synonyms$IUCNName
 
 ## Issues #### 
 
@@ -232,9 +233,9 @@ GBIF_Data <- GBIF_Data %>%
   filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
   filter(coordinatePrecision <= 0.01 | is.na(coordinatePrecision)) %>%
   filter(!str_detect(basisOfRecord, "_SPECIMEN")) %>%
-  filter(!str_detect(basisOfRecord, "UNKNOWN")) %>%
   filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
-  filter(basisOfRecord != "MATERIAL_SAMPLE")
+  filter(basisOfRecord != "MATERIAL_SAMPLE") %>%
+  filter(!str_detect(basisOfRecord, "UNKNOWN"))
 
 nrow(GBIF_Data) #2130604
 
@@ -242,29 +243,219 @@ GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TR
 
 GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
 
-### Temporary plotting to get outlier parameters ####
+## Awkward species ####
+
+### Cervus elaphus ####
+# Not sure where to put this but saving it for later when justifying polygon merge
+
+GBIF_Base_Plots[["Cervus elaphus"]]
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Cervus elaphus", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen3",
+               fill = "palegreen3") +
+  
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Cervus canadensis", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "forestgreen",
+               fill = "forestgreen") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Cervus elaphus"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  geom_point(data = filter(GMPD_Raw_Data , HostCorrectedName == "Cervus elaphus"),
+             aes(x = Longitude, y = Latitude),
+             colour = "navy") +
+  
+  ggtitle("Cervus elaphus")
+beep(2)
+
+### Meles meles ####
+GBIF_Base_Plots[["Meles meles"]]
+
+# Meles meles is the only one recorded in GMPD_Raw_Data
+GMPD_Raw_Data %>% filter(str_detect(HostCorrectedName, "Meles")) %>% pull(HostCorrectedName) %>% unique()
+
+# Recorded separately in GBIF
+Meles <- taxize::get_gbifid_(c("Meles meles", "Meles anakuma", "Meles leucurus"), method = "backbone")
+
+# M anakuma, M. Leucurus
+base_map +
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles anakuma", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "navy",
+               fill = NA) +
+  
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles leucurus", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "firebrick",
+               fill = NA) +
+  
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "forestgreen",
+               fill = NA) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Meles meles"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  geom_point(data = filter(GMPD_Raw_Data , HostCorrectedName == "Meles meles"),
+             aes(x = Longitude, y = Latitude),
+             colour = "orange") +
+  
+  ggtitle("Meles sp.")
+beep(2)
+
+Meles_remove_IUCN <- IUCN_Orders[IUCN_Orders$binomial == "Meles leucurus", ] + 
+  IUCN_Orders[IUCN_Orders$binomial == "Meles anakuma", ]
+Meles_remove_IUCN$binomial <- "Meles meles"
+
+GBIF_Data <- split(GBIF_Data, GBIF_Data$species == "Meles meles")
+GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
+  mutate(out = cc_iucn(x = GBIF_Data[["TRUE"]],
+                       range = Meles_remove_IUCN,
+                       lon = "decimalLongitude",
+                       lat = "decimalLatitude",
+                       species = "species",
+                       buffer = 0,
+                       value = "flagged")) %>%
+  filter(!out) %>%
+  select(-out)
+
+GBIF_Data <- bind_rows(GBIF_Data)
+gc()
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "forestgreen",
+               fill = NA) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Meles meles"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  ggtitle("Meles meles")
+beep(2)
+
+nrow(GBIF_Data) #2129087
+
+#Although it hasn't removed all dubious samples, I can now fun species_cleaner with the rest.
+
+### Alces alces ####
+
+### Canis lupus ####
+
+GBIF_Base_Plots[["Canis lupus"]]
+
+# just need to remove domestic dogs, dingos, and subsp rufus (counted as separate species by iucn red list)
+species_dat <- GBIF_Data %>%
+  filter(species == "Canis lupus") %>%
+  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%
+  filter(infraspecificEpithet != "familiaris") %>%
+  filter(scientificName != "familiaris") %>%   
+  mutate(subsp = case_when(str_detect(verbatimScientificName, "arctos")       ~ "arctos",
+                           str_detect(verbatimScientificName, "crassodon")    ~ "crassodon",
+                           str_detect(verbatimScientificName, "arabs")        ~ "arabs",
+                           str_detect(verbatimScientificName, "pallipes")     ~ "pallipes",
+                           str_detect(verbatimScientificName, "occidentalis") ~ "occidentalis",
+                           str_detect(verbatimScientificName, "chanco")       ~ "chanco",
+                           str_detect(verbatimScientificName, "albus")        ~ "albus",
+                           str_detect(verbatimScientificName, "baileyi")      ~ "baileyi",
+                           str_detect(verbatimScientificName, "italicus")     ~ "italicus",
+                           str_detect(verbatimScientificName, "lycaon")       ~ "lycaon",
+                           str_detect(verbatimScientificName, "signatus")     ~ "signatus",
+                           TRUE                                               ~ "lupus")) %>%
+  mutate(subsp = as.factor(subsp))
+
+species_dat %>%             # Double checking for missed subspecies
+  filter(subsp == "lupus") %>% 
+  select(verbatimScientificName, infraspecificEpithet, scientificName) %>% 
+  mutate(across(c(1:3), as_factor)) %>% 
+  summary()
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "white",
+               fill = "white") +
+  
+  geom_point(data = species_dat,
+             aes(x = decimalLongitude, y = decimalLatitude, colour = subsp, shape = subsp)) +
+  
+  scale_shape_manual(values = c(18,0,17,1,16,2,3,1,4,5,8,15)) +
+  ggtitle("Canis lupus")
+beep(2)
+rm(species_dat)
+
+GBIF_Data <- split(GBIF_Data, GBIF_Data$species == "Canis lupus")
+GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
+  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%
+  filter(infraspecificEpithet != "familiaris") %>%
+  filter(scientificName != "familiaris")
+
+GBIF_Data <- bind_rows(GBIF_Data)
+gc()
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "forestgreen",
+               fill = NA) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Canis lupus"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  ggtitle("Canis lupus")
+beep(2)
+
+#Although it hasn't removed all dubious samples, I can now fun species_cleaner with the rest.
+
+### Mustela erminea ####
+
+### Vulpes velox ####
+
+## Temporary plotting to get outlier parameters ####
 
 # iucn test
-Species <- c("Canis aureus",
-             "Mustela erminea",
+Species <- c("Canis lupus", "Cervus elaphus",
+             "Meles meles",
+             "Panthera pardus",
+             "Alces alces",
+             "Canis lupus",
+             "Mustela putorius",
+             "Neovison vison",
+             "Procyon lotor",
+             "Rangifer tarandus",
+             "Ursus arctos",
+             "Vulpes lagopus",
+             "Rupicapra rupicapra",
+             "Dama dama",
+             "Mustela lutreola",
              "Mustela nivalis",
-             "Mustela lutreola")
+             "Canis aureus",
+             "Cervus nippon",
+             "Martes melampus", 
+             "Tragelaphus oryx",
+             "Lynx lynx")
 
-species_dat <- GBIF_Data %>%
+species_dat <- GBIF_Data2 %>%
   mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
                              species == "Taurotragus oryx" ~ "Tragelaphus oryx",
                              species == "Pekania pennanti" ~ "Martes pennanti",
                              TRUE                          ~ species)) %>%
-  filter(species == Species[1]) %>%
-#  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%   
-  rename(binomial = species)
+  filter(species == Species[1]) 
 
-species_dat$out <-  cc_iucn(x = species_dat,
+species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = species),
                             range = IUCN_Data_List[[Species[1]]],
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 1,
+                            buffer = 4,
                             value = "flagged")
 
 base_map +
@@ -286,22 +477,22 @@ beep(2)
 
 
 #outlier test
-Species <- "Leopardus pardalis"
+Species <- "Damaliscus pygargus"
 
-species_dat <- filter(GBIF_Data, species == Species)
+species_dat <- filter(GBIF_Data2, species == Species)
 
 species_dat$out <- cc_outl(x = species_dat,
                            lon = "decimalLongitude",
                            lat = "decimalLatitude",
                            method = "quantile",
-                           mltpl = 5,
+                           mltpl = 15,
                            value = "flagged")
 
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[[Species]]), 
                aes(x = long, y = lat, group = group),
-               colour = "palegreen4",
-               fill = "palegreen4") +
+               colour = "palegreen3",
+               fill = "palegreen3") +
   #  split points into two so I can easily switch between them and ensures outliers are plotted on top
   geom_point(data = filter(species_dat, out),
              aes(x = decimalLongitude, y = decimalLatitude),
@@ -319,106 +510,8 @@ beep(2)
 ### Alces alces ####
 GBIF_Plots[[9]]
 
-### Cervus elaphus ####
-GBIF_Plots[[5]]
-
-base_map +
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Cervus elaphus", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "palegreen4",
-               fill = "palegreen4") +
-  
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Cervus canadensis", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "forestgreen",
-               fill = "forestgreen") +
-  
-#  split points into two so I can easily switch between them and ensures outliers are plotted on top
-  
-  geom_point(data = filter(GBIF_Data, species == "Cervus elaphus"),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "orange") +
-  
-  geom_point(data = filter(GMPD_Raw_Data , HostCorrectedName == "Cervus elaphus"),
-             aes(x = Longitude, y = Latitude),
-             colour = "navy") +
-  
-  ggtitle("Cervus elaphus")
-beep(2)
-
-### Meles meles ####
-GBIF_Plots[[6]]
-
-# Meles meles is the only one recorded in GMPD_Raw_Data
-GMPD_Raw_Data %>% filter(str_detect(HostCorrectedName, "Meles")) %>% pull(HostCorrectedName) %>% unique()
-
-# Recorded separately in GBIF
-Meles <- taxize::get_gbifid_(c("Meles meles", "Meles anakuma", "Meles leucurus"), method = "backbone")
-
-# M anakuma, M. Leucurus
-base_map +
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Meles anakuma", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "navy",
-               fill = NA) +
-  
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Meles leucurus", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "firebrick",
-               fill = NA) +
-  
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Meles meles", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "forestgreen",
-               fill = NA) +
-  
-  geom_point(data = filter(GBIF_Data, species == "Meles meles"),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "navy") +
-  
-  geom_point(data = filter(GMPD_Raw_Data , HostCorrectedName == "Meles meles"),
-             aes(x = Longitude, y = Latitude),
-             colour = "orange") +
-  
-  #  split points into two so I can easily switch between them and ensures outliers are plotted on top
-  ggtitle("Meles meles")
-beep(2)
 
 ### Canis lupus ####
-GBIF_Plots[[10]]
-
-# just need to remove domestic dogs, dingos, and subsp rufus (counted as separate species by iucn red list)
-
-species_dat <- GBIF_Data %>%
-  filter(species == "Canis lupus") %>%
-  filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%   
-  mutate(subsp = case_when(str_detect(verbatimScientificName, "arctos")       ~ "arctos",
-                           str_detect(verbatimScientificName, "crassodon")    ~ "crassodon",
-                           str_detect(verbatimScientificName, "arabs")        ~ "arabs",
-                           str_detect(verbatimScientificName, "pallipes")     ~ "pallipes",
-                           str_detect(verbatimScientificName, "occidentalis") ~ "occidentalis",
-                           str_detect(verbatimScientificName, "chanco")       ~ "chanco",
-                           str_detect(verbatimScientificName, "albus")        ~ "albus",
-                           str_detect(verbatimScientificName, "baileyi")      ~ "baileyi",
-                           str_detect(verbatimScientificName, "italicus")     ~ "italicus",
-                           str_detect(verbatimScientificName, "lycaon")       ~ "lycaon",
-                           str_detect(verbatimScientificName, "signatus")     ~ "signatus",
-                           TRUE                                               ~ "lupus")) %>%
-  mutate(subsp = as.factor(subsp))
-
-base_map +
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Canis lupus", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "white",
-               fill = "white") +
-  
-  geom_point(data = species_dat,
-             aes(x = decimalLongitude, y = decimalLatitude, colour = subsp, shape = subsp)) +
-  
-  scale_shape_manual(values = c(18,0,17,1,16,2,3,4,5,8,15)) +
-  #  split points into two so I can easily switch between them and ensures outliers are plotted on top
-  ggtitle("Canis lupus")
-beep(2)
 
 ### Mustela erminea ####
 GBIF_Plots[[12]]
@@ -516,7 +609,7 @@ base_map +
   geom_point(data = filter(GBIF_Raw_Data, species == "Vulpes velox"),
              aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord)) +
   
-  geom_polygon(data = fortify(IUCN_Mammals[IUCN_Mammals$binomial == "Vulpes macrotis", ]), 
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Vulpes macrotis", ]), 
                aes(x = long, y = lat, group = group),
                colour = "skyblue",
                fill = "skyblue") +
