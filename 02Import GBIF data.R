@@ -279,7 +279,8 @@ GBIF_Base_Plots[["Meles meles"]]
 GMPD_Raw_Data %>% filter(str_detect(HostCorrectedName, "Meles")) %>% pull(HostCorrectedName) %>% unique()
 
 # Recorded separately in GBIF
-Meles <- taxize::get_gbifid_(c("Meles meles", "Meles anakuma", "Meles leucurus"), method = "backbone")
+taxize::get_gbifid_(c("Meles meles", "Meles anakuma", "Meles leucurus"), method = "backbone") %>% 
+  bind_rows()
 
 # M anakuma, M. Leucurus
 base_map +
@@ -326,6 +327,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
   select(-out)
 
 GBIF_Data <- bind_rows(GBIF_Data)
+rm(Meles_remove_IUCN)
 gc()
 
 base_map +
@@ -346,6 +348,8 @@ nrow(GBIF_Data) #2129087
 #Although it hasn't removed all dubious samples, I can now fun species_cleaner with the rest.
 
 ### Alces alces ####
+
+GBIF_Base_Plots[["Alces alces"]]
 
 ### Canis lupus ####
 
@@ -416,13 +420,178 @@ beep(2)
 #Although it hasn't removed all dubious samples, I can now fun species_cleaner with the rest.
 
 ### Mustela erminea ####
+GBIF_Base_Plots[["Mustela erminea"]]
+# Mustela erminea can be confused with M. nivalis. 
+# The M. erminea samples outside its range generally fall within the M nivalis range
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "navy",
+               fill = NA) +
+  
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "firebrick",
+               fill = NA) +
+  
+  geom_point(data = GBIF_Data[["TRUE"]],
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  ggtitle("Mustela erminea")
+
+
+# Using the same buffer method as CoordinateCleaner for consistency
+Mustela_remove_IUCN <- rgeos::gBuffer(IUCN_Data_List[["Mustela erminea"]], byid = TRUE, width = 1)
+Mustela_remove_IUCN <- IUCN_Data_List[["Mustela nivalis"]] - Mustela_remove_IUCN 
+Mustela_remove_IUCN$binomial <- "Mustela erminea"
+
+GBIF_Data <- split(GBIF_Data, GBIF_Data$species == "Mustela erminea")
+
+GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
+  mutate(out = cc_iucn(x = GBIF_Data[["TRUE"]],
+                       range = Mustela_remove_IUCN,
+                       lon = "decimalLongitude",
+                       lat = "decimalLatitude",
+                       species = "species",
+                       buffer = 0.5,
+                       value = "flagged")) %>%
+  filter(!out) %>%
+  select(-out)
+
+GBIF_Data <- bind_rows(GBIF_Data)
+nrow(GBIF_Data) #2113766
+gc()
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen4",
+               fill = "palegreen4") +
+  
+  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "white",
+               fill = "white") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Mustela erminea"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  ggtitle("Mustela erminea")
+beep(2)
+
+# Doesn't catch the ones in America but fun will
 
 ### Vulpes velox ####
+GBIF_Base_Plots[["Vulpes velox"]]
+
+## plotted IUCN polygon + GMPD_Data +  GBIF_Data
+# Not much correspondance between IUCN and GBIF. 
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen3",
+               fill = "palegreen3") +
+  
+  geom_point(data = filter(GBIF_Raw_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord)) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  ggtitle("Vulpes velox")
+
+## Plotted GBIF_Raw_Data, aes(colour = basisOfRecord)
+# Seems like basically all of the records are filtered out by _SPECIMEN so I will take a closer look at them
+
+## Read wiki for Vulpes macrotis after googling "Vulpes velox fossil" which hinted they might be same
+## Plotted V macrotis polygon with data
+# Turns out the ones at the bottom are probably Vulpes macrotis (Kit fox) because some people treat them as one sp.
+
+base_map +
+  geom_point(data = filter(GBIF_Raw_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord)) +
+  
+  geom_point(data = filter(GBIF_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "orange") +
+  
+  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "navy",
+               fill = NA) +
+  
+  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Vulpes macrotis", ]), 
+               aes(x = long, y = lat, group = group),
+               colour = "darkred",
+               fill = NA) +
+  
+  ggtitle("Vulpes velox")
+
+## Will remove some filters for Vulpes velox to regain data and then filter based on polygon overlap
+
+GBIF_Data <- split(GBIF_Data, GBIF_Data$species == "Vulpes velox")
+GBIF_Data[["TRUE"]] <- GBIF_Raw_Data %>%
+  filter(species == "Vulpes velox") %>%
+  filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
+  filter(coordinatePrecision <= 0.01 | is.na(coordinatePrecision)) %>%
+  filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
+  filter(basisOfRecord != "UNKNOWN" & basisOfRecord != "FOSSIL_SPECIMEN")
+
+GBIF_Data[["TRUE"]]$countryCode <- countrycode(GBIF_Data[["TRUE"]]$countryCode, origin = "iso2c", destination = "iso3c")
+
+GBIF_Data[["TRUE"]] <- clean_coordinates(x = GBIF_Data[["TRUE"]],
+                                         lon = "decimalLongitude", 
+                                         lat = "decimalLatitude", 
+                                         countries = "countryCode",
+                                         tests = c("capitals", "centroids", "countries", "gbif", "institutions", "seas", "zeros"), # think about whether I need duplicates or outlier tests
+                                         capitals_rad = 10000,
+                                         centroids_rad = 1000,
+                                         centroids_detail = "country",
+                                         inst_rad = 100,
+                                         zeros_rad = 0.5,
+                                         value = "clean")
+
+Vulpes_remove_IUCN <- rgeos::gBuffer(IUCN_Orders[IUCN_Orders$binomial == "Vulpes macrotis", ], byid = TRUE, width = 2)
+Vulpes_remove_IUCN <- Vulpes_remove_IUCN - rgeos::gBuffer(IUCN_Data_List[["Vulpes velox"]], byid = TRUE, width = 1)
+Vulpes_remove_IUCN$binomial <- "Vulpes velox"
+
+GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
+  mutate(out = cc_iucn(x = GBIF_Data[["TRUE"]],
+                       range = Vulpes_remove_IUCN,
+                       lon = "decimalLongitude",
+                       lat = "decimalLatitude",
+                       species = "species",
+                       buffer = 0,
+                       value = "flagged")) %>%
+  filter(!out) %>%
+  select(-out)
+
+GBIF_Data <- bind_rows(GBIF_Data)
+nrow(GBIF_Data) #2113815
+rm(Vulpes_remove_IUCN)
+gc()
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen3",
+               fill = "palegreen3") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Vulpes velox"),
+             aes(x = decimalLongitude, y = decimalLatitude),
+             colour = "navy") +
+  
+  ggtitle("Vulpes velox")
 
 ## Temporary plotting to get outlier parameters ####
 
 # iucn test
-Species <- c("Canis lupus", "Cervus elaphus",
+Species <- c("Alces alces", "Cervus elaphus",
              "Meles meles",
              "Panthera pardus",
              "Alces alces",
@@ -443,7 +612,7 @@ Species <- c("Canis lupus", "Cervus elaphus",
              "Tragelaphus oryx",
              "Lynx lynx")
 
-species_dat <- GBIF_Data2 %>%
+species_dat <- GBIF_Data %>%
   mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
                              species == "Taurotragus oryx" ~ "Tragelaphus oryx",
                              species == "Pekania pennanti" ~ "Martes pennanti",
@@ -455,7 +624,7 @@ species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = species),
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 4,
+                            buffer = 9,
                             value = "flagged")
 
 base_map +
@@ -463,7 +632,7 @@ base_map +
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
-#  split points into two so I can easily switch between them and ensures outliers are plotted on top
+  
   geom_point(data = filter(species_dat, out),
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "navy") +
@@ -505,110 +674,3 @@ base_map +
   ggtitle(Species)
 beep(2)
 
-## Awkward species ####
-
-### Alces alces ####
-GBIF_Plots[[9]]
-
-### Mustela erminea ####
-GBIF_Plots[[12]]
-# Mustela erminea can be confused with M. nivalis. 
-# The M. erminea samples outside its range generally fall within the M nivalis range
-
-base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
-               aes(x = long, y = lat, group = group),
-               colour = "navy",
-               fill = NA) +
-  
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
-               aes(x = long, y = lat, group = group),
-               colour = "firebrick",
-               fill = NA)
-
-# Using the same buffer method as CoordinateCleaner for consistency
-M_erminea_Buff <- rgeos::gBuffer(IUCN_Data_List[["Mustela erminea"]], byid = TRUE, width = 1)
-M_nivalis_overlap <- IUCN_Data_List[["Mustela nivalis"]] - M_erminea_Buff 
-M_nivalis_overlap$binomial <- factor("Mustela erminea")
-
-species_dat <- GBIF_Data %>%
-  filter(species == "Mustela erminea") %>%
-  rename(binomial = species)
-
-species_dat$out <-  cc_iucn(x = species_dat,
-                            range = M_nivalis_overlap,
-                            lon = "decimalLongitude",
-                            lat = "decimalLatitude",
-                            species = "binomial",
-                            buffer = 0.5,
-                            value = "flagged")
-
-base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
-               aes(x = long, y = lat, group = group),
-               colour = "palegreen4",
-               fill = "palegreen4") +
-  
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
-               aes(x = long, y = lat, group = group),
-               colour = "white",
-               fill = "white") +
-  #  split points into two so I can easily switch between them and ensures outliers are plotted on top
-  geom_point(data = filter(species_dat, !out),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "navy") +
-  
-  geom_point(data = filter(species_dat, out),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "orange") +
-  
-  ggtitle("Mustela erminea")
-beep(2)
-
-# Doesn't catch the ones in America but having checked online records they are both subsp. Richardsonii so okay to keep
-
-### Vulpes velox ####
-
-GBIF_Plots[[77]]
-
-## plotted IUCN polygon + GMPD_Data +  GBIF_Data
-# Not much correspondance between GMPD/IUCN and GBIF. 
-
-## Read wiki for Vulpes macrotis after googling "Vulpes velox fossil" which hinted they might be same
-## Plotted V macrotis polygon with data
-# Turns out the ones at the bottom are probably Vulpes macrotis (Kit fox) because some people treat them as one sp.
-# But if I do the polygon thing (removing those that fit in macrotis) I'll not have any data for the PCA
-
-## Plotted GBIF_Raw_Data, aes(colour = basisOfRecord)
-# Seems like basically all of the records are filtered out by _SPECIMEN so I will take a closer look at them
-
-## Looking through datasets to see if they can be more reliable
-V_velox <- levels(as.factor(species_raw_dat$datasetKey))
-V_velox_titles <- lapply(V_velox, function(uuid){
-  datasets(data = "all", uuid = uuid) %>%
-    pluck("data", "title")
-}) %>%
-  unlist()
-
-V_velox <- data.frame("title" = V_velox_titles, "datasetKey" = V_velox)
-
-# Not really useful
-# Just going to re-add the _SPECIMEN samples and then do the macrotis polygon thing
-
-## 
-
-base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
-               aes(x = long, y = lat, group = group),
-               colour = "white",
-               fill = "white") +
-  
-  geom_point(data = filter(GBIF_Raw_Data, species == "Vulpes velox"),
-             aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord)) +
-  
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Vulpes macrotis", ]), 
-               aes(x = long, y = lat, group = group),
-               colour = "skyblue",
-               fill = "skyblue") +
-  
-  ggtitle("Vulpes velox")
