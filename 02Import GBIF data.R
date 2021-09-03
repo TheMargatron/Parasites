@@ -84,15 +84,10 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
 
 nrow(GBIF_Data) #2639154
 
-GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
-names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
-
 GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
 names(GBIF_bor_Plots) <- Host_Synonyms$IUCNName
 
 ## Issues #### 
-
-c(2, 3, 4, 6, 8, 9, 11, 12, 13, 14, 31, 32, 33, 42)
 
 ### Coordinate uncertainty ####
 
@@ -239,9 +234,8 @@ GBIF_Data <- GBIF_Data %>%
 
 nrow(GBIF_Data) #2130604
 
-GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TRUE, stringsAsFactors = FALSE) 
-
-GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
+GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
+names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
 
 ## Awkward species ####
 
@@ -346,10 +340,6 @@ beep(2)
 nrow(GBIF_Data) #2129087
 
 #Although it hasn't removed all dubious samples, I can now fun species_cleaner with the rest.
-
-### Alces alces ####
-
-GBIF_Base_Plots[["Alces alces"]]
 
 ### Canis lupus ####
 
@@ -484,6 +474,41 @@ beep(2)
 
 # Doesn't catch the ones in America but fun will
 
+### Rangifer tarandus ####
+GBIF_Base_Plots[["Rangifer tarandus"]]
+
+# Neither cc_outl nor cc_iucn capture reindeer well
+# cc_outl doesn't capture any
+# cc_iucn excludes ones in Scandinavia which I would include
+# if the buffer is expanded enough to include these it then captures those in central Europe
+
+# All countrycodes are valid so I can use them
+summary(as.factor(filter(GBIF_Data, species == "Rangifer tarandus")$countryCode))
+
+countries_remove <- str_c(c("AUT", "BEL", "CHE", 
+                               "CZE", "DEU", "FRA", 
+                               "GBR", "HRV", "HUN", 
+                               "IRL", "MDA", "NLD",
+                               "POL", "ROU", "UKR"), collapse = "|")
+
+base_map +
+  geom_polygon(data = fortify(IUCN_Data_List[["Rangifer tarandus"]]), 
+               aes(x = long, y = lat, group = group),
+               colour = "palegreen3",
+               fill = "palegreen3") +
+  
+  geom_point(data = filter(GBIF_Data, species == "Rangifer tarandus"),
+             aes(x = decimalLongitude, y = decimalLatitude, colour = str_detect(countryCode, countries_remove))) +
+  
+  # geom_point(data = filter(species_dat, !out),
+  #            aes(x = decimalLongitude, y = decimalLatitude),
+  #            colour = "orange") +
+  
+  ggtitle("Rangifer tarandus")
+
+GBIF_Data_Test <- GBIF_Data %>%
+  filter(!(species == "Rangifer tarandus" & str_detect(countryCode, countries_remove)))
+
 ### Vulpes velox ####
 GBIF_Base_Plots[["Vulpes velox"]]
 
@@ -588,29 +613,18 @@ base_map +
   
   ggtitle("Vulpes velox")
 
+## Outliers ####
+
+GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TRUE, stringsAsFactors = FALSE) 
+
+GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
+
+
 ## Temporary plotting to get outlier parameters ####
 
 # iucn test
-Species <- c("Alces alces", "Cervus elaphus",
-             "Meles meles",
-             "Panthera pardus",
-             "Alces alces",
-             "Canis lupus",
-             "Mustela putorius",
-             "Neovison vison",
-             "Procyon lotor",
-             "Rangifer tarandus",
-             "Ursus arctos",
-             "Vulpes lagopus",
-             "Rupicapra rupicapra",
-             "Dama dama",
-             "Mustela lutreola",
-             "Mustela nivalis",
-             "Canis aureus",
-             "Cervus nippon",
-             "Martes melampus", 
-             "Tragelaphus oryx",
-             "Lynx lynx")
+Species <- c("Rangifer tarandus",
+             "Capreolus capreolus")
 
 species_dat <- GBIF_Data %>%
   mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
@@ -624,7 +638,7 @@ species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = species),
                             lon = "decimalLongitude",
                             lat = "decimalLatitude",
                             species = "binomial",
-                            buffer = 9,
+                            buffer = 5,
                             value = "flagged")
 
 base_map +
@@ -646,15 +660,15 @@ beep(2)
 
 
 #outlier test
-Species <- "Damaliscus pygargus"
+Species <- "Rangifer tarandus"
 
-species_dat <- filter(GBIF_Data2, species == Species)
+species_dat <- filter(GBIF_Data, species == Species)
 
 species_dat$out <- cc_outl(x = species_dat,
                            lon = "decimalLongitude",
                            lat = "decimalLatitude",
                            method = "quantile",
-                           mltpl = 15,
+                           mltpl = 1,
                            value = "flagged")
 
 base_map +
