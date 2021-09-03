@@ -506,8 +506,10 @@ base_map +
   
   ggtitle("Rangifer tarandus")
 
-GBIF_Data_Test <- GBIF_Data %>%
+GBIF_Data <- GBIF_Data %>%
   filter(!(species == "Rangifer tarandus" & str_detect(countryCode, countries_remove)))
+
+# happily gets all of them
 
 ### Vulpes velox ####
 GBIF_Base_Plots[["Vulpes velox"]]
