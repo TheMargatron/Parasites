@@ -346,7 +346,7 @@ nrow(GBIF_Data) #2129087
 GBIF_Base_Plots[["Canis lupus"]]
 
 # just need to remove domestic dogs, dingos, and subsp rufus (counted as separate species by iucn red list)
-species_dat <- GBIF_Data %>%
+Canis_lupus_dat <- GBIF_Data %>%
   filter(species == "Canis lupus") %>%
   filter(!str_detect(verbatimScientificName, "familiaris|dingo|rufus")) %>%
   filter(infraspecificEpithet != "familiaris") %>%
@@ -365,7 +365,7 @@ species_dat <- GBIF_Data %>%
                            TRUE                                               ~ "lupus")) %>%
   mutate(subsp = as.factor(subsp))
 
-species_dat %>%             # Double checking for missed subspecies
+Canis_lupus_dat %>%             # Double checking for missed subspecies
   filter(subsp == "lupus") %>% 
   select(verbatimScientificName, infraspecificEpithet, scientificName) %>% 
   mutate(across(c(1:3), as_factor)) %>% 
@@ -377,13 +377,13 @@ base_map +
                colour = "white",
                fill = "white") +
   
-  geom_point(data = species_dat,
+  geom_point(data = Canis_lupus_dat,
              aes(x = decimalLongitude, y = decimalLatitude, colour = subsp, shape = subsp)) +
   
   scale_shape_manual(values = c(18,0,17,1,16,2,3,1,4,5,8,15)) +
   ggtitle("Canis lupus")
 beep(2)
-rm(species_dat)
+rm(Canis_lupus_dat)
 
 GBIF_Data <- split(GBIF_Data, GBIF_Data$species == "Canis lupus")
 GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
@@ -500,14 +500,11 @@ base_map +
   geom_point(data = filter(GBIF_Data, species == "Rangifer tarandus"),
              aes(x = decimalLongitude, y = decimalLatitude, colour = str_detect(countryCode, countries_remove))) +
   
-  # geom_point(data = filter(species_dat, !out),
-  #            aes(x = decimalLongitude, y = decimalLatitude),
-  #            colour = "orange") +
-  
   ggtitle("Rangifer tarandus")
 
 GBIF_Data <- GBIF_Data %>%
   filter(!(species == "Rangifer tarandus" & str_detect(countryCode, countries_remove)))
+rm(countries_remove)
 
 # happily gets all of them
 
