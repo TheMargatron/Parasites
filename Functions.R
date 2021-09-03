@@ -76,7 +76,7 @@ gbif_plotter <- function(synonym_row, dat, data_type){
       
       geom_polygon(data = species_IUCN, 
                    aes(x = long, y = lat, group = group),
-                   colour = "white", fill = "white") +
+                   colour = "skyblue", fill = "skyblue") +
       
       geom_point(data = species_dat,
                  aes(x = decimalLongitude, y = decimalLatitude),
@@ -93,7 +93,7 @@ gbif_plotter <- function(synonym_row, dat, data_type){
       
       geom_polygon(data = species_IUCN, 
                    aes(x = long, y = lat, group = group),
-                   colour = "white", fill = "white") +
+                   colour = "skyblue", fill = "skyblue") +
       
       geom_point(data = species_dat,
                  aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord),
