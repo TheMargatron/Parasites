@@ -12,7 +12,7 @@ library(here)
 #library(maps)
 library(rgbif)
 library(rgdal)              # read shapefiles
-#library(spatialEco)
+library(rgeos)
 library(taxize)
 library(tidyverse)
 library(beepr)
@@ -83,7 +83,7 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                zeros_rad = 0.5,
                                value = "clean")
 
-nrow(GBIF_Data) #2552452
+nrow(GBIF_Data) #2639154
 gc()
 
 GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
@@ -234,7 +234,7 @@ GBIF_Data <- GBIF_Data %>%
   filter(basisOfRecord != "MATERIAL_SAMPLE") %>%
   filter(!str_detect(basisOfRecord, "UNKNOWN"))
 
-nrow(GBIF_Data) #2073483
+nrow(GBIF_Data) #2130604
 
 GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
 names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
@@ -320,11 +320,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
                        buffer = 0,
                        value = "flagged")) %>%
   filter(!out) %>%
-  select(-out)
-
-GBIF_Data <- bind_rows(GBIF_Data)
-rm(Meles_remove_IUCN)
-gc()
+  dplyr::select(-out)
 
 base_map +
   geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
@@ -332,12 +328,16 @@ base_map +
                colour = "forestgreen",
                fill = NA) +
   
-  geom_point(data = filter(GBIF_Data, species == "Meles meles"),
+  geom_point(data = GBIF_Data[["TRUE"]],
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "navy") +
   
   ggtitle("Meles meles")
 beep(2)
+
+GBIF_Data <- bind_rows(GBIF_Data)
+rm(Meles_remove_IUCN)
+gc()
 
 nrow(GBIF_Data) #2129087
 
@@ -369,7 +369,7 @@ Canis_lupus_dat <- GBIF_Data %>%
 
 Canis_lupus_dat %>%             # Double checking for missed subspecies
   filter(subsp == "lupus") %>% 
-  select(verbatimScientificName, infraspecificEpithet, scientificName) %>% 
+  dplyr::select(verbatimScientificName, infraspecificEpithet, scientificName) %>% 
   mutate(across(c(1:3), as_factor)) %>% 
   summary()
 
@@ -393,21 +393,23 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
   filter(infraspecificEpithet != "familiaris") %>%
   filter(scientificName != "familiaris")
 
-GBIF_Data <- bind_rows(GBIF_Data)
-gc()
-
 base_map +
   geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
                aes(x = long, y = lat, group = group),
                colour = "forestgreen",
                fill = NA) +
   
-  geom_point(data = filter(GBIF_Data, species == "Canis lupus"),
+  geom_point(data = GBIF_Data[["TRUE"]],
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "navy") +
   
   ggtitle("Canis lupus")
 beep(2)
+
+GBIF_Data <- bind_rows(GBIF_Data)
+gc()
+
+nrow(GBIF_Data) #2113291
 
 #Although it hasn't removed all dubious samples, I can now fun species_cleaner with the rest.
 
@@ -450,11 +452,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
                        buffer = 0.5,
                        value = "flagged")) %>%
   filter(!out) %>%
-  select(-out)
-
-GBIF_Data <- bind_rows(GBIF_Data)
-nrow(GBIF_Data) #2113766
-gc()
+  dplyr::select(-out)
 
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
@@ -467,12 +465,18 @@ base_map +
                colour = "white",
                fill = "white") +
   
-  geom_point(data = filter(GBIF_Data, species == "Mustela erminea"),
+  geom_point(data = GBIF_Data[["TRUE"]],
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "navy") +
   
   ggtitle("Mustela erminea")
 beep(2)
+
+GBIF_Data <- bind_rows(GBIF_Data)
+rm(Mustela_remove_IUCN)
+gc()
+
+nrow(GBIF_Data) #2113242
 
 # Doesn't catch the ones in America but fun will
 
@@ -488,10 +492,10 @@ GBIF_Base_Plots[["Rangifer tarandus"]]
 summary(as.factor(filter(GBIF_Data, species == "Rangifer tarandus")$countryCode))
 
 countries_remove <- str_c(c("AUT", "BEL", "CHE", 
-                               "CZE", "DEU", "FRA", 
-                               "GBR", "HRV", "HUN", 
-                               "IRL", "MDA", "NLD",
-                               "POL", "ROU", "UKR"), collapse = "|")
+                            "CZE", "DEU", "FRA", 
+                            "GBR", "HRV", "HUN", 
+                            "IRL", "MDA", "NLD",
+                            "POL", "ROU", "UKR"), collapse = "|")
 
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[["Rangifer tarandus"]]), 
@@ -506,6 +510,8 @@ base_map +
 
 GBIF_Data <- GBIF_Data %>%
   filter(!(species == "Rangifer tarandus" & str_detect(countryCode, countries_remove)))
+nrow(GBIF_Data) #2112805
+
 rm(countries_remove)
 
 # happily gets all of them
@@ -574,7 +580,7 @@ GBIF_Data[["TRUE"]] <- clean_coordinates(x = GBIF_Data[["TRUE"]],
                                          lon = "decimalLongitude", 
                                          lat = "decimalLatitude", 
                                          countries = "countryCode",
-                                         tests = c("capitals", "centroids", "countries", "gbif", "institutions", "seas", "zeros"), # think about whether I need duplicates or outlier tests
+                                         tests = c("capitals", "centroids", "countries", "gbif", "institutions", "zeros"), 
                                          capitals_rad = 10000,
                                          centroids_rad = 1000,
                                          centroids_detail = "country",
@@ -595,12 +601,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
                        buffer = 0,
                        value = "flagged")) %>%
   filter(!out) %>%
-  select(-out)
-
-GBIF_Data <- bind_rows(GBIF_Data)
-nrow(GBIF_Data) #2113815
-rm(Vulpes_remove_IUCN)
-gc()
+  dplyr::select(-out)
 
 base_map +
   geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
@@ -608,18 +609,26 @@ base_map +
                colour = "palegreen3",
                fill = "palegreen3") +
   
-  geom_point(data = filter(GBIF_Data, species == "Vulpes velox"),
+  geom_point(data = GBIF_Data[["TRUE"]],
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "navy") +
   
   ggtitle("Vulpes velox")
+
+GBIF_Data <- bind_rows(GBIF_Data)
+nrow(GBIF_Data) #2113329
+rm(Vulpes_remove_IUCN)
+gc()
 
 ## Outliers ####
 
 GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TRUE, stringsAsFactors = FALSE) 
 
 GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
+# GBIF_Data_Test <- bind_rows(GBIF_Data_Test) # ran out of memory
 
+# ran out of space
+saveRDS(GBIF_Data_Test, file = here::here("Data/Data back ups/GBIF_Data_Test"))
 
 ## Temporary plotting to get outlier parameters ####
 
