@@ -71,20 +71,16 @@ GBIF_Data <- filter(GBIF_Raw_Data, countryCode != "" & countryCode != "XK" & cou
 GBIF_Data$countryCode <- countrycode(GBIF_Data$countryCode, origin = "iso2c", destination = "iso3c")
 nrow(GBIF_Data) #2824440
 
-#temporarily using older version while rnaturalearth is down
-ref <- readOGR(here::here("Data/ne_110m_land_v_2_0_0"), layer = "ne_110m_land")
-
 GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                lon = "decimalLongitude", 
                                lat = "decimalLatitude", 
                                countries = "countryCode",
-                               tests = c("capitals", "centroids", "countries", "gbif", "institutions", "seas", "zeros"), 
+                               tests = c("capitals", "centroids", "countries", "gbif", "institutions", "zeros"), 
                                capitals_rad = 10000,
                                centroids_rad = 1000,
                                centroids_detail = "country",
                                inst_rad = 100,
                                zeros_rad = 0.5,
-                               seas_ref = ref,
                                value = "clean")
 
 nrow(GBIF_Data) #2552452
@@ -238,7 +234,7 @@ GBIF_Data <- GBIF_Data %>%
   filter(basisOfRecord != "MATERIAL_SAMPLE") %>%
   filter(!str_detect(basisOfRecord, "UNKNOWN"))
 
-nrow(GBIF_Data) #2130604
+nrow(GBIF_Data) #2073483
 
 GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
 names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
