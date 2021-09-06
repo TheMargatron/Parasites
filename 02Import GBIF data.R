@@ -627,8 +627,13 @@ GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TR
 GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
 # GBIF_Data_Test <- bind_rows(GBIF_Data_Test) # ran out of memory
 
-# ran out of space
+# back up for now
 saveRDS(GBIF_Data_Test, file = here::here("Data/Data back ups/GBIF_Data_Test"))
+
+GBIF_Data_Test <- readRDS(here::here("Data/Data back ups/GBIF_Data_Test"))
+GBIF_Data_Test <- GBIF_Data_Test %>%
+  bind_rows() %>%
+  filter(is.na(outlier) | outlier)
 
 ## Temporary plotting to get outlier parameters ####
 
