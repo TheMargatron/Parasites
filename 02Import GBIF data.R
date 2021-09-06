@@ -16,6 +16,7 @@ library(rgdal)              # read shapefiles
 library(taxize)
 library(tidyverse)
 library(beepr)
+source(here::here("Functions.R"))
 
 GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
@@ -32,16 +33,16 @@ Host_Synonyms <- Host_Synonyms %>%
                               GBIFName == "Martes pennanti"  ~ "Pekania pennanti",
                               TRUE                       ~ GBIFName))
 
-Taxon_Keys <- taxize::get_gbifid_(Host_Synonyms$GBIFName, method = "backbone")
-Taxon_Keys <- lapply(Host_Synonyms$GBIFName, function(name) {
-  Taxon_Keys[[name]]["GBIFName"] <- name
-  return(Taxon_Keys[[name]])
-})
-
-Taxon_Keys <- Taxon_Keys %>%
-  bind_rows() %>%
-  filter(class == "Mammalia") %>%
-  filter(status == "ACCEPTED" & matchtype == "EXACT")
+# Taxon_Keys <- taxize::get_gbifid_(Host_Synonyms$GBIFName, method = "backbone")
+# Taxon_Keys <- lapply(Host_Synonyms$GBIFName, function(name) {
+#   Taxon_Keys[[name]]["GBIFName"] <- name
+#   return(Taxon_Keys[[name]])
+# })
+# 
+# Taxon_Keys <- Taxon_Keys %>%
+#   bind_rows() %>%
+#   filter(class == "Mammalia") %>%
+#   filter(status == "ACCEPTED" & matchtype == "EXACT")
 
 # Actual download #############################################################################################
 warning("Need to provide GBIF credentials according to ?occ_download (under 'Authentication')")
@@ -70,19 +71,24 @@ GBIF_Data <- filter(GBIF_Raw_Data, countryCode != "" & countryCode != "XK" & cou
 GBIF_Data$countryCode <- countrycode(GBIF_Data$countryCode, origin = "iso2c", destination = "iso3c")
 nrow(GBIF_Data) #2824440
 
+#temporarily using older version while rnaturalearth is down
+ref <- readOGR(here::here("Data/ne_110m_land_v_2_0_0"), layer = "ne_110m_land")
+
 GBIF_Data <- clean_coordinates(x = GBIF_Data,
                                lon = "decimalLongitude", 
                                lat = "decimalLatitude", 
                                countries = "countryCode",
-                               tests = c("capitals", "centroids", "countries", "gbif", "institutions", "seas", "zeros"), # think about whether I need duplicates or outlier tests
+                               tests = c("capitals", "centroids", "countries", "gbif", "institutions", "seas", "zeros"), 
                                capitals_rad = 10000,
                                centroids_rad = 1000,
                                centroids_detail = "country",
                                inst_rad = 100,
                                zeros_rad = 0.5,
+                               seas_ref = ref,
                                value = "clean")
 
-nrow(GBIF_Data) #2639154
+nrow(GBIF_Data) #2552452
+gc()
 
 GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
 names(GBIF_bor_Plots) <- Host_Synonyms$IUCNName
