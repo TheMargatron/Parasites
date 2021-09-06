@@ -14,10 +14,11 @@
 # gbif_plotter (synonym_row, dat, data_type)
 ## methods for plotting gbif_data
 
+library(geosphere)
 library(ggplot2)
 library(RColorBrewer)
 library(raster)
-library(geosphere)
+library(tidyverse)
 
 restrict <- function(location.data, rastr){
   c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
@@ -121,7 +122,7 @@ species_cleaner <- function(synonym_row, dat){
     
   } else if(synonym_row["cc_iucn"]){
     species_IUCN <- IUCN_Data_List[[synonym_row["IUCNName"]]]
-    species_IUCN@binomial <- synonym_row["GBIFName"]
+    species_IUCN$binomial <- synonym_row["GBIFName"]
     species_dat$outlier <- cc_iucn(x = species_dat,
                                    range = species_IUCN,
                                    lon = "decimalLongitude",
