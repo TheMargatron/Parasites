@@ -103,6 +103,37 @@ gbif_plotter <- function(synonym_row, dat, data_type){
       
       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
     
+  } else if (data_type == "outlier"){
+    species_dat <- dat[[synonym_row["GBIFName"]]] %>%
+      mutate(outlier = case_when(is.na(outlier) ~ "untested",
+                                 outlier        ~ "accepted",
+                                 !outlier       ~ "rejected"))
+    species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
+    
+    ggplot() + coord_fixed() +
+      borders("world", colour = "gray50", fill = "gray50") +
+      
+      geom_point(data = species_dat,
+                 aes(x = decimalLongitude, y = decimalLatitude, colour = outlier),
+                 shape = 1, size = 1) +
+      scale_colour_manual(values = c("firebrick", "chartreuse1")) +
+      
+      geom_polygon(data = species_IUCN, 
+                   aes(x = long, y = lat, group = group),
+                   colour = "skyblue", fill = NA) +
+      
+      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")")) +
+      
+      if(!as.logical(synonym_row["cc_outl"]) & !as.logical(synonym_row["cc_iucn"])){
+        labs(caption = "Coordinates untested")
+      } else if (as.logical(synonym_row["cc_outl"])){
+        labs(caption = paste0("Coordinates tested using 'outlier' method from 'cc_outl' with a multiple of ",
+                              synonym_row["mltpl"]))
+      } else if (as.logical(synonym_row["cc_iucn"])){
+        labs(caption = paste0("Coordinates tested using iucn polygon with a buffer of ",
+                              synonym_row["buffer"], " decimal degrees"))
+      }
+    
   }
 }
 
