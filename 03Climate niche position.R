@@ -7,7 +7,7 @@ library(adehabitatMA)
 library(here)
 library(raster)
 library(tidyverse)
-source(here::here("7Niche_dyn_funcs_myversion.R"))
+source(here::here("Climate niche functions.R"))
 
 GBIF_Data <- read.csv(here::here("Data/Data back ups/GBIF_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
