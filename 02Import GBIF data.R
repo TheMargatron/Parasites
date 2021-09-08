@@ -631,6 +631,21 @@ GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Dat
 saveRDS(GBIF_Data_Test, file = here::here("Data/Data back ups/GBIF_Data_Test"))
 
 GBIF_Data_Test <- readRDS(here::here("Data/Data back ups/GBIF_Data_Test"))
+names(GBIF_Data_Test) <- Host_Synonyms$GBIFName
+
+GBIF_Outlier_Plots <- apply(GBIF_Issues, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data_Test, data_type = "outlier")
+names(GBIF_Outlier_Plots) <- Host_Synonyms$IUCNName
+
+# Saving all outlier plots
+pdf(file = here::here('GBIF cleaning/outliers.pdf'))
+GBIF_Outlier_Plots
+dev.off()
+
+# Saving only ones I'm unsure of
+pdf(file = here::here('GBIF cleaning/unsure_outliers.pdf'))
+GBIF_Outlier_Plots[which(GBIF_Issues$finished == "Unsure", )] 
+dev.off()
+
 GBIF_Data_Cleaned <- GBIF_Data_Test %>%
   bind_rows() %>%
   filter(is.na(outlier) | outlier) %>%
