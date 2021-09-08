@@ -108,7 +108,8 @@ GMPD_Data <- GMPD_Data %>%
                                   TRUE                ~ HostsSampled)) %>%
   mutate(NumSamples = case_when(is.na(NumSamples) ~ HostsSampled,
                                 TRUE              ~ NumSamples)) %>%
-  filter(HostsSampled == NumSamples)
+  filter(HostsSampled == NumSamples) %>%
+  dplyr::select(-NumSamples)
 nrow(GMPD_Data) #8860
 
 # differing sample method on the same sample group
