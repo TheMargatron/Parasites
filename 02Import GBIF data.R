@@ -631,9 +631,14 @@ GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Dat
 saveRDS(GBIF_Data_Test, file = here::here("Data/Data back ups/GBIF_Data_Test"))
 
 GBIF_Data_Test <- readRDS(here::here("Data/Data back ups/GBIF_Data_Test"))
-GBIF_Data_Test <- GBIF_Data_Test %>%
+GBIF_Data_Cleaned <- GBIF_Data_Test %>%
   bind_rows() %>%
-  filter(is.na(outlier) | outlier)
+  filter(is.na(outlier) | outlier) %>%
+  dplyr::select(-outlier)
+
+nrow(GBIF_Data_Cleaned) #2053888
+
+write.csv(GBIF_Data_Cleaned, file = here::here("Data/Data back ups/GBIF_Data.csv"), row.names = FALSE)
 
 ## Temporary plotting to get outlier parameters ####
 
