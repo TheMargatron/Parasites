@@ -16,6 +16,8 @@
 
 library(geosphere)
 library(ggplot2)
+library(ggspatial)
+library(ggtext)
 library(RColorBrewer)
 library(raster)
 library(tidyverse)
@@ -66,18 +68,86 @@ range_distances <- function(dat, range.pol){
   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
 }
 
+gmpd_plotter <- function(host, dat, polys){
+  species_dat <- filter(dat, HostCorrectedName == host)
+  polys$legend <- as.factor(polys$legend)
+  polys$id <- rownames(polys@data)
+  species_IUCN <- polys[polys$binomial == host, ]
+  species_IUCN <-  base::merge(species_IUCN@data[c("legend", "id")], fortify(species_IUCN), by = "id")
+  
+  # to make active levels bold in legend
+  curr <- unique(species_IUCN$legend)
+  new <- c(paste0("**",curr, "**"), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% unique(species_IUCN$legend)])
+  curr <- c(as.character(unique(species_IUCN$legend)), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% unique(species_IUCN$legend)])
+  species_IUCN$legend <- dplyr::recode(species_IUCN$legend, !!!deframe(data.frame(curr, new))) 
+  
+  # from https://sashamaps.net/docs/resources/20-colors/
+  g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
+              '#f58231', '#911eb4', '#42d4f4', '#f032e6', 
+              '#bfef45', '#fabed4', '#469990', '#dcbeff', 
+              '#9A6324', '#fffac8', '#800000', '#aaffc3', 
+              '#808000', '#ffd8b1', '#000075', '#a9a9a9')
+  
+  ggplot() + coord_fixed() +
+    borders("world", colour = "gray50", fill = "gray50") +
+    
+    geom_polypath(data = species_IUCN, 
+                 aes(x = long, y = lat, group = group, 
+                     colour = legend, fill = legend)) +
+    
+    scale_color_manual(values = g.cols, drop = FALSE) +
+    scale_fill_manual(values = g.cols, drop = FALSE) +
+    
+    theme(legend.text = element_markdown(size = 6),
+          legend.title = element_text(size = 6),
+          legend.key.size = unit(0.3, "lines"),
+          legend.position = "bottom") +
+    
+    geom_point(data = species_dat,
+               aes(x = Longitude, y = Latitude),
+               colour = "navy", shape = 1, alpha = 0.5) +
+    
+    ggtitle(host)
+  
+}
 
-gbif_plotter <- function(synonym_row, dat, data_type){
+gbif_plotter <- function(synonym_row, dat, data_type, polys){
   if (data_type == "base"){
     species_dat <- filter(dat, species == synonym_row["GBIFName"])
-    species_IUCN <- fortify(IUCN_Data_List[[synonym_row["IUCNName"]]])
+    
+    # sorting out polygons to have data for legend
+    polys$legend <- as.factor(polys$legend)
+    polys$id <- rownames(polys@data)
+    species_IUCN <- polys[polys$binomial == synonym_row["IUCNName"], ]
+    species_IUCN <-  base::merge(species_IUCN@data[c("legend", "id")], fortify(species_IUCN), by = "id")
+    
+    # to make active levels bold in legend
+    curr <- unique(species_IUCN$legend)
+    new <- c(paste0("**",curr, "**"), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% unique(species_IUCN$legend)])
+    curr <- c(as.character(unique(species_IUCN$legend)), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% unique(species_IUCN$legend)])
+    species_IUCN$legend <- dplyr::recode(species_IUCN$legend, !!!deframe(data.frame(curr, new))) 
+    
+    # from https://sashamaps.net/docs/resources/20-colors/
+    g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
+                '#f58231', '#911eb4', '#42d4f4', '#f032e6', 
+                '#bfef45', '#fabed4', '#469990', '#dcbeff', 
+                '#9A6324', '#fffac8', '#800000', '#aaffc3', 
+                '#808000', '#ffd8b1', '#000075', '#a9a9a9')
     
     ggplot() + coord_fixed() +
       borders("world", colour = "gray50", fill = "gray50") +
       
-      geom_polygon(data = species_IUCN, 
-                   aes(x = long, y = lat, group = group),
-                   colour = "skyblue", fill = "skyblue") +
+      geom_polypath(data = species_IUCN, 
+                    aes(x = long, y = lat, group = group, 
+                        colour = legend, fill = legend)) +
+      
+      scale_color_manual(values = g.cols, drop = FALSE) +
+      scale_fill_manual(values = g.cols, drop = FALSE) +
+      
+      theme(legend.text = element_markdown(size = 6),
+            legend.title = element_text(size = 6),
+            legend.key.size = unit(0.3, "lines"),
+            legend.position = "bottom") +
       
       geom_point(data = species_dat,
                  aes(x = decimalLongitude, y = decimalLatitude),
@@ -92,7 +162,7 @@ gbif_plotter <- function(synonym_row, dat, data_type){
     ggplot() + coord_fixed() +
       borders("world", colour = "gray50", fill = "gray50") +
       
-      geom_polygon(data = species_IUCN, 
+      geom_polypath(data = species_IUCN, 
                    aes(x = long, y = lat, group = group),
                    colour = "skyblue", fill = "skyblue") +
       
@@ -118,7 +188,7 @@ gbif_plotter <- function(synonym_row, dat, data_type){
                  shape = 1, size = 1) +
       scale_colour_manual(values = c("firebrick", "chartreuse1")) +
       
-      geom_polygon(data = species_IUCN, 
+      geom_polypath(data = species_IUCN, 
                    aes(x = long, y = lat, group = group),
                    colour = "skyblue", fill = NA) +
       
