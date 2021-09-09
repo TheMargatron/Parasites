@@ -23,6 +23,7 @@ GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = T
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
 IUCN_Data_List <- readRDS(here::here("Data/Data back ups/IUCN_Data_List"))
 IUCN_Orders <- readRDS(here::here("Data/Data back ups/IUCN_Orders"))
+IUCN_Data <- raster::bind(IUCN_Data_List)
 
 ############################################## Getting taxon keys #############################################
 # Adding synonymous species names not picked up by taxize
@@ -86,7 +87,7 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
 nrow(GBIF_Data) #2639154
 gc()
 
-GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor")
+GBIF_bor_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor", polys = IUCN_Data_Native)
 names(GBIF_bor_Plots) <- Host_Synonyms$IUCNName
 
 ## Issues #### 
@@ -186,7 +187,7 @@ base_map <- ggplot() + coord_fixed() +
 # Using Chrysocyon brachyurus as an example for specimens in basis of record
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
                aes(x = long, y = lat, group = group),
                colour = "black",
                fill = NA) +
@@ -210,7 +211,7 @@ base_map +
 ### Locality ####
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Chrysocyon brachyurus"]]), 
                aes(x = long, y = lat, group = group),
                colour = "black",
                fill = NA) +
@@ -236,8 +237,12 @@ GBIF_Data <- GBIF_Data %>%
 
 nrow(GBIF_Data) #2130604
 
-GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base")
+GBIF_Base_Plots <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "base", polys = IUCN_Data)
 names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
+
+pdf(file = here::here('Data/GMPD/GBIF_Base_Plots.pdf'), width = 10, height = 7)
+GBIF_Base_Plots
+dev.off()
 
 ## Awkward species ####
 
@@ -247,12 +252,12 @@ names(GBIF_Base_Plots) <- Host_Synonyms$IUCNName
 GBIF_Base_Plots[["Cervus elaphus"]]
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Cervus elaphus", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Cervus elaphus", ]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
   
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Cervus canadensis", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Cervus canadensis", ]), 
                aes(x = long, y = lat, group = group),
                colour = "forestgreen",
                fill = "forestgreen") +
@@ -280,17 +285,17 @@ taxize::get_gbifid_(c("Meles meles", "Meles anakuma", "Meles leucurus"), method 
 
 # M anakuma, M. Leucurus
 base_map +
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles anakuma", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles anakuma", ]), 
                aes(x = long, y = lat, group = group),
                colour = "navy",
                fill = NA) +
   
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles leucurus", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles leucurus", ]), 
                aes(x = long, y = lat, group = group),
                colour = "firebrick",
                fill = NA) +
   
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
                aes(x = long, y = lat, group = group),
                colour = "forestgreen",
                fill = NA) +
@@ -323,7 +328,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
   dplyr::select(-out)
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Meles meles", ]), 
                aes(x = long, y = lat, group = group),
                colour = "forestgreen",
                fill = NA) +
@@ -374,7 +379,7 @@ Canis_lupus_dat %>%             # Double checking for missed subspecies
   summary()
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
                aes(x = long, y = lat, group = group),
                colour = "white",
                fill = "white") +
@@ -394,7 +399,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
   filter(scientificName != "familiaris")
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Canis lupus", ]), 
                aes(x = long, y = lat, group = group),
                colour = "forestgreen",
                fill = NA) +
@@ -419,12 +424,12 @@ GBIF_Base_Plots[["Mustela erminea"]]
 # The M. erminea samples outside its range generally fall within the M nivalis range
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
                aes(x = long, y = lat, group = group),
                colour = "navy",
                fill = NA) +
   
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
                aes(x = long, y = lat, group = group),
                colour = "firebrick",
                fill = NA) +
@@ -455,12 +460,12 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
   dplyr::select(-out)
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Mustela nivalis"]]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen4",
                fill = "palegreen4") +
   
-  geom_polygon(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Mustela erminea"]]), 
                aes(x = long, y = lat, group = group),
                colour = "white",
                fill = "white") +
@@ -498,7 +503,7 @@ countries_remove <- str_c(c("AUT", "BEL", "CHE",
                             "POL", "ROU", "UKR"), collapse = "|")
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Rangifer tarandus"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Rangifer tarandus"]]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
@@ -523,7 +528,7 @@ GBIF_Base_Plots[["Vulpes velox"]]
 # Not much correspondance between IUCN and GBIF. 
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
@@ -552,12 +557,12 @@ base_map +
              aes(x = decimalLongitude, y = decimalLatitude),
              colour = "orange") +
   
-  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
                aes(x = long, y = lat, group = group),
                colour = "navy",
                fill = NA) +
   
-  geom_polygon(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Vulpes macrotis", ]), 
+  geom_polypath(data = fortify(IUCN_Orders[IUCN_Orders$binomial == "Vulpes macrotis", ]), 
                aes(x = long, y = lat, group = group),
                colour = "darkred",
                fill = NA) +
@@ -604,7 +609,7 @@ GBIF_Data[["TRUE"]] <- GBIF_Data[["TRUE"]] %>%
   dplyr::select(-out)
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[["Vulpes velox"]]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
@@ -633,7 +638,7 @@ saveRDS(GBIF_Data_Test, file = here::here("Data/Data back ups/GBIF_Data_Test"))
 GBIF_Data_Test <- readRDS(here::here("Data/Data back ups/GBIF_Data_Test"))
 names(GBIF_Data_Test) <- Host_Synonyms$GBIFName
 
-GBIF_Outlier_Plots <- apply(GBIF_Issues, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data_Test, data_type = "outlier")
+GBIF_Outlier_Plots <- apply(GBIF_Issues, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data_Test, data_type = "outlier", polys = IUCN_Data_Native)
 names(GBIF_Outlier_Plots) <- Host_Synonyms$IUCNName
 
 # Saving all outlier plots
@@ -677,7 +682,7 @@ species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = species),
                             value = "flagged")
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[[Species[1]]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[[Species[1]]]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
@@ -707,7 +712,7 @@ species_dat$out <- cc_outl(x = species_dat,
                            value = "flagged")
 
 base_map +
-  geom_polygon(data = fortify(IUCN_Data_List[[Species]]), 
+  geom_polypath(data = fortify(IUCN_Data_List[[Species]]), 
                aes(x = long, y = lat, group = group),
                colour = "palegreen3",
                fill = "palegreen3") +
