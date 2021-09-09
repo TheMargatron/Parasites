@@ -99,7 +99,8 @@ GMPD_Data <- GMPD_Data %>%
   
   group_by_at(vars(-HostAge, -HostSex)) %>%
   fill(c(HostSex, HostAge), .direction = "updown") %>% 
-  distinct()
+  distinct() %>%
+  ungroup()
 nrow(GMPD_Data) #9784
 
 # HostsSampled vs NumSamples
@@ -138,19 +139,19 @@ nrow(GMPD_Data) #8819
 ## not future-proof
 
 Country_Match <- iso3166$mapname
-Country_Match[81] <- "France(?!s)"
-Country_Match[171] <- "Niger(?!i)"
-Country_Match[112] <- "India(?!n)"
-Country_Match[159] <- "(?<!inner )Mongolia"
-Country_Match[122] <- "(?<!New )Jersey"
-Country_Match[152] <- "(?<!New )Mexico"
-Country_Match[251] <- "(?<![:alpha:])USA"
-Country_Match[126] <- "Kenya(?! border)"
-Country_Match[86] <- "(?<![:alpha:])UK(?![:alpha:])"
-Country_Match[87] <- "(?<!.)Georgia(?!.)"
-Country_Match[24] <- "(?<![:alpha:])Saba"
-Country_Match[123] <- "(?<![:alpha:])Jordan"
-Country_Match[181] <- "(?<![:alpha:])Oman"
+Country_Match[which(Country_Match == "France")]   <- "France(?!s)"
+Country_Match[which(Country_Match == "Niger")]    <- "Niger(?!i)"
+Country_Match[which(Country_Match == "India")]    <- "India(?!n)"
+Country_Match[which(Country_Match == "Mongolia")] <- "(?<!inner )Mongolia"
+Country_Match[which(Country_Match == "Jersey")]   <- "(?<!New )Jersey"
+Country_Match[which(Country_Match == "Mexico")]   <- "(?<!New )Mexico"
+Country_Match[which(Country_Match == "USA")]      <- "(?<![:alpha:])USA"
+Country_Match[which(Country_Match == "Kenya")]    <- "Kenya(?! border)"
+Country_Match[which(Country_Match == "UK(?!r)")]  <- "(?<![:alpha:])UK(?![:alpha:])"
+Country_Match[which(Country_Match == "Georgia")]  <- "(?<!.)Georgia(?!.)"
+Country_Match[which(Country_Match == "Saba")]     <- "(?<![:alpha:])Saba"
+Country_Match[which(Country_Match == "Jordan")]   <- "(?<![:alpha:])Jordan"
+Country_Match[which(Country_Match == "Oman")]     <- "(?<![:alpha:])Oman"
 
 
 Country_Match <- str_c(Country_Match, collapse = "|")
@@ -304,6 +305,21 @@ IUCN_Data_List[["Cervus elaphus"]] <- IUCN_Data_List[["Cervus elaphus"]] + IUCN_
 IUCN_Data_List[["Cervus elaphus"]]$binomial <- "Cervus elaphus"
 
 IUCN_Data <- raster::bind(IUCN_Data_List)
+
+GMPD_plots <- lapply(Hostlist, FUN = gmpd_plotter, dat = GMPD_Data, polys = IUCN_Data)
+names(GMPD_plots) <- Hostlist
+
+pdf(file = here::here('Data/GMPD/GMPD_plots.pdf'), width = 10, height = 7)
+GMPD_plots
+dev.off()
+
+# Removing non-native or extinct polygons
+IUCN_native <- data.frame(status = levels(as.factor(IUCN_Data$legend)), keep = NA) %>%
+  mutate(keep = case_when(status == "Extinct"                         ~ FALSE,
+                          str_detect(status, "Extant \\(resident\\)") ~ TRUE,
+                          str_detect(status, "Introduced")            ~ FALSE,
+                          TRUE                                        ~ NA))
+
 
 # Filtering by IUCN polygon
 
