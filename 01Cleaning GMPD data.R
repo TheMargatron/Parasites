@@ -284,6 +284,9 @@ GMPD_Location_Data <- iso3166 %>%
 
 GMPD_Data <- full_join(GMPD_Location_Data, GMPD_Data, by = "LocationName")
 
+rm(State_Match, Country_Match)
+rm(list = ls(pattern = "_Temp$"))
+
 ## CoordinateCleaner tests ####################################################################################
 
 GMPD_Data <- GMPD_Data %>%
@@ -295,7 +298,7 @@ GMPD_Data <- GMPD_Data %>%
                     value = "clean")
 nrow(GMPD_Data) #8157
 
-# Saving relevant subsets of IUCN data to save space 
+# reducing to relevant subsets of IUCN data to save space 
 
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
 IUCN_Data_List <- lapply(Hostlist, function(host) IUCN_Mammals[IUCN_Mammals$binomial == host, ])
@@ -306,20 +309,14 @@ IUCN_Data_List[["Cervus elaphus"]]$binomial <- "Cervus elaphus"
 
 IUCN_Data <- raster::bind(IUCN_Data_List)
 
+# Plotting with polygons before restricting
+
 GMPD_plots <- lapply(Hostlist, FUN = gmpd_plotter, dat = GMPD_Data, polys = IUCN_Data)
 names(GMPD_plots) <- Hostlist
 
 pdf(file = here::here('Data/GMPD/GMPD_plots.pdf'), width = 10, height = 7)
 GMPD_plots
 dev.off()
-
-# Removing non-native or extinct polygons
-IUCN_native <- data.frame(status = levels(as.factor(IUCN_Data$legend)), keep = NA) %>%
-  mutate(keep = case_when(status == "Extinct"                         ~ FALSE,
-                          str_detect(status, "Extant \\(resident\\)") ~ TRUE,
-                          str_detect(status, "Introduced")            ~ FALSE,
-                          TRUE                                        ~ NA))
-
 
 # Filtering by IUCN polygon
 
@@ -336,7 +333,7 @@ GMPD_Data <- GMPD_Data %>%
   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
   filter(n() > 1) %>% 
   ungroup()
-nrow(GMPD_Data) #6750
+nrow(GMPD_Data) #6805
 
 # Restricting by proximity ####################################################################################
 
@@ -362,7 +359,6 @@ GMPD_Data <- merge(GMPD_Data, Host_Par_Loc_Nest[c(1, 2)], by = c("HostCorrectedN
                    sort = FALSE, all.x = FALSE)
 nrow(GMPD_Data) # 5923
 
-
 # Misc ########################################################################################################
 
 # Reducing down IUCN data to match fully cleaned hostlist
@@ -371,9 +367,27 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 IUCN_Data_List <- IUCN_Data_List[Hostlist]
 IUCN_Data <- raster::bind(IUCN_Data_List)
 
+# Plotting again
+
+GMPD_plots_2 <- lapply(Hostlist, FUN = gmpd_plotter, dat = GMPD_Data, polys = IUCN_Data)
+names(GMPD_plots) <- Hostlist
+
+pdf(file = here::here('Data/GMPD/GMPD_plots_2.pdf'), width = 10, height = 7)
+GMPD_plots_2
+dev.off()
+
+# Removing non-native or extinct polygons
+IUCN_native <- data.frame(status = levels(as.factor(IUCN_Data$legend)), keep = NA) %>%
+  mutate(keep = case_when(status == "Extinct"                         ~ FALSE,
+                          str_detect(status, "Extant \\(resident\\)") ~ TRUE,
+                          str_detect(status, "Introduced")            ~ FALSE,
+                          TRUE                                        ~ NA))
+
+
 # narrowing down IUCN_Mammals to a more manageable size
 IUCN_Orders <- lapply(unique(IUCN_Data$order_), function(hosts) IUCN_Mammals[IUCN_Mammals$order_ == hosts, ])
 IUCN_Orders <- raster::bind(IUCN_Orders)
+rm(IUCN_Mammals)
 
 # Creating Trait dataframe for later and simplifying GMPD_Data to essentials
 
@@ -402,4 +416,4 @@ saveRDS(Host_Par_Loc_Nest, file = here::here("Data/Data back ups/Host_Par_Loc_Ne
 saveRDS(IUCN_Data_List, file = here::here("Data/Data back ups/IUCN_Data_List")) # too large to commit 
 saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders")) # too large to commit 
 
-rm(list = ls(pattern = "_Temp$"))
+
