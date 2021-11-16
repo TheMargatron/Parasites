@@ -6,11 +6,11 @@
 ## Terrestrial mammal IUCN range polygons https://www.iucnredlist.org/resources/spatial-data-download
 
 # makes: 
-## GMPD_Data = cleaned GMPD data
+## GMPD_Data_res = cleaned GMPD data, restricted to points within native range polygons
+## GMPD_Data_cln = cleaned GMPD_Data, cleaned to remove samples in non-native regions
 ## GMPD_Location_Data = associated location data for GMPD samples
-## GMPD_GMPD_Trait_Data = associated Trait information summarised from GMPD
-## GMPD_Raw_Data 
-## Country_Match
+## Native_DF = df indicating which polygons in a species range are native or non-native
+## IUCN_Native_Data = SPDF of native IUCN ranges restricted according to Native_DF
 
 # Libraries and data ##########################################################################################
 
@@ -18,6 +18,7 @@ library(CoordinateCleaner)  # cleaning geographic data
 library(geosphere)          # calculating distances
 library(here)               #
 library(maps)               # iso 3166 country codes and mapnames
+library(rnaturalearth)      # river data
 library(raster)             # 
 library(rgdal)              # read shapefiles
 library(rgeos)              # Just for gBuffer
@@ -333,7 +334,7 @@ IUCN_Data[IUCN_Data$binomial == "Cervus canadensis", "binomial"] <- "Cervus elap
 # Plotting with full polygons before restricting
 
 Legend_Text <- sort(unique(IUCN_Data$legend))
-GMPD_plots_01 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, polys = IUCN_Data, plot_type = "iucn")
+GMPD_plots_01 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Data, plot_type = "iucn")
 names(GMPD_plots_01) <- sort(Hostlist)
 
 pdf(file = here::here('Data/GMPD/GMPD_plots_01.pdf'), width = 10, height = 7)
@@ -356,12 +357,14 @@ Native_DF <- lapply(Hostlist, function(host) {
 
 IUCN_Native_Data <- raster::bind(lapply(Hostlist, drop_introduced, range.polygon = IUCN_Data, native.df = Native_DF))
 
-GMPD_plots_native_base_02 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, polys = IUCN_Native_Data, plot_type = "iucn")
+GMPD_plots_native_base_02 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 names(GMPD_plots_native_base_02) <- sort(Hostlist)
 
 pdf(file = here::here('Data/GMPD/GMPD_plots_native_base_02.pdf'), width = 10, height = 7)
 GMPD_plots_native_base_02
 dev.off()
+
+## Removing subspecies ####
 
 ## Restricting by native IUCN polygon ####
 
@@ -380,7 +383,7 @@ GMPD_Data_res <- GMPD_Data_res %>%
   ungroup()
 nrow(GMPD_Data_res) #7287
 
-GMPD_plots_native_restricted_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res, polys = IUCN_Native_Data, plot_type = "iucn")
+GMPD_plots_native_restricted_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 names(GMPD_plots_native_restricted_03) <- sort(Hostlist)
 
 pdf(file = here::here('Data/GMPD/GMPD_plots_native_restricted_03.pdf'), width = 10, height = 7)
@@ -403,7 +406,7 @@ GMPD_Data_cln <- GMPD_Data_cln %>%
   filter(is.na(out) | !out) %>%
   dplyr::select(-out)
 
-GMPD_plots_native_clean_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, polys = IUCN_Native_Data, plot_type = "iucn")
+GMPD_plots_native_clean_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 names(GMPD_plots_native_clean_03) <- sort(Hostlist)
 
 pdf(file = here::here('Data/GMPD/GMPD_plots_native_clean_03.pdf'), width = 10, height = 7)
@@ -436,7 +439,7 @@ nrow(GMPD_Data_res) # 6135
 
 # Plotting again
 
-GMPD_plots_clean_04_restricted <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res, polys = IUCN_Native_Data, plot_type = "iucn")
+GMPD_plots_clean_04_restricted <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 names(GMPD_plots_clean_04_restricted) <- sort(Hostlist)
 
 pdf(file = here::here('Data/GMPD/GMPD_plots_clean_04_restricted.pdf'), width = 10, height = 7)
@@ -466,7 +469,7 @@ nrow(GMPD_Data_cln) # 7337
 
 # Plotting again
 
-GMPD_plots_clean_04_clean <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, polys = IUCN_Native_Data, plot_type = "iucn")
+GMPD_plots_clean_04_clean <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 names(GMPD_plots_clean_04_clean) <- sort(Hostlist)
 
 pdf(file = here::here('Data/GMPD/GMPD_plots_clean_04_clean.pdf'), width = 10, height = 7)
@@ -489,4 +492,186 @@ write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), r
 saveRDS(IUCN_Native_Data, file = here::here("Data/Data back ups/IUCN_Native_Data_01")) # too large to commit 
 saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders_01")) # too large to commit 
 
+# Figuring things out ####
 
+## Acinonyx jubatus ####
+# rationale: There are multiple subspecies, but GMPD data only occupies the range of A. j. jubatus
+# therefore want to remove all polygons representing other subspecies. 
+# I've removed polygons based on wiki distribution map
+# https://en.wikipedia.org/wiki/Cheetah#/media/File:Acinonyx_jubatus_subspecies_range_IUCN_2015.png
+
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == "Acinonyx jubatus", ]
+
+# upper
+coords = matrix(c(33.0, 0,
+                  -10, 0,
+                  -10, 40,
+                  60.0, 40,
+                  60.0, 3.7,
+                  45.0, 3.7,
+                  35.5, 5,
+                  33.0, 0), 
+                ncol = 2, byrow = TRUE)
+
+PolyRm <- Polygon(coords)
+PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+PolyRm_try <- gUnion(PolyRm, sp.range.polygon[sp.range.polygon$poly == 13, ])
+
+sp.range.polygon_try <- sp.range.polygon - PolyRm_try
+
+sf::sf_use_s2(FALSE)
+tmap_mode("plot")
+tm_shape(sp.range.polygon) + tm_polygons("legend") #+ tm_shape(PolyRm_try) + tm_polygons()
+tm_shape(sp.range.polygon_try) + tm_polygons("legend")
+
+## Aepyceros melampus ####
+# rationale: Two subspecies, only the common impala (subsp. melampus) is well represented in GMPD based on wiki and iucn maps
+# https://en.wikipedia.org/wiki/Impala#/media/File:Aepyceros_melampus.svg
+# IUCN: "In Namibia, the Black-faced Impala is naturally confined to the Kaokoland in the north-west, and neighbouring south-western Angola"
+
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == "Aepyceros melampus", ]
+coords = matrix(c(17, -20,
+                  10, -20,
+                  10, -13,
+                  17, -13,
+                  17, -20), 
+                ncol = 2, byrow = TRUE)
+
+PolyRm <- Polygon(coords)
+PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+tm_shape(PolyRm, bbox = sp.range.polygon@bbox) + tm_polygons() + tm_shape(sp.range.polygon) + tm_polygons("legend") 
+
+## Alcelaphus buselaphus ####
+# rationale: 8 subspecies, GMPD data appears to represent major and cokii
+# https://en.wikipedia.org/wiki/Hartebeest#/media/File:Alcelaphus_recent.png
+# There is only one sample location for each subspecies so I'll have to drop this one :(
+GMPD_Data[which(GMPD_Data$HostCorrectedName == "Alcelaphus buselaphus"),c("Latitude", "Longitude")]
+
+## Alces alces ####
+# rationale: There are multiple subspecies, GMPD represents shirasi, gigas, andersoni, and americana in North America
+# and alces in Europe/Western Russia, but not buturlini, cameloides, or pfizenmayeri (east of Yenisei river)
+# Splitting European polygon around Yenisei should do it. 
+# Yenisei data source: https://doi.org/10.1016/j.dib.2018.09.016
+
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == "Alces alces", ]
+
+River_Data50 <- ne_load(scale = 50,
+                             type = "rivers_lake_centerlines",
+                             category = "physical",
+                             destdir = here::here("Data/Extras/ne_rivers"))
+
+YeniAnga <- River_Data50[(River_Data50$name == "Yenisey" | River_Data50$name == "Angara"),]
+
+YA_Temp <- disaggregate(YeniAnga)
+YA_Temp$ID <- LETTERS[1:12]
+tm_shape(YA_Temp) + tm_lines("ID", lwd = 2)
+tm_shape(YA_Temp[str_detect(YA_Temp$ID, "A|G|I|K", negate = TRUE),]) + tm_lines("ID", lwd = 2)
+YA_Temp <- YA_Temp[-grep("A|G|I|K", YA_Temp$ID),]
+YA_coords <- unlist(coordinates(YA_Temp), recursive = FALSE)
+YA_coords[[2]] <- YA_coords[[2]][nrow(YA_coords[[2]]):1,]
+YA_coords[[8]] <- YA_coords[[8]][nrow(YA_coords[[8]]):1,]
+YA_coords <- YA_coords[c(3,1,4,2,5,6,7,8)]
+YA_coords <- do.call(rbind, YA_coords)
+
+YA_coords <- rbind(YA_coords,
+                   matrix(c(YA_coords[nrow(YA_coords), 1], (sp.range.polygon@bbox[2,2] + 1),
+                            (sp.range.polygon@bbox[1,2] + 1), (sp.range.polygon@bbox[2,2] + 1),
+                            (sp.range.polygon@bbox[1,2] + 1), (sp.range.polygon@bbox[2,1] - 1),
+                            YA_coords[1,1], (sp.range.polygon@bbox[2,1] - 1),
+                            YA_coords[1,1], YA_coords[1,2]), 
+                          ncol = 2, byrow = TRUE))
+
+PolyRm <- Polygon(YA_coords)
+PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+tm_shape(PolyRm) + tm_polygons()
+
+sp.range.polygon_try <- sp.range.polygon - PolyRm
+tm_shape(sp.range.polygon_try) + tm_polygons()
+
+## Next species ####
+# Antidorcas marsupilis
+
+
+
+
+
+
+
+## discard pile ####
+
+sp.bbox <- sp.range.polygon@bbox
+sp.range.polygon$id <- rownames(sp.range.polygon@data)
+sp.range.polygon$poly <- 1:36
+sp.range.polygon_fort <- merge(fortify(sp.range.polygon), sp.range.polygon@data, bi = "id")
+
+# upper
+coords = matrix(c(33.0, 0,
+                  -10, 0,
+                  -10, 40,
+                  60.0, 40,
+                  60.0, 3.7,
+                  45.0, 3.7,
+                  35.5, 5,
+                  33.0, 0), 
+                ncol = 2, byrow = TRUE)
+
+# lower?
+coords = matrix(c(33.0, 0,
+                  35.5, 5,
+                  45.0, 3.7,
+                  60.0, 3.7,
+                  60.0, -30,
+                  -10, -30,
+                  -10, 0,
+                  33.0, 0), 
+                ncol = 2, byrow = TRUE)
+
+ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+  geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+  coord_sf(xlim = c(30,50), ylim = c(-5,15), expand = TRUE) +
+  xlab("Longitude") + ylab("Latitude") +
+  
+  geom_polypath(data = sp.range.polygon_fort, 
+                aes(x = long, y = lat, group = group, colour = poly, fill = poly),
+                size = 0.05) +
+  geom_polypath(data = as.data.frame(coords), aes(x = V1, y = V2), fill = NA, colour = "black")
+
+PolyRm <- Polygon(coords)
+PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+PolyRm_try <- gUnion(PolyRm, sp.range.polygon[sp.range.polygon$poly == 13, ])
+
+ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+  geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+  coord_sf(xlim = sp.bbox[1,], ylim = sp.bbox[2,], expand = TRUE) +
+  xlab("Longitude") + ylab("Latitude") +
+  
+  geom_polypath(data = sp.range.polygon_fort, 
+                aes(x = long, y = lat, group = group, colour = poly, fill = poly),
+                size = 0.05) +
+  geom_polypath(data = fortify(PolyRm_try), aes(x = long, y = lat), fill = NA, colour = "black")
+
+sp.range.polygon.test <- st_as_sf(sp.range.polygon)
+PolyRm.test <- st_as_sf(PolyRm_try)
+sp.range.polygon_try <- st_difference(sp.range.polygon.test, PolyRm.test)
+
+ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+  geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+  coord_sf(xlim = sp.bbox[1,], ylim = sp.bbox[2,], expand = TRUE) +
+  xlab("Longitude") + ylab("Latitude") +
+  
+  geom_polypath(data = sp.range.polygon_fort, 
+                aes(x = long, y = lat, group = group, colour = poly, fill = poly),
+                size = 0.05) +
+  geom_polypath(data = (sp.range.polygon_try), aes(x = long, y = lat), fill = "black", colour = "black")
+
+
+
+##
+#library(mapview)
+#geojson.io
+sf::sf_use_s2(FALSE)
+library(tmap)
+tmap_mode("view")
+tm_shape(sp.range.polygon_try) + tm_polygons("binomial")

@@ -125,19 +125,19 @@ drop_introduced <- function(host, range.polygon, native.df){
   return(range.polygon)
 }
 
-gmpd_plotter <- function(host, dat, polys, legend.text = Legend_Text, plot_type){
+gmpd_plotter <- function(host, dat, range.polygon, legend.text = Legend_Text, plot_type){
   if(plot_type == "iucn"){
     species_dat <- filter(dat, HostCorrectedName == host)
-    polys$legend <- factor(polys$legend, levels = legend.text)
-    polys$id <- rownames(polys@data)
-    species_IUCN <- polys[polys$binomial == host, ]
-    species_IUCN <-  base::merge(species_IUCN@data[c("legend", "id")], fortify(species_IUCN), by = "id")
+    range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
+    range.polygon$id <- rownames(range.polygon@data)
+    sp.range.polygon <- range.polygon[range.polygon$binomial == host, ]
+    sp.range.polygon <-  base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
     
     # to make active levels bold in legend
-    curr <- unique(species_IUCN$legend)
-    new <- c(paste0("**",curr, "**"), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% curr])
-    curr <- c(as.character(curr), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% curr])
-    species_IUCN$legend <- dplyr::recode(species_IUCN$legend, !!!deframe(data.frame(curr, new))) 
+    curr <- unique(sp.range.polygon$legend)
+    new <- c(paste0("**",curr, "**"), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+    curr <- c(as.character(curr), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+    sp.range.polygon$legend <- dplyr::recode(sp.range.polygon$legend, !!!deframe(data.frame(curr, new))) 
     
     # from https://sashamaps.net/docs/resources/20-colors/
     g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
@@ -171,7 +171,7 @@ gmpd_plotter <- function(host, dat, polys, legend.text = Legend_Text, plot_type)
       # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
       xlab("Longitude") + ylab("Latitude") +
       
-      geom_polypath(data = species_IUCN, 
+      geom_polypath(data = sp.range.polygon, 
                     aes(x = long, y = lat, group = group, 
                         colour = legend, fill = legend),
                     size = 0.15) +
@@ -307,21 +307,21 @@ iucn_cleaning <- function(dat, native.df, range.polygon = IUCN_Data){
   return(dat)
 }
 
-gbif_plotter <- function(synonym_row, dat, data_type, polys, legend.text = Legend_Text){
+gbif_plotter <- function(synonym_row, dat, data_type, range.polygon, legend.text = Legend_Text){
   if (data_type == "base"){
     species_dat <- filter(dat, species == synonym_row["GBIFName"])
     
     # sorting out polygons to have data for legend
-    polys$legend <- factor(polys$legend, levels = legend.text)
-    polys$id <- rownames(polys@data)
-    species_IUCN <- polys[polys$binomial == synonym_row["IUCNName"], ]
-    species_IUCN <-  base::merge(species_IUCN@data[c("legend", "id")], fortify(species_IUCN), by = "id")
+    range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
+    range.polygon$id <- rownames(range.polygon@data)
+    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
+    sp.range.polygon <-  base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
     
     # to make active levels bold in legend
-    curr <- unique(species_IUCN$legend)
-    new <- c(paste0("**", curr, "**"), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% curr])
-    curr <- c(as.character(curr), levels(species_IUCN$legend)[!levels(species_IUCN$legend) %in% curr])
-    species_IUCN$legend <- dplyr::recode(species_IUCN$legend, !!!deframe(data.frame(curr, new))) 
+    curr <- unique(sp.range.polygon$legend)
+    new <- c(paste0("**", curr, "**"), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+    curr <- c(as.character(curr), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+    sp.range.polygon$legend <- dplyr::recode(sp.range.polygon$legend, !!!deframe(data.frame(curr, new))) 
     
     # from https://sashamaps.net/docs/resources/20-colors/
     g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
@@ -330,20 +330,20 @@ gbif_plotter <- function(synonym_row, dat, data_type, polys, legend.text = Legen
                 '#9A6324', '#fffac8', '#800000', '#aaffc3', 
                 '#808000', '#ffd8b1', '#000075', '#a9a9a9')
     
-    bbox <- range.polygon@bbox
-    dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
-    bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
-                     min(c(bbox[2,1], dat.bbox[2,1])),
-                     max(c(bbox[1,2], dat.bbox[1,2])),
-                     max(c(bbox[2,2], dat.bbox[2,2]))),
-                   c(2,2)) # there must be a one-liner for this..
+    # bbox <- range.polygon@bbox
+    # dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
+    # bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
+    #                  min(c(bbox[2,1], dat.bbox[2,1])),
+    #                  max(c(bbox[1,2], dat.bbox[1,2])),
+    #                  max(c(bbox[2,2], dat.bbox[2,2]))),
+    #                c(2,2)) # there must be a one-liner for this..
     
     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
+      # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
       xlab("Longitude") + ylab("Latitude") +
       
-      geom_polypath(data = species_IUCN, 
+      geom_polypath(data = sp.range.polygon, 
                     aes(x = long, y = lat, group = group, 
                         colour = legend, fill = legend)) +
       
@@ -364,7 +364,7 @@ gbif_plotter <- function(synonym_row, dat, data_type, polys, legend.text = Legen
   } else if (data_type == "bor"){
     dat$basisOfRecord <- as.factor(dat$basisOfRecord)
     species_dat <- filter(dat, species == synonym_row["GBIFName"])
-    species_IUCN <- polys[polys$binomial == synonym_row["IUCNName"], ]
+    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
     
     # to make active levels bold in legend
     curr <- unique(species_dat$basisOfRecord)
@@ -375,7 +375,7 @@ gbif_plotter <- function(synonym_row, dat, data_type, polys, legend.text = Legen
     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
       
-      geom_polypath(data = species_IUCN, 
+      geom_polypath(data = sp.range.polygon, 
                    aes(x = long, y = lat, group = group),
                    colour = "skyblue", fill = "skyblue") +
       
@@ -393,7 +393,7 @@ gbif_plotter <- function(synonym_row, dat, data_type, polys, legend.text = Legen
       mutate(outlier = case_when(is.na(outlier) ~ "untested",
                                  outlier        ~ "accepted",
                                  !outlier       ~ "rejected"))
-    species_IUCN <- polys[polys$binomial == synonym_row["IUCNName"], ]
+    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
     
     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
@@ -403,7 +403,7 @@ gbif_plotter <- function(synonym_row, dat, data_type, polys, legend.text = Legen
                  shape = 1, size = 1) +
       scale_colour_manual(values = c("firebrick", "chartreuse1")) +
       
-      geom_polypath(data = species_IUCN, 
+      geom_polypath(data = sp.range.polygon, 
                    aes(x = long, y = lat, group = group),
                    colour = "skyblue", fill = NA) +
       
@@ -437,10 +437,10 @@ species_cleaner <- function(synonym_row, dat){
                                    value = "flagged")
     
   } else if(synonym_row["cc_iucn"]){
-    species_IUCN <- IUCN_Data_List[[synonym_row["IUCNName"]]]
-    species_IUCN$binomial <- synonym_row["GBIFName"]
+    sp.range.polygon <- IUCN_Data_List[[synonym_row["IUCNName"]]]
+    sp.range.polygon$binomial <- synonym_row["GBIFName"]
     species_dat$outlier <- cc_iucn(x = species_dat,
-                                   range = species_IUCN,
+                                   range = sp.range.polygon,
                                    lon = "decimalLongitude",
                                    lat = "decimalLatitude",
                                    species = "binomial",
