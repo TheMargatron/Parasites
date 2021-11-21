@@ -18,12 +18,14 @@ library(CoordinateCleaner)  # cleaning geographic data
 library(geosphere)          # calculating distances
 library(here)               #
 library(maps)               # iso 3166 country codes and mapnames
+library(maptools)
 library(rnaturalearth)      # river data
 library(raster)             # 
 library(rgdal)              # read shapefiles
 library(rgeos)              # Just for gBuffer
 library(stringr)            #
 library(tidyverse)          # beware of conflicts (mainly with raster)
+library(tmap)
 
 source(here::here("Functions.R"))
 
@@ -31,6 +33,15 @@ GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), heade
 nrow(GMPD_Raw_Data) #Beginning with 24323 rows
 
 IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes a while
+
+River_Data50 <- ne_load(scale = 50,
+                        type = "rivers_lake_centerlines",
+                        category = "physical",
+                        destdir = here::here("Data/Extras/ne_rivers"))
+
+
+sf::sf_use_s2(FALSE) #Not sure about keeping this here. May move. For "invalid spherical geometry" errors
+tmap_mode("view")
 
 # Basic data cleaning #########################################################################################
 
@@ -495,12 +506,14 @@ saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders_01")) # t
 # Figuring things out ####
 
 ## Acinonyx jubatus ####
-# rationale: There are multiple subspecies, but GMPD data only occupies the range of A. j. jubatus
+# rationale: There are multiple subspecies that are quite geographically separated, 
+# but GMPD data only occupies the range of A. j. jubatus
 # therefore want to remove all polygons representing other subspecies. 
 # I've removed polygons based on wiki distribution map
 # https://en.wikipedia.org/wiki/Cheetah#/media/File:Acinonyx_jubatus_subspecies_range_IUCN_2015.png
 
-sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == "Acinonyx jubatus", ]
+curr.species <- "Acinonyx jubatus"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 
 # upper
 coords = matrix(c(33.0, 0,
@@ -519,34 +532,27 @@ PolyRm_try <- gUnion(PolyRm, sp.range.polygon[sp.range.polygon$poly == 13, ])
 
 sp.range.polygon_try <- sp.range.polygon - PolyRm_try
 
-sf::sf_use_s2(FALSE)
-tmap_mode("plot")
 tm_shape(sp.range.polygon) + tm_polygons("legend") #+ tm_shape(PolyRm_try) + tm_polygons()
 tm_shape(sp.range.polygon_try) + tm_polygons("legend")
 
 ## Aepyceros melampus ####
 # rationale: Two subspecies, only the common impala (subsp. melampus) is well represented in GMPD based on wiki and iucn maps
+# Also black-faced impala seems geographically distinct 
 # https://en.wikipedia.org/wiki/Impala#/media/File:Aepyceros_melampus.svg
 # IUCN: "In Namibia, the Black-faced Impala is naturally confined to the Kaokoland in the north-west, and neighbouring south-western Angola"
 
-sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == "Aepyceros melampus", ]
-coords = matrix(c(17, -20,
-                  10, -20,
-                  10, -13,
-                  17, -13,
-                  17, -20), 
-                ncol = 2, byrow = TRUE)
-
-PolyRm <- Polygon(coords)
-PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
-
-tm_shape(PolyRm, bbox = sp.range.polygon@bbox) + tm_polygons() + tm_shape(sp.range.polygon) + tm_polygons("legend") 
+curr.species <- "Aepyceros melampus"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.range.polygon_try <- sp.range.polygon[sp.range.polygon$subspecies == "melampus",]
+tm_shape(sp.range.polygon_try) + tm_polygons("subspecies")  
 
 ## Alcelaphus buselaphus ####
-# rationale: 8 subspecies, GMPD data appears to represent major and cokii
+# rationale: 8 subspecies, GMPD data appears to represent major and cokii, and they are geographically distinct
 # https://en.wikipedia.org/wiki/Hartebeest#/media/File:Alcelaphus_recent.png
 # There is only one sample location for each subspecies so I'll have to drop this one :(
-GMPD_Data[which(GMPD_Data$HostCorrectedName == "Alcelaphus buselaphus"),c("Latitude", "Longitude")]
+
+curr.species <- "Alcelaphus buselaphus"
+GMPD_Data[which(GMPD_Data$HostCorrectedName == curr.species),c("Latitude", "Longitude")]
 
 ## Alces alces ####
 # rationale: There are multiple subspecies, GMPD represents shirasi, gigas, andersoni, and americana in North America
@@ -554,24 +560,24 @@ GMPD_Data[which(GMPD_Data$HostCorrectedName == "Alcelaphus buselaphus"),c("Latit
 # Splitting European polygon around Yenisei should do it. 
 # Yenisei data source: https://doi.org/10.1016/j.dib.2018.09.016
 
-sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == "Alces alces", ]
+curr.species <- "Alces alces"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 
-River_Data50 <- ne_load(scale = 50,
-                             type = "rivers_lake_centerlines",
-                             category = "physical",
-                             destdir = here::here("Data/Extras/ne_rivers"))
-
+# Used combination of Yenisei and Angara because it matched where holes were in polygon, split generously, and crossed the full polygon width
 YeniAnga <- River_Data50[(River_Data50$name == "Yenisey" | River_Data50$name == "Angara"),]
 
 YA_Temp <- disaggregate(YeniAnga)
-YA_Temp$ID <- LETTERS[1:12]
+YA_Temp$ID <- LETTERS[1:nrow(YA_Temp)]
 tm_shape(YA_Temp) + tm_lines("ID", lwd = 2)
-tm_shape(YA_Temp[str_detect(YA_Temp$ID, "A|G|I|K", negate = TRUE),]) + tm_lines("ID", lwd = 2)
-YA_Temp <- YA_Temp[-grep("A|G|I|K", YA_Temp$ID),]
+drop_ID <- "A|G|I|K"
+tm_shape(YA_Temp[str_detect(YA_Temp$ID, drop_ID, negate = TRUE),]) + tm_lines("ID", lwd = 2)
+
+YA_Temp <- YA_Temp[-grep(drop_ID, YA_Temp$ID),] # to avoid self intersections
 YA_coords <- unlist(coordinates(YA_Temp), recursive = FALSE)
-YA_coords[[2]] <- YA_coords[[2]][nrow(YA_coords[[2]]):1,]
-YA_coords[[8]] <- YA_coords[[8]][nrow(YA_coords[[8]]):1,]
-YA_coords <- YA_coords[c(3,1,4,2,5,6,7,8)]
+names(YA_coords) <- YA_Temp$ID
+YA_coords[["C"]] <- YA_coords[["C"]][nrow(YA_coords[["C"]]):1,]
+YA_coords[["L"]] <- YA_coords[["L"]][nrow(YA_coords[["L"]]):1,]
+YA_coords <- YA_coords[c("D","B","E","C","F","H","J","L")]
 YA_coords <- do.call(rbind, YA_coords)
 
 YA_coords <- rbind(YA_coords,
@@ -590,16 +596,199 @@ tm_shape(PolyRm) + tm_polygons()
 sp.range.polygon_try <- sp.range.polygon - PolyRm
 tm_shape(sp.range.polygon_try) + tm_polygons()
 
-## Next species ####
-# Antidorcas marsupilis
+## Antidorcas marsupilis ####
+# rationale: There are three recognised subspecies (wiki) but their individual distributions are not well defined
+# They are also not described by the IUCN
+# I only seem to have A. m. marsupialis in GMPD data whose range lies south of Orange river (wiki) 
+# In the Eastern part of this range it appears to be restricted by the Vaal rather than the Orange as wiki describes it as extending up to Kimberley which is North of Orange
+
+curr.species <- "Antidorcas marsupialis"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+OrangeVaal <- River_Data50[(River_Data50$name == "Orange"| River_Data50$name == "Vaal"),]
+sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, c("Longitude", "Latitude")])
+
+tm_shape(sp.range.polygon) + tm_polygons() + tm_shape(OrangeVaal) + tm_lines() +
+  tm_shape(sp.gmpd.points) + tm_dots()
+
+OV_Temp <- disaggregate(OrangeVaal)
+OV_Temp$ID <- LETTERS[1:nrow(OV_Temp)]
+tm_shape(OV_Temp) + tm_lines("ID", lwd = 2)
+drop_ID <- "G|A|E|B"
+tm_shape(OV_Temp[str_detect(OV_Temp$ID, drop_ID, negate = TRUE),]) + tm_lines("ID", lwd = 2)
+OV_Temp <- OV_Temp[-grep(drop_ID, OV_Temp$ID),] # to avoid self intersections
+
+OV_edit <- coordinates(OV_Temp[OV_Temp$ID == "F",])[[1]][[1]]
+split_point <- nearestPointOnLine(OV_edit, 
+                                  tail(coordinates(OV_Temp[OV_Temp$ID == "H",])[[1]][[1]], 1L))
+
+split_row <- which(apply(OV_edit, 1, function(x) all(x == split_point)))
+OV_edit <- OV_edit[split_row:nrow(OV_edit),]
+tm_shape(OV_Temp) +tm_lines() + 
+  tm_shape(SpatialLines(list(Lines(Line(OV_edit), ID = "6"))))  + tm_lines( col = "red")
+
+OV_coords <- unlist(coordinates(OV_Temp), recursive = FALSE)
+names(OV_coords) <- OV_Temp$ID
+OV_coords[["F"]] <- OV_edit
+
+# Turning them round
+OV_coords <- OV_coords[c("J","D","I","C","H","F")]
+OV_coords <- do.call(rbind, OV_coords)
+
+OV_coords <- rbind(OV_coords,
+                   matrix(c((sp.range.polygon@bbox[1,1] - 1), OV_coords[nrow(OV_coords), 2],
+                            (sp.range.polygon@bbox[1,1] - 1), (sp.range.polygon@bbox[2,2] + 1),
+                            (sp.range.polygon@bbox[1,2] + 1), (sp.range.polygon@bbox[2,2] + 1),
+                            (sp.range.polygon@bbox[1,2] + 1), OV_coords[1,2], 
+                            OV_coords[1,1], OV_coords[1,2]), 
+                          ncol = 2, byrow = TRUE))
+
+PolyRm <- Polygon(OV_coords)
+PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+tm_shape(PolyRm) + tm_polygons()
+
+sp.range.polygon_try <- sp.range.polygon - PolyRm
+tm_shape(sp.range.polygon_try) + tm_polygons()
+
+## Antilocapra americana ####
+# rationale: three subspecies, but not all represented by GMPD
+# "Mitochondrial DNA analyses since the early 1990s support the idea of clines within a wide-ranging species rather than separate subspecies (O’Gara and Yoakum 2004)."
+
+## Axis axis ####
+# rationale: No description of subspecies in either IUCN or main wiki page, 
+# but there's a page for sri lankan subspecies: https://en.wikipedia.org/wiki/Sri_Lankan_axis_deer
+# and it's geographically isolated
+
+curr.species <- "Axis axis"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+tm_shape(sp.range.polygon) + tm_polygons("island")
+
+sp.range.polygon_try <- sp.range.polygon[is.na(sp.range.polygon$island),]
+tm_shape(sp.range.polygon_try) + tm_polygons()
+
+### Bison bison ####
+# rationale: "There are two recognized subspecies in North America: Bison bison bison and B. b. athabascae."
+
+curr.species <- "Bison bison"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, c("Longitude", "Latitude")])
+tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots()
+
+# not sure how to split these for now because of gbif data not have clear delineation
+
+## Bison bonasus ####
+# rationale: "Three subspecies of European bison existed in the recent past, but only one, 
+# the nominate subspecies (B. b. bonasus), survives today" (wiki)
+# two subspecies are widely recognized as the Lowland Bison (Bison bonasus bonasus) and 
+# the Caucasian Bison (Bison bonasus caucasicus) (Kowalczyk and Plumb 2020)" (IUCN)
+
+# "European bison herds, scattered across Central and Eastern Europe, represent two genetic lines"
+# the lowland line (Poland, Belarus, and Lithuania) and the lowland-Caucasian line (southern Poland, Russia, Ukraine and Slovakia).
+# https://animaldiversity.org/accounts/Bison_bonasus/
+
+# animaldiversity doesn't describe them as subspecies, only genetic lines
+# The distribution of the lineages is artificial because it's determined by reintroduction programmes, rather than natural dispersal
+# That means that the different habitat patches they occupy will not relate to their lineage, just to their overall species distribution
+ 
+## Blastocerus dichotomus ####
+# rationale: No taxonomic notes on IUCN, no description of subspecies on wiki or animaldiversity.org
+
+## Canis adustus ####
+# rationale: There are seven recognized subspecies of the side-striped jackal:[2]
+
+# L. a. adusta (West Africa to most of Angola) – Sundevall's side-striped jackal
+## L. a. bweha (East Africa; Kisumu, Kenya) – Elgon side-striped jackal[15]
+# L. a. centralis (Central Africa; Cameroon, near the Uham River)
+# L. a. grayi (North Africa; Morocco and Tunisia)
+# L. a. kaffensis (Kaffa, southwestern Ethiopia) – Kaffa side-striped jackal
+## L. a. lateralis (East Africa; Kenya, Uasin Gishu Plateau, south of Gabon)
+## L. a. notatus (East Africa; Kenya, Loita Plains, Rift Valley Province) – Loita side-striped jackal[15]
+
+# Leaving this one be because I can't accurately split the polygons and I'm not 100% on the subspecies
+# Kenya points could be bweha, lateralis, or notatus
+# unclear what Zimbabwe point is as none are described as being in Southern African
+
+# I think the species where I can't distinguish between subspecies will still be informative for latitudinal gradient,
+# but less informative for within-range analysis.
+# Might be interesting to compare result from uncleaned polygons with cleaned. Split the streams again after adding this step
+
+## Canis aureus ####
+# rationale: wiki s 7 subspecies
+# aureus: Middle East, Iran, Turkmenistan, Afghanistan, Pakistan and Western India
+# cruesemanni: Thailand
+# ecsedensis: Pannonian Basin, Central Europe
+# indicus: India, Nepal, Bangladesh, Bhutan
+# moreoticus: Southeastern Europe, Moldova, Asia Minor and the Caucasus
+# naria: Coastal South West India, Sri Lanka
+# syriacus: Israel, Syria,[38] Lebanon,[62] and Jordan
+
+# Have aureus in Iran and probably moreoticus in Greece
+# Not sure how to subdivide the polygons though.
+
+### Canis latrans ####
+# rationale: although subspecies ranges are well described in wiki, there's overlap between them 
+# and I don't know exactly where to draw lines. 
+# Also range is pretty contiguous (apart from tiburon island). The only subspecies I'm lacking are central american ones
+
+### Canis lupus ####
+# rationale: absolutely loads of subspecies: https://en.wikipedia.org/wiki/Subspecies_of_Canis_lupus
+# based on: https://upload.wikimedia.org/wikipedia/commons/1/16/Present_distribution_of_gray_wolf_%28canis_lupus%29_subspecies.png
+# Not got: baileyi, arctos, albus, arabs, nubilis
+# Got: occidentalis, lycaon, signatus, lupus, italicus, pallipes
+
+# removing arctos
+sp.range.polygon_try <- sp.range.polygon[-grep("Greenland|Ellesmere|Banks|Melville", sp.range.polygon$island),]
+
+## Canis mesomelas ####
+# rationale: two geographically distinct subspecies
+
+curr.species <- "Canis mesomelas"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd <- GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, ]
+sp.gmpd.points <- SpatialPoints(sp.gmpd[,c("Longitude", "Latitude")],
+                                proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots()
+
+sp.over <- over(sp.gmpd.points, gBuffer(sp.range.polygon, byid = TRUE))
+sp.gmpd$HostCorrectedName <- paste(sp.gmpd$HostCorrectedName, sp.over$subspecies, sep = " ")
 
 
+## Canis simensis ####
+# rationale: Teo geographically distinct subspecies and I only seem to have citernii
+# https://en.wikipedia.org/wiki/Ethiopian_wolf#/media/File:Canis_simensis_subspecies_range.png
 
+curr.species <- "Canis simensis"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 
+coords = matrix(c(37, 9,
+                  40, 9,
+                  40, 14,
+                  37, 14,
+                  37, 9), 
+                ncol = 2, byrow = TRUE)
 
+PolyRm <- Polygon(coords)
+PolyRm <- SpatialPolygons(list(Polygons(list(PolyRm), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sp.range.polygon_try <- sp.range.polygon - PolyRm
+tm_shape(PolyRm) + tm_polygons() + tm_shape(sp.range.polygon_try) + tm_polygons()
+
+## Capra ibex ####
+# rationale: no reported subspecies
+
+### Capra pyrenaica ####
+# rationale: four subspecies, two extinct. I probably only have hispanica
+
+## Capreolus capreolus ####
 
 
 ## discard pile ####
+curr.species <- "Capreolus capreolus"
+sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, c("Longitude", "Latitude")])
+tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots()
+
+
 
 sp.bbox <- sp.range.polygon@bbox
 sp.range.polygon$id <- rownames(sp.range.polygon@data)
