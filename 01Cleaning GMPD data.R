@@ -48,7 +48,8 @@ tmap_mode("view")
 ## Removing/adjusting unuseable data ##########################################################################
 
 # removing: 
-## domestic species - may skew results
+## domestic species - may skew parasite measurements
+## species with obfuscated location data (protected species) - inaccurate range position
 ## marine species - no associated abiotic data or likely poor relationship with abiotic data
 ## data that is unuseable in future analyses (missing variables)
 ## unique host-parasite pairs - uninformative in models
@@ -60,6 +61,7 @@ GMPD_Data <- GMPD_Raw_Data %>%
            HostCorrectedName != "Dama dama" &
            HostCorrectedName != "Diceros bicornis" &
            HostCorrectedName != "Ceratotherium simum") %>%
+  filter(!str_detect(HostReportedName, " and ")) %>%
   filter(!is.na(Prevalence)) %>%
   filter(HostEnvironment != "marine") %>%
   filter(NativeRange != "No" &
@@ -69,13 +71,38 @@ GMPD_Data <- GMPD_Raw_Data %>%
 nrow(GMPD_Data) #12063 rows
 
 GMPD_Data <- GMPD_Data %>%
+  separate(HostReportedName, c("HostReportedGenus", "HostReportedSpecies", "HostReportedSubspecies"), remove = FALSE) 
+
+View(unique(GMPD_Data[which(GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName), c("HostReportedName", 
+                                                                                          "HostReportedGenus", 
+                                                                                          "HostReportedSpecies",
+                                                                                          "HostReportedSubspecies",
+                                                                                          "HostCorrectedName")]))
+
+#come back to felis silvestris
+GMPS_Data <- GMPD_Data %>%
+  mutate(HostReportedSubspecies = case_when(HostReportedName == "Alcelaphus cokii"           ~ "cokii",
+                                            HostCorrectedName == "Alcelaphus lichtensteinii" ~ "lichtensteinii",
+                                            HostReportedName == "Canis rufus"                ~ "rufus",
+                                            HostReportedName == "Damaliscus korrigum"        ~ "korrigum",
+                                            HostReportedName == "Damaliscus dorcas dorcas"   ~ "pygargus",
+                                            HostReportedName == "Damaliscus pygargus dorcas" ~ "pygargus",
+                                            HostCorrectedName == "Equus burchellii"          ~ "burchellii",
+                                            TRUE ~ HostReportedSubspecies)) %>%
+  mutate(HostCorrectedName = case_when(HostCorrectedName == "Alcelaphus lichtensteinii" ~ "Alcelaphus buselaphus",
+                                       HostCorrectedName == "Equus burchellii"          ~ "Equus quagga",
+                                       TRUE ~ HostCorrectedName))
+
+View(GMPD_Data[which(GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName),])
+
+GMPD_Data <- GMPD_Data %>%
   mutate(HostCorrectedName = case_when(HostCorrectedName == "Alces americanus" ~ "Alces alces",                         # same IUCN polygon
                                        HostCorrectedName == "Felis manul"      ~ "Otocolobus manul",                    # IUCN name differs
                                        HostCorrectedName == "Equus burchellii" ~ "Equus quagga",                        # IUCN name differs
                                        HostCorrectedName == "Taurotragus oryx" ~ "Tragelaphus oryx",                    # IUCN name differs
                                        HostCorrectedName == "Neotragus moschatus" ~ "Nesotragus moschatus",             # IUCN name differs
                                        TRUE                                    ~ HostCorrectedName)) %>%
-  dplyr::select(-ParasiteReportedName, -HostReportedName, -HasBinomialName, -NativeRange, -Intensity, -IntensityMeasure, -SampleNotes) %>%   #not used
+  dplyr::select(-ParasiteReportedName, -HasBinomialName, -NativeRange, -Intensity, -IntensityMeasure, -SampleNotes) %>%   #not used
   distinct()                                                                                                            #remove duplicated rows
 nrow(GMPD_Data) #12005
 
@@ -750,8 +777,8 @@ sp.gmpd.points <- SpatialPoints(sp.gmpd[,c("Longitude", "Latitude")],
 tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots()
 
 sp.over <- over(sp.gmpd.points, gBuffer(sp.range.polygon, byid = TRUE))
+sp.gmpd$subspecies <- sp.over$subspecies
 sp.gmpd$HostCorrectedName <- paste(sp.gmpd$HostCorrectedName, sp.over$subspecies, sep = " ")
-
 
 ## Canis simensis ####
 # rationale: Teo geographically distinct subspecies and I only seem to have citernii
