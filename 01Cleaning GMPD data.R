@@ -73,35 +73,78 @@ nrow(GMPD_Data) #12063 rows
 GMPD_Data <- GMPD_Data %>%
   separate(HostReportedName, c("HostReportedGenus", "HostReportedSpecies", "HostReportedSubspecies"), remove = FALSE) 
 
-View(unique(GMPD_Data[which(GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName), c("HostReportedName", 
+subsp_info <- unique(GMPD_Data[which(GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName), c("HostReportedName", 
                                                                                           "HostReportedGenus", 
                                                                                           "HostReportedSpecies",
                                                                                           "HostReportedSubspecies",
-                                                                                          "HostCorrectedName")]))
+                                                                                          "HostCorrectedName")])
 
-#come back to felis silvestris
+# Adding subspecies info and correcting HostCorrectedName according to IUCN
+# Taxonomic justifications in Subspecies Info excel
 GMPS_Data <- GMPD_Data %>%
-  mutate(HostReportedSubspecies = case_when(HostReportedName == "Alcelaphus cokii"           ~ "cokii",
-                                            HostCorrectedName == "Alcelaphus lichtensteinii" ~ "lichtensteinii",
-                                            HostReportedName == "Canis rufus"                ~ "rufus",
-                                            HostReportedName == "Damaliscus korrigum"        ~ "korrigum",
-                                            HostReportedName == "Damaliscus dorcas dorcas"   ~ "pygargus",
-                                            HostReportedName == "Damaliscus pygargus dorcas" ~ "pygargus",
-                                            HostCorrectedName == "Equus burchellii"          ~ "burchellii",
+  mutate(HostReportedSubspecies = case_when(HostReportedName == "Alcelaphus cokii"           ~ "cokii", 
+                                            HostCorrectedName == "Alcelaphus lichtensteinii" ~ "lichtensteinii", 
+                                            HostReportedName == "Canis latrans Say"          ~ NA_character_, 
+                                            HostReportedName == "Black-back Jackal"          ~ NA_character_, 
+                                            HostReportedName == "Capra ibex ibex"            ~ NA_character_, 
+                                            HostReportedName == "Capra i. ibex"              ~ NA_character_, 
+                                            HostReportedName == "Cervus elaphus nelsoni"     ~ "canadensis", 
+                                            HostReportedName == "Cervus nippon centralis"    ~ "nippon", 
+                                            HostReportedName == "Damaliscus korrigum"        ~ "korrigum", 
+                                            HostReportedName == "Damaliscus dorcas dorcas"   ~ NA_character_, 
+                                            HostReportedName == "Damaliscus pygargus dorcas" ~ NA_character_, 
+                                            HostCorrectedName == "Equus burchellii"          ~ "burchellii", 
+                                            str_detect(HostReportedName, "Felis libyca")     ~ "libyca", 
+                                            HostReportedName == "Felis silvestris gordoni"   ~ "libyca", 
+                                            HostReportedName == "Giraffa reticulata"         ~ "reticulata", 
+                                            HostReportedName == "Hyaena hyaena dubbah"       ~ NA_character_, 
+                                            HostReportedName == "Kobus defassa"              ~ "defassa", 
+                                            HostReportedName == "Lynx rufus floridanus"      ~ "rufus", 
+                                            HostReportedName == "Martes caurina"             ~ "caurina", 
+                                            HostReportedName == "Meles meles anakuma"        ~ NA_character_, 
+                                            HostReportedName == "Melogale moschata subauantiaca" ~ "subaurantiaca", 
+                                            HostReportedName == "Mustela itatsi sho"         ~ NA_character_, 
+                                            HostReportedName == "Neovison vison mink"        ~ NA_character_, 
+                                            HostReportedName == "Oryx gazella gazella"       ~ NA_character_, 
+                                            HostReportedName == "Ourebia ourebi cottoni"     ~ NA_character_, 
+                                            HostReportedName == "Ovis canadensis cremnobates" ~ "nelsoni", 
+                                            HostReportedName == "Ovis canadensis mexicana"   ~ "nelsoni", 
+                                            HostReportedName == "Felis leo senegalensis"     ~ "leo", 
+                                            HostReportedName == "Panthera pardus saxicolor"  ~ "tulliana", 
+                                            HostReportedName == "Puma concolor coryi"        ~ "couguar", 
+                                            HostReportedName == "Puma concolor stanleyana"   ~ "couguar", 
+                                            HostReportedName == "Felis concolor coryi"       ~ "couguar", 
+                                            HostReportedName == "Felis concolor vancouverensis" ~ "couguar", 
+                                            HostReportedName == "Spilogale gracilis amphiala" ~ "amphialus", 
+                                            HostReportedName == "Urocyon cinereoargenteus texensis" ~ "scottii", 
+                                            HostReportedName == "Ursus americanus pallas"    ~ NA_character_, 
+                                            HostReportedName == "Ursus arctos marsicanus"    ~ "arctos", 
+                                            HostReportedName == "Viverra civetta schwartzi"  ~ "schwarzi", 
+                                            HostReportedName == "Vulpes vulpes schrencki"    ~ "schrenckii",
                                             TRUE ~ HostReportedSubspecies)) %>%
-  mutate(HostCorrectedName = case_when(HostCorrectedName == "Alcelaphus lichtensteinii" ~ "Alcelaphus buselaphus",
-                                       HostCorrectedName == "Equus burchellii"          ~ "Equus quagga",
-                                       TRUE ~ HostCorrectedName))
+  mutate(HostCorrectedName = case_when(HostCorrectedName == "Alcelaphus lichtensteinii" ~ "Alcelaphus buselaphus", 
+                                       HostCorrectedName == "Alces americanus"          ~ "Alces alces", 
+                                       HostReportedName == "Canis rufus"                ~ "Canis rufus", 
+                                       HostReportedName == "Cervus elaphus nannodes"    ~ "Cervus canadensis", 
+                                       HostReportedName == "Cervus elaphus nelsoni"     ~ "Cervus canadensis", 
+                                       HostReportedName == "Cervus elaphus roosevelti"  ~ "Cervus canadensis", 
+                                       HostReportedName == "Cervus elaphus canadensis"  ~ "Cervus canadensis", 
+                                       HostCorrectedName == "Equus burchellii"          ~ "Equus quagga", 
+                                       HostCorrectedName == "Felis manul"               ~ HostReportedName, 
+                                       HostCorrectedName == "Lama glama"                ~ HostReportedName, 
+                                       HostCorrectedName == "Leopardus pajeros"         ~ "Leopardus colocolo", 
+                                       HostReportedName == "Meles meles anakuma"        ~ "Meles anakuma", 
+                                       HostCorrectedName == "Neotragus moschatus"       ~ "Nesotragus moschatus",     # IUCN name differs
+                                       HostReportedName == "Putorius eversmanni"        ~ "Mustela eversmanni", 
+                                       HostCorrectedName == "Puma yagouaroundi"         ~ "Herpailurus yagouaroundi", 
+                                       HostCorrectedName == "Taurotragus oryx"          ~ "Tragelaphus oryx",         # IUCN name differs
+                                       str_detect(HostReportedName, "Viverra civetta")  ~ "Civettictis civetta", 
+                                       TRUE ~ HostCorrectedName)) %>%
+  filter(HostReportedName != "Ovis ammon musimon")
 
 View(GMPD_Data[which(GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName),])
 
 GMPD_Data <- GMPD_Data %>%
-  mutate(HostCorrectedName = case_when(HostCorrectedName == "Alces americanus" ~ "Alces alces",                         # same IUCN polygon
-                                       HostCorrectedName == "Felis manul"      ~ "Otocolobus manul",                    # IUCN name differs
-                                       HostCorrectedName == "Equus burchellii" ~ "Equus quagga",                        # IUCN name differs
-                                       HostCorrectedName == "Taurotragus oryx" ~ "Tragelaphus oryx",                    # IUCN name differs
-                                       HostCorrectedName == "Neotragus moschatus" ~ "Nesotragus moschatus",             # IUCN name differs
-                                       TRUE                                    ~ HostCorrectedName)) %>%
   dplyr::select(-ParasiteReportedName, -HasBinomialName, -NativeRange, -Intensity, -IntensityMeasure, -SampleNotes) %>%   #not used
   distinct()                                                                                                            #remove duplicated rows
 nrow(GMPD_Data) #12005
@@ -571,7 +614,7 @@ tm_shape(sp.range.polygon_try) + tm_polygons("legend")
 curr.species <- "Aepyceros melampus"
 sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.range.polygon_try <- sp.range.polygon[sp.range.polygon$subspecies == "melampus",]
-tm_shape(sp.range.polygon_try) + tm_polygons("subspecies")  
+tm_shape(sp.range.polygon) + tm_polygons("subspecies")  
 
 ## Alcelaphus buselaphus ####
 # rationale: 8 subspecies, GMPD data appears to represent major and cokii, and they are geographically distinct
@@ -740,6 +783,11 @@ tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points
 # Might be interesting to compare result from uncleaned polygons with cleaned. Split the streams again after adding this step
 
 ## Canis aureus ####
+"Recent studies based on mtDNA and morphology have shown that 'Golden Jackals' in Africa are larger in size than those from 
+Eurasia and are actually more closely related to the Grey Wolf Canis lupus. African animals hence represent a previously 
+overlooked distinct species, the African Wolf, Canis lupaster (see Rueness et al. 2011, Gaubert et al. 2012, Koepfli et al. 
+2015, Viranta et al. 2017). However, the putative presence of Golden Jackal in the Sinai Peninsula of Egypt remains unclear 
+(see Gaubert et al. 2012, Viranta et al. 2017)."
 # rationale: wiki s 7 subspecies
 # aureus: Middle East, Iran, Turkmenistan, Afghanistan, Pakistan and Western India
 # cruesemanni: Thailand
@@ -758,10 +806,16 @@ tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points
 # Also range is pretty contiguous (apart from tiburon island). The only subspecies I'm lacking are central american ones
 
 ### Canis lupus ####
+# for Canis lupus rufus / Canis rufus:
+"See Chambers et al. (2012) for a brief review of recent literature concerning the status of this species, 
+which they considered a full species, as does this assessment."
 # rationale: absolutely loads of subspecies: https://en.wikipedia.org/wiki/Subspecies_of_Canis_lupus
 # based on: https://upload.wikimedia.org/wikipedia/commons/1/16/Present_distribution_of_gray_wolf_%28canis_lupus%29_subspecies.png
 # Not got: baileyi, arctos, albus, arabs, nubilis
 # Got: occidentalis, lycaon, signatus, lupus, italicus, pallipes
+
+# use IUCN taxonomic notes
+
 
 # removing arctos
 sp.range.polygon_try <- sp.range.polygon[-grep("Greenland|Ellesmere|Banks|Melville", sp.range.polygon$island),]
@@ -810,9 +864,13 @@ tm_shape(PolyRm) + tm_polygons() + tm_shape(sp.range.polygon_try) + tm_polygons(
 
 
 ## discard pile ####
-curr.species <- "Capreolus capreolus"
+curr.species <- "Civettictis civetta"
 sp.range.polygon <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.range.polygon <- IUCN_Mammals[IUCN_Mammals$binomial == curr.species, ]
+
 sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, c("Longitude", "Latitude")])
+sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostReportedName == "Viverra civetta", c("Longitude", "Latitude")])
+
 tm_shape(sp.range.polygon) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots()
 
 
