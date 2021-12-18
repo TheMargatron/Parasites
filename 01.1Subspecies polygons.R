@@ -951,7 +951,7 @@ sprp_caucasica <- raster::intersect(sprp, clip_poly)
 sprp_caucasica@data$subgroup <- "caucasica"
 
 sprp_try <- raster::bind(sprp_grampia, sprp_silvestris, sprp_caucasica)
-tm_shape(sprp_try) + tm_polygons("subgroup")
+tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("Prevalence")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1012,7 +1012,7 @@ sprp_lybica <- sprp - sprp_ornata - sprp_cafra
 sprp_lybica@data$subgroup <- "lybica"
 
 sprp_try <- raster::bind(sprp_ornata, sprp_cafra, sprp_lybica)
-tm_shape(sprp_try) + tm_polygons("subgroup")
+tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("Prevalence")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data, sprp_try)
 
@@ -1652,8 +1652,8 @@ IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != c
                                  sprp_try)
 GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, "subgroup"] <- "western"
 
-### Martes martes #####
-# has eight subspecies listed by msotw, but no sign of range descriptions anywhere
+## Martes martes #####
+# has eight subspecies listed by msotw, but no range descriptions available anywhere
 curr.species <- "Martes martes"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
@@ -1751,12 +1751,94 @@ unique(GMPD_Data[which(GMPD_Data$HostCorrectedName == curr.species),c("Latitude"
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Data <- GMPD_Data[GMPD_Data$HostCorrectedName != curr.species,]
 
-### Mustela erminea ####
-# horrendous
+## Mustela erminea ####
+# Following wiki description of 21 subspecies ranges, where available
+# North America: kadiacensis, arctica, polaris
+# range description of arctica does not include US or Eastern Canada, 
+# but no subspecies attributable to this area and range is contiguous with arctica anyway
+
+# Europe: hibernica, ricinae, stabilis, minima, erminea, aestiva
+# IUCN polygon does not include Caucasus where teberdina is described
+# same goes for ricina in Hebrides
+# treating minima and erminea as part of aestiva as not sure where to split
+# splitting at the Urals
+
+# Asia: tobolica, ferghanae, mongolica, lymani, nippon, karaginensis, kaneii
+# Uncertain how to split south of the Yenisei, but none of these are represented anyway
 curr.species <- "Mustela erminea"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# North America
+# kadaiacensis
+sprp_kadiacensis <- sprp[sprp$island == "Kodiak" & !is.na(sprp$island),]
+sprp_kadiacensis@data$subgroup <- "kadiacensis"
+
+# polaris
+sprp_polaris <- sprp[sprp$island == "Greenland" & !is.na(sprp$island),]
+sprp_polaris@data$subgroup <- "polaris"
+
+# arctica
+clip_poly <- countries50[countries50$name %in% c("Canada", "United States"),]
+clip_poly <- terra::buffer(clip_poly, 0.3)
+sprp_arctica <- raster::intersect(sprp, clip_poly)
+sprp_arctica <- sprp_arctica[!sprp_arctica$island %in% c("Kodiak", "Greenland"),]
+sprp_arctica@data$subgroup <- "arctica"
+
+# Europe
+# hibernica
+poly_temp <- countries50[countries50$name == "United Kingdom",]
+poly_temp <- raster::disaggregate(poly_temp)
+clip_poly <- countries50[countries50$name %in% c("Ireland", "Isle of Man"),]
+clip_poly <- raster::bind(clip_poly, poly_temp[3,])
+clip_poly <- terra::buffer(clip_poly, 0.15)
+
+sprp_hibernica <- raster::intersect(sprp, clip_poly)
+sprp_hibernica@data$subgroup <- "hibernica"
+
+# stabilis
+clip_poly <- poly_temp - clip_poly
+sprp_stabilis <- raster::intersect(sprp, clip_poly)
+sprp_stabilis@data$subgroup <- "stabilis"
+
+# aestiva
+clip_poly <- matrix(c(67.4, 68.8,
+                      66.1, 68,
+                      65.7, 67.2,
+                      63.5, 66.5,
+                      62.8, 65.8, 
+                      61.1, 65,
+                      59.9, 65.1,
+                      58.9, 59.4,
+                      59.7, 55.3, 
+                      57.8, 54.5, 
+                      57.1, 52.5,
+                      57.2, 50.6,
+                      51.3, 45.8,
+                      -13.5, 39,
+                      -13.5, 71.3, 
+                      64.1, 71.3,
+                      67.4, 68.8),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - terra::buffer(countries50[countries50$name %in% c("Kazakhstan", "United Kingdom", "Ireland"),], 0.15)
+
+sprp_aestiva <- raster::intersect(sprp, clip_poly)
+sprp_aestiva@data$subgroup <- "aestiva"
+
+# remaining subspecies
+sprp_try <- raster::bind(sprp_kadiacensis, sprp_polaris, sprp_arctica, sprp_stabilis, sprp_hibernica, sprp_aestiva)
+sprp_otherssp <- sprp - sprp_try
+sprp_otherssp@data$subgroup <- "tobolica x kaneii"
+sprp_try <- raster::bind(sprp_try, sprp_otherssp)
+
+tm_shape(sprp_try) +tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("Prevalence")
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
 
 ## Mustela lutreola ####
 # seven subspecies, I only seem to have the french mink (biedermanni)
@@ -1985,8 +2067,8 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 # IUCN states there are two subspecies, but they are known to admix
 # see Fannin sheep (O. d. fannini)
 
-### Ozotoceros bezoarticus ####
-# 
+## Ozotoceros bezoarticus ####
+# Not entirely sure which subspecies I have (only leucogaster, or bezoarticus as well) but can
 "O. b. bezoarticus (Linnaeus, 1758), in the Cerrado ranging from eastern and central Brazil, south of the Amazon river 
 between the plateau of Mato Grosso and the upper San Francisco river. While there is a population further north on the 
 island of Marajo, at the mouth of the Amazon River (Rossetti and de Toledo 2006).
@@ -2008,6 +2090,67 @@ curr.species <- "Ozotoceros bezoarticus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# celer
+clip_points <- matrix(c(-62.8, -38.8,
+                        -66.3, -34.8,
+                        -57.2, -36.7),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_try <- raster::disaggregate(sprp)
+sprp_celer <- sprp_try[clip_points,]
+sprp_celer@data$subgroup <- "celer"
+
+# uruguayensis
+clip_points <- matrix(c(-54, -33.5),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_uruguayensis <- sprp_try[clip_points,]
+sprp_uruguayensis@data$subgroup <- "uruguayensis"
+
+# arerunguaensis
+clip_points <- matrix(c(-56.7, -31.3),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_arerunguaensis <- sprp_try[clip_points,]
+sprp_arerunguaensis@data$subgroup <- "arerunguaensis"
+
+# leucogaster
+clip_points <- matrix(c(-60.8, -28.2,
+                        -56.2, -28,
+                        -51, -27.8,
+                        -57.4, -22.2,
+                        -58.5, -13.4,
+                        -62, -16.1,
+                        -60.9, -14.5,
+                        -63.2, -13,
+                        -68.3, -12.6,
+                        -58.5, -17),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_leucogaster <- sprp_try[clip_points,]
+sprp_leucogaster@data$subgroup <- "leucogaster"
+
+# bezoarticus
+clip_points <- matrix(c(-51.8, -22.3,
+                        -45.9, -21,
+                        -52.2, -16.4,
+                        -45.5, -12.9,
+                        -52, -12.1, 
+                        -49.6, -9.5,
+                        -50.8, -6.5),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_bezoarticus <- sprp_try[clip_points,]
+sprp_bezoarticus@data$subgroup <- "bezoarticus"
+
+sprp_try <- raster::bind(sprp_celer, sprp_uruguayensis, sprp_arerunguaensis, sprp_leucogaster, sprp_bezoarticus)
+tm_shape(sprp_try) + tm_polygons("subgroup")
 
 ## Paguma larvata ####
 # I only have samples in their introduced range
@@ -2487,11 +2630,108 @@ unique(GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, c("Longitude", "La
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Data <- GMPD_Data[GMPD_Data$HostCorrectedName != curr.species,]
 
-### Sus scrofa ####
+## Sus scrofa ####
+# 16 subspecies, with four regional groupings:
+# Indonesian: vittatus (not represented)
+# Eastern: sibiricus, ussuricus, leucomystax, riukiuanus, taivanus, moupinensis (none represented)
+# Indian: davidi, cristatus (none represented)
+# Western: scrofa, meridionalis, algira, attila, lybicus, nigripes
+# only scrofa represented, but not possible to distinguish range boundaries in Iran and Iraq
+# also lots of overlap in range descriptions of attila and lybicus
+# can at least split into regional, algira, meridionalis, and majori
 curr.species <- "Sus scrofa"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# Indonesian
+clip_poly <- countries50[countries50$name %in% c("Malaysia", "Indonesia"),]
+clip_poly <- terra::buffer(clip_poly, 0.1)
+sprp_vittatus <- raster::intersect(sprp, clip_poly)
+sprp_vittatus@data$subgroup <- "vittatus"
+
+# Eastern
+clip_poly <- matrix(c(95.3, 48.6,
+                      95.3, 55.3,
+                      147, 55.3,
+                      147, 7.1,
+                      105.1, 7.1,
+                      100.4, 13.3,
+                      99.9, 20.9,
+                      96.4, 24.3,
+                      97.6, 28.5,
+                      97.2, 30.1,
+                      95.3, 48.6),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - countries50[countries50$name == "Myanmar",]
+
+sprp_eastern <- raster::intersect(sprp, clip_poly)
+sprp_eastern@data$subgroup <- "eastern"
+
+# Indian
+clip_poly <- matrix(c(64.6, 25.1,
+                      69.8, 31.9,
+                      73.9, 35.2,
+                      98.3, 30.9,
+                      104.9, 4.6,
+                      64.6, 4.6,
+                      64.6, 25.1),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - sprp_eastern - sprp_vittatus
+
+sprp_indian <- raster::intersect(sprp, clip_poly)
+sprp_indian@data$subgroup <- "indian"
+
+# algira
+clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia"),]
+clip_poly <- terra::buffer(clip_poly, 0.1)
+sprp_algira <- raster::intersect(sprp, clip_poly)
+sprp_algira@data$subgroup <- "algira"
+
+# meridionalis
+clip_poly <- matrix(c(-8.9, 36,
+                      -1.5, 38.8,
+                      0.5, 36.4,
+                      -8.9, 36),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_meridionalis <- raster::intersect(sprp, clip_poly)
+sprp_meridionalis <- raster::bind(sprp_meridionalis, sprp[sprp$island %in% c("Sardinia", "Corsica"),])
+sprp_meridionalis@data$subgroup <- "meridionalis"
+
+# majori
+clip_poly <- matrix(c(8.51, 44.3,
+                      8.52, 44.9,
+                      13.2, 44.9,
+                      19.6, 39,
+                      16.4, 37.1,
+                      8.51, 44.3),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_majori <- raster::intersect(sprp, clip_poly)
+sprp_majori@data$subgroup <- "majori"
+
+# Western
+sprp_try <- raster::bind(sprp_vittatus, sprp_eastern, sprp_indian, sprp_algira, sprp_majori, sprp_meridionalis)
+sprp_western <- sprp - sprp_try
+sprp_western@data$subgroup <- "western"
+
+# finishing off
+sprp_try <- raster::bind(sprp_try, sprp_western)
+tm_shape(sprp_try) + tm_polygons("subgroup")
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
+
+GMPD_Data[GMPD_Data$HostCorrectedName ==curr.species, "subgroup"] <- "western"
 
 ## Sylvicapra grimmia ####
 # can't really do much with the available information, and range is continuously connected
@@ -2557,26 +2797,18 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
-### Tragelaphus spekii ####
-# splitting because subspecies are based on geographic features. (wiki)
+## Tragelaphus spekii ####
+# unable to split based on basins because of lack of specificity in descriptions
 "The species might even be monotypic,[6] however, based on different drainage systems, three distinct subspecies are currently recognised:[14][15]
 
 T. s. spekii (Speke, 1863): Nile sitatunga or East African sitatunga. Found in the Nile watershed.
 T. s. gratus (Sclater, 1880): Congo sitatunga or forest sitatunga. Found in western and central Africa.
 T. s. selousi (W. Rothschild, 1898): Southern sitatunga or Zambezi sitatunga. Found in southern Africa."
-# downloading basins from here: https://www.hydrosheds.org/page/hydrobasins
-
-# hydro_africa15 <- readOGR(here::here("Data/Extras/hydrosheds/af_bas_15s_beta"), "af_bas_15s_beta")
-# hydro_africa30 <- readOGR(here::here("Data/Extras/hydrosheds/af_bas_30s_beta"), "af_bas_30s_beta")
-
-# tm_shape(hydro_africa15) + tm_polygons()
-# tm_shape(hydro_africa30) + tm_polygons()
 
 curr.species <- "Tragelaphus spekii"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
-
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
 
 ## Tragelaphus strepsiceros ####
 # seems as though I have strepsiceros, which is connected to chora by rift valley
@@ -2645,10 +2877,8 @@ tm_shape(sprp_try) + tm_polygons("subgroup")
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
-### Urocyon littoralis ####
-# Talk to Regan about this one.
+## Urocyon littoralis ####
 # Only have one sample location for each island so it's impossible to find any useful info
-# However, would there be any useful info for such restricted ranges?
 "Six distinct subspecies are recognized, one on each of the islands where they occur:
 
 San Miguel Island Fox (Urocyon littoralis littoralis (Baird, 1858)), San Miguel Island,
@@ -2663,6 +2893,9 @@ curr.species <- "Urocyon littoralis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+
+IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
+GMPD_Data <- GMPD_Data[GMPD_Data$HostCorrectedName != curr.species,]
 
 ## Ursus americanus ####
 # subspecific taxonomy is too complex and mainland populations are too admixed to separate reasonably
@@ -2928,11 +3161,28 @@ sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 ### Vulpes vulpes ####
+# 45 subspecies with patchy range descriptions which do not cover full extent of iucn range polygon
+# In Europe I have: crucifera, silacea, vulpes
+# In Africa: barbara
+# In Eurasia, moving West to East: 
+# palaestina/arabica, kurdistanica, flavescens, unknown, japonica, schrencki
+
 curr.species <- "Vulpes vulpes"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
 
+# barbarica x atlantica
+# silacea
+# ichnusae
+# indutus
+# niloticus
+# crucifera
+# arabica?
+# vulpes?
+# japonica
+# schrencki
+# splendidissima
 
 
 
