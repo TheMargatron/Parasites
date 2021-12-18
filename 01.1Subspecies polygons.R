@@ -358,13 +358,12 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
-### Canis lupus ####
+## Canis lupus ####
 # for Canis lupus rufus / Canis rufus:
 "See Chambers et al. (2012) for a brief review of recent literature concerning the status of this species, 
 which they considered a full species, as does this assessment."
 
 # Researching individual subspecies from IUCN taxonomic notes 
-# Additionaly subspecies are those recognised by msotw
 ## other general sources: 
 # https://en.wikipedia.org/wiki/Subspecies_of_Canis_lupus and 
 # https://en.wikipedia.org/wiki/List_of_gray_wolf_populations_by_country
@@ -374,38 +373,14 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
 
-# Europe:
-# signatus is isolated (https://doi.org/10.1111/mec.14824) (Iberian population)
-# italicus is isolated (https://doi.org/10.1016/j.mambio.2017.01.005) and does not hybridise much with domestic dogs (https://doi.org/10.1007/BF03194151)
-# small isolated population of lupus in Sweden, will refer to as "lupus sweden"
-# Balkan/Dinaric Alps population of lupus, will refer to as "lupus balkan"
-# Carpathian Mountains populations, will refer to as lupus carpi
-
-
-# Asia:
-## very few asian subspecies represented within gmpd, and those that are do not appear to be isolated
-## Subpopulations are also less well documented generally 
-# isolated arabs population in Arabian peninsula (Yemen, Oman, Southern Saudi Arabia)
-# isolated arabs and pallipes population in Sinai peninsula, Israel, Jordan, Lebanon, Southern Syria
-# isolated pallipes population in Northwest India
-# hodophilax in Japan is isolated
-## I have no samples within geographically distinct subpopulations
-buffer_temp <- countries50[countries50$continent == "North America",]
-buffer_temp <- terra::buffer(buffer_temp, 0.3) # smallest buffer I could get away with
-
-sprp_eurasian <- sprp - buffer_temp
-sprp_eurasian <- raster::disaggregate(sprp_eurasian)
-
-
 # North America
 # mainland population is generally continuous apart from baileyi in Arizona/New Mexico
 # arctos is geographically isolated and not represented
-# manningi on Baffin Island is geographically isolated and not represented
-# crassodon on Vancouver Island is geographically isolated and not represented
 ## remaining subspecies are lycaon, occidentalis, and nubilis
+clip_poly <- countries50[countries50$continent == "North America",]
+clip_poly <- terra::buffer(clip_poly, 0.3) 
 
-
-sprp_america <- raster::intersect(sprp, buffer_temp)
+sprp_america <- raster::intersect(sprp, clip_poly)
 sprp_america@data$subgroup <- "lycaon x occidentalis x nubilis"
 
 sprp_america@data <- sprp_america@data %>%
@@ -414,12 +389,65 @@ sprp_america@data <- sprp_america@data %>%
                               island == "Vancouver" ~ "crassodon",
                               TRUE ~ subgroup))
 
+# baileyi
 sprp_baileyi <- sprp_america[states50[states50$name %in% c("Arizona", "New Mexico"),],]
 sprp_baileyi@data$subgroup <- "baileyi"  
+
+# adding america together
 sprp_america <- sprp_america - states50[states50$name %in% c("Arizona", "New Mexico"),]
 sprp_america <- raster::bind(sprp_america, sprp_baileyi)
 
 tm_shape(sprp_america) + tm_polygons("subgroup")
+
+# Europe:
+# signatus is isolated (https://doi.org/10.1111/mec.14824) (Iberian population)
+# italicus is isolated (https://doi.org/10.1016/j.mambio.2017.01.005) and does not hybridise much with domestic dogs (https://doi.org/10.1007/BF03194151)
+
+sprp_eurasian <- sprp - clip_poly
+sprp_eurasian@data$subgroup <- "lupus x pallipes x chanco"
+
+# signatus
+clip_poly <- countries50[countries50$name %in% c("Spain", "Portugal"),]
+clip_poly <- terra::buffer(clip_poly, 0.2)
+sprp_signatus <- raster::intersect(sprp_eurasian, clip_poly)
+
+clip_poly <- countries50[countries50$name == "Andorra",]
+clip_poly <- terra::buffer(clip_poly, 1)
+sprp_signatus <- sprp_signatus - clip_poly
+sprp_signatus@data$subgroup <- "signatus"
+
+# italicus
+clip_poly <- countries50[countries50$name %in% c("France", "Italy", "Andorra"),]
+clip_poly <- terra::buffer(clip_poly, 0.5)
+clip_poly <- clip_poly - countries50[countries50$name %in% c("Switzerland", "Belgium", "Luxembourg", "Germany", "Liechtenstein", "Austria"),]
+sprp_italicus <- raster::intersect(sprp_eurasian, clip_poly)
+sprp_italicus <- raster::disaggregate(sprp_italicus)[1,]
+sprp_italicus <- raster::bind(sprp_italicus, countries50[countries50$name == "Switzerland",])
+sprp_italicus@data$subgroup <- "italicus"
+sprp_italicus@data <- sprp_italicus@data[, 1:29]
+
+# Asia:
+## very few asian subspecies represented within gmpd, and those that are do not appear to be isolated
+## Subpopulations are also less well documented generally 
+# isolated arabs population in Arabian peninsula (Yemen, Oman, Southern Saudi Arabia)
+# isolated arabs and pallipes population in Sinai peninsula, Israel, Jordan, Lebanon, Southern Syria
+# isolated pallipes population in Northwest India
+
+# arabs
+clip_poly <- countries50[countries50$name %in% c("Saudi Arabia", "Bahrain", "Qatar", "United Arab Emirates", "Oman", "Yemen"),]
+clip_poly <- terra::buffer(clip_poly, 0.5)
+clip_poly <- clip_poly - countries50[countries50$name %in% c("Egypt", "Israel", "Jordan", "Iraq"),]
+clip_poly <- clip_poly - terra::buffer(countries50[countries50$name == "Kuwait",], 0.05)
+sprp_arabs <- raster::intersect(sprp_eurasian, clip_poly)
+sprp_arabs@data$subgroup <- "arabs"
+
+# adding all up 
+sprp_eurasian <- sprp_eurasian - sprp_signatus - sprp_italicus - sprp_arabs
+sprp_try <- raster::bind(sprp_america, sprp_eurasian, sprp_signatus, sprp_italicus, sprp_arabs)
+tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
 
 ## Canis mesomelas ####
 # two geographically distinct subspecies, already done :)
@@ -873,14 +901,120 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
-### Felis silvestris ####
+## Felis silvestris and lybica ####
 # "A revised taxonomy of the Felidae. The final report of the Cat Classification Task Force of the IUCN/SSC Cat Specialist Group. Cat News Special Issue 11, 80 pp."
-# two subspecies
+# two subspecies (silvestris and caucasica) 
+# and possibly a third which I will include because it's an island population (grampia)
 # I seem to also have Felis libyca
 curr.species <- "Felis silvestris"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+
+## Felis silvestris
+# grampia
+clip_poly <- countries50[countries50$name == "United Kingdom",]
+clip_poly <- raster::buffer(clip_poly, 0.2)
+sprp_grampia <- raster::intersect(sprp, clip_poly)
+sprp_grampia@data$subgroup <- "grampia"
+
+# silvestris
+turkey_rangepol <- countries50[countries50$name == "Turkey",]
+turkey_rangepol <- raster::disaggregate(turkey_rangepol)
+clip_poly <- countries50[countries50$continent == "Europe" & !countries50$name %in% c("United Kingdom", "Ireland", "Russia"),]
+clip_poly <- raster::bind(clip_poly, turkey_rangepol[3,])
+clip_poly <- terra::buffer(clip_poly, 0.1)
+clip_poly <- gUnion(clip_poly, terra::buffer(countries50[countries50$name %in% c("Ukraine", "Croatia"),], 0.3))
+
+sprp_silvestris <- raster::intersect(sprp, clip_poly)
+sprp_silvestris@data$subgroup <- "silvestris"
+
+# caucasica
+clip_poly <- matrix(c(36.7, 44.6,
+                      37.4, 46.6,
+                      49.7, 43.6,
+                      49, 40.5,
+                      46.5, 38.9,
+                      46.2, 38.9,
+                      44.7, 39.8,
+                      42.7, 37.3,
+                      36, 35.7,
+                      26.2, 36.3,
+                      26.3, 40.05,
+                      36.7, 44.6),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_caucasica <- raster::intersect(sprp, clip_poly)
+sprp_caucasica@data$subgroup <- "caucasica"
+
+sprp_try <- raster::bind(sprp_grampia, sprp_silvestris, sprp_caucasica)
+tm_shape(sprp_try) + tm_polygons("subgroup")
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
+
+## Felis lybica
+clip_poly <- matrix(c(7.9, 43.2,
+                      10, 43.2,
+                      10, 38.5,
+                      7.9, 38.5,
+                      7.9, 43.2),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp <- sprp - sprp_try
+sprp <- raster::bind(sprp, sprp_silvestris[clip_poly,])
+sprp@data$binomial <- "Felis lybica"
+
+# ornata
+clip_poly <- matrix(c(42.6, 48.6,
+                      107.6, 48.6,
+                      107.6, 17.5,
+                      62.5, 14.8, 
+                      56.65, 26.6,
+                      50.2, 24.4,
+                      47.2, 32.1,
+                      42.6, 35.5,
+                      42.6, 48.6),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_ornata <- raster::intersect(sprp, clip_poly)
+sprp_ornata@data$subgroup <- "ornata"
+
+# cafra
+clip_poly <- matrix(c(10,2,
+                      29.5, -6,
+                      40.4, -10.5,
+                      40.8, -10.2,
+                      42, -35,
+                      10, -35,
+                      10,2),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - countries50[countries50$name == "Tanzania",]
+clip_poly <- terra::buffer(clip_poly, 0.01)
+
+sprp_cafra <- raster::intersect(sprp, clip_poly)
+sprp_cafra@data$subgroup <- "cafra"
+
+# lybica
+sprp_lybica <- sprp - sprp_ornata - sprp_cafra
+sprp_lybica@data$subgroup <- "lybica"
+
+sprp_try <- raster::bind(sprp_ornata, sprp_cafra, sprp_lybica)
+tm_shape(sprp_try) + tm_polygons("subgroup")
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data, sprp_try)
 
 ## Galictis cuja ####
 # from wiki:
@@ -1174,25 +1308,146 @@ IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != c
                                  sprp_try)
 GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, "subgroup"] <- "canadensis and other"
 
-### Lutra lutra ####
-# rationale:
-"Lutra lutra angustifrons in North Africa;
-Lutra lutra aurobrunneus in Garhwal Himalayas in northern India and higher altitudes in Nepal;
-Lutra lutra barang in southeast Asia (Thailand, Viet Nam, Indonesia and Sumatra);
-Lutra lutra chinensis in southern China and Taiwan;
-Lutra lutra hainana in Hainan Island, China;
-Lutra lutra kutab in northern India (Kashmir);
-Lutra lutra lutra is the most widely distributed, spanning from Portugal to South Korea;
-Lutra lutra meridionalis in from Georgia through Armenia, Azerbaijan and Iran
-Lutra lutra monticolus in northern India (Punjab, Kumaon, Himachal Pradesh, Sikkim and Assam) Nepal, Bhutan and Myanmar;
-Lutra lutra nair in southern India and Sri Lanka;
-Lutra lutra seistanica in Afghanistan, Eastern Iran, Kazakhstan, Uzbekistan, and Turkmenistan; and
-the Japanese subspecies, Lutra lutra whiteleyi, was considered a distinct species (L. nippon) by Suzuki et al. (1996)."
+## Lutra lutra ####
+# following:
+# https://doi.org/10.1093/mspecies/sew011
+# but too hard to split aurobrunnea, kutab, and monticolus from each other (doesn't matter anyway though)
 
 curr.species <- "Lutra lutra"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# angustifrons
+clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia"),]
+clip_poly <- terra::buffer(clip_poly, 0.1)
+sprp_angustifrons <- raster::intersect(sprp, clip_poly)
+sprp_angustifrons@data$subgroup <- "angustifrons"
+
+# nair
+clip_poly <- countries50[countries50$name == "Sri Lanka",]
+clip_poly <- terra::buffer(clip_poly, 5)
+sprp_nair <- raster::intersect(sprp, clip_poly)
+sprp_nair@data$subgroup <- "nair"
+#tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
+
+# barang
+clip_poly <- matrix(c(97.4, 23.8,
+                      98.2, 24.3, 
+                      108, 24.6,
+                      108.05, 21.55,
+                      108.05, 18.8,
+                      110.2, 13.2, 
+                      110.2, -7.9,
+                      94.3, -7.9,
+                      94.8, 23.1,
+                      97.4, 23.8),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - countries50[countries50$name == "China",]
+
+sprp_barang <- raster::intersect(sprp, clip_poly)
+sprp_barang@data$subgroup <- "barang"
+
+# hainana
+sprp_hainana <- sprp[sprp$island == "Hainan" & !is.na(sprp$island),]
+sprp_hainana@data$subgroup <- "hainana"
+
+# chinensis
+clip_poly <- matrix(c(97.4, 23.8,
+                      97.55, 28.5, 
+                      97.55, 37.8,
+                      123.1, 37.8,
+                      123.1, 20.2,
+                      97.4, 20.2, 
+                      97.4, 23.8),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - sprp_barang - countries50[countries50$name == "Myanmar",]
+
+sprp_chinensis <- raster::intersect(sprp, clip_poly)
+sprp_chinensis@data$subgroup <- "chinensis"
+
+# aurobrunnea x kutab x monticolus
+clip_poly <- matrix(c(101, 38.2,
+                      101, 21.2,
+                      71.8, 21.2,
+                      71.8, 38.2,
+                      101, 38.2),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- gUnion(clip_poly, countries50[countries50$name == "Tajikistan",]) - sprp_chinensis - sprp_barang
+
+poly_temp <- matrix(c(69.45, 39.7,
+                      68.3, 38.1,
+                      66.1, 40.1,
+                      70.4, 41.5, 
+                      71.6, 39.7,
+                      69.45, 39.7),
+                    ncol = 2, byrow = TRUE)
+poly_temp <- Polygon(poly_temp)
+poly_temp <- SpatialPolygons(list(Polygons(list(poly_temp), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - poly_temp
+
+sprp_akm <- raster::intersect(sprp, clip_poly)
+sprp_akm@data$subgroup <- "aurobrunnea x kutab x monticolus"
+
+# seistanica
+clip_poly <- matrix(c(59.6, 28.7,
+                      56.6, 38.5,
+                      60.7, 44.6, 
+                      69.2, 44.6,
+                      69.3, 40,
+                      70, 38.9,
+                      72.3, 38.5, 
+                      76.5, 28.7,
+                      59.6, 28.7),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - sprp_akm - countries50[countries50$name %in% c("Kyrgyzstan", "Iran"),]
+
+sprp_seistanica <- raster::intersect(sprp, clip_poly)
+sprp_seistanica@data$subgroup <- "seistanica"
+
+# meridionalis
+clip_poly <- matrix(c(44.1, 39.31,
+                      44.05, 39.34, 
+                      41.2, 39.3,
+                      41.2, 43.5,
+                      49.8, 43.5, 
+                      51.7, 38.1,
+                      60.2, 38.6, 
+                      66.9, 32.4,
+                      56.1, 26.3, 
+                      40.5, 27.7,
+                      46.3, 36.6,
+                      44.1, 39.31),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - countries50[countries50$name %in% c("Turkey", "Turkmenistan", "Afghanistan"),]
+
+sprp_meridionalis <- raster::intersect(sprp, clip_poly)
+sprp_meridionalis@data$subgroup <- "meridionalis"
+
+# lutra
+sprp_try <- raster::bind(sprp_angustifrons, sprp_meridionalis, sprp_seistanica, sprp_nair, sprp_akm, sprp_barang, sprp_chinensis, sprp_hainana)
+sprp_lutra <- sprp - sprp_try
+sprp_lutra@data$subgroup <- "lutra"
+
+sprp_try <- raster::bind(sprp_lutra, sprp_try)
+tm_shape(sprp_try) +tm_polygons("subgroup")
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
+
+GMPD_Data[GMPD_Data$HostCorrectedName == "Lutra lutra", "subgroup"] <- "lutra"
 
 ## Lycalopex culpaeus ####
 # only one sample point :o
@@ -1781,7 +2036,11 @@ GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, "subgroup"] <- "leo"
 
 tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
-### Panthera onca ####
+## Panthera onca ####
+# Cat group describes it as a monotypic species, 
+# but there are sufficiently isolated subpopulations that I'm going to split
+# Can't split South American subgroups because of lack of specificity over which Amazon tributaries
+# Also does not appear to be as isolated as Northern and Central American subgroups
 "The status of the subspecies is unclear. Although eight subspecies have been recognized (Seymour 1989), 
 morphological and genetic analyses do not support the existence of discrete subspecies (Larson 1997, Eizirik 
 et al. 2001, Ruiz-Garcia et al. 2006). While not elevating the regional differences to the subspecies level, 
@@ -1793,6 +2052,44 @@ curr.species <- "Panthera onca"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# Mexico and Guatemala
+clip_poly <- countries50[countries50$name %in% c("Mexico", "Guatemala", "Belize"), ]
+clip_poly <- terra::buffer(clip_poly, 0.3)
+sprp_northern <- raster::intersect(sprp, clip_poly)
+sprp_northern@data$subgroup <- "northern"
+
+# southern Central America
+clip_poly <- matrix(c(-71.3, 9.3,
+                      -72.1, 8.9,
+                      -72.1, 8.1,
+                      -72.7, 7.5,
+                      -72.7, 6,
+                      -78.5, 0,
+                      -80, -3,
+                      -88, -3,
+                      -88, 17,
+                      -71.3, 17,
+                      -71.3, 9.3),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+sprp_central <- raster::intersect(sprp, clip_poly)
+sprp_central@data$subgroup <- "central"
+
+# Southern
+sprp_try <- terra::buffer(raster::bind(sprp_central, sprp_northcentral), 0)
+sprp_south <- sprp - sprp_try
+sprp_south@data$subgroup <- "southern"
+
+sprp_try <- raster::bind(sprp_south, sprp_central, sprp_northcentral)
+tm_shape(sprp_try) + tm_polygons("subgroup")
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
+
+GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, "subgroup"] <- "southern"
 
 ## Panthera pardus ####
 # already has subspecies designations <3
@@ -1845,6 +2142,8 @@ sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp, bbox = bbox(sp.gmpd.points)) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 # Some suspicious GMPD samples
+# odd ones are probably reintroduced for hunting
+
 View(GMPD_Data[GMPD_Data$HostCorrectedName == curr.species,])
 
 " See Grubb and d’Huart (2010) for a detailed historic overview of the classification of Phacochoerus."
@@ -1865,21 +2164,63 @@ tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
 indistinguishable from those of eastern Mongolia and hence the subspecies P. g. altaica described from 
 Bayan-Tsagan-Gobi is not accepted (Sokolov and Lushchekina 1997)." #IUCN
 
-### Procyon lotor ####
+## Procyon lotor ####
 # Many subspecies. Based on wiki I appear to have:
 # lotor, elucus, fuscipes, hirtus, litoreus, marinus, megalodous, pacificus, psora, simus
+# All of these are mainland subspecies except:
+# litoreus: "Coastal strip and islands of Georgia."
+# marinus: "Keys of the Ten Thousand Islands Group, and adjoining mainland of southwestern Florida from Cape Sable north through the Everglades to Lake Okeechobee."
+## Both of these are hard to separate and not completely isolated from mainland subspecies, so will include with mainland
 
 # Don't appear to have
-# excelsus (contiguous with others), auspicatus (polygon not included), gloveralleni (extinct and not included)
-# grinnelli (isolated), hernandezii, incautus (polygon not included), inesperatus, insularis, maynardi (polygon not included)
-# minor (polygon not included), pallidus, pumilus, vancouverensis
+# excelsus (contiguous with others), auspicatus (polygon not included), gloveralleni (extinct and not included),
+# grinnelli (isolated), hernandezii (contiguous), incautus (polygon not included), inesperatus (not fully isolated), 
+# insularis (isolated), maynardi (polygon not included), minor (polygon not included), pallidus (continguous), 
+# pumilus (contiguous), vancouverensis (isolated but polygon not included)
+## only separating fully isolated subspecies (grinnelli and insularis)
 
-# Noticeable that although there are lots of US subspecies described, there are few described in Mexico
-# 
 curr.species <- "Procyon lotor"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# grinnelli
+clip_poly <- matrix(c(-112.1, 27.9,
+                      -107.7, 23,
+                      -110.6, 21.5,
+                      -115.3, 27.2,
+                      -112.1, 27.9),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_grinnelli <- raster::intersect(sprp, clip_poly)
+sprp_grinnelli@data$subgroup <- "grinnelli"
+
+# insularis
+clip_poly <- matrix(c(-106.3, 22.5,
+                      -105.9, 21.5,
+                      -106.3, 20.5,
+                      -107.3, 21.5,
+                      -106.3, 22.5),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_insularis <- raster::intersect(sprp, clip_poly)
+sprp_insularis@data$subgroup <- "insularis"
+
+sprp_try <- raster::disaggregate(sprp)
+sprp_mainland <- sprp_try - sprp_grinnelli - sprp_insularis
+sprp_mainland@data$subgroup <- "mainland"
+
+sprp_try <- raster::bind(sprp_mainland, sprp_grinnelli, sprp_insularis)
+tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
+
+GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, "subgroup"] <- "mainland"
 
 ## Procyon pygmaeus ####
 # monotypic
@@ -2396,8 +2737,6 @@ IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != c
                                  sprp_try)
 GMPD_Data[GMPD_Data$HostCorrectedName == curr.species, "subgroup"] <- "mainland"
 
-
-
 ### Ursus arctos ####
 # Brown bear taxonomy and subspecies classification has been described as "formidable and confusing,"
 # North America:
@@ -2409,7 +2748,98 @@ the end of the last Ice Age.[40][41] "
 curr.species <- "Ursus arctos"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+
+# North America
+# middendorffi
+sprp_middendorffi <- sprp[sprp$island == "Kodiak" & !is.na(sprp$island),]
+sprp_middendorffi@data$subgroup <- "middendorffi"
+
+# ungavaensis 
+clip_poly <- states50[states50$name %in% c("Québec", "Newfoundland and Labrador"),]
+clip_poly <- terra::buffer(clip_poly)
+sprp_ungavaensis <- raster::intersect(sprp, clip_poly)
+sprp_ungavaensis@data$subgroup <- "ungavaensis"
+
+# sitkensis
+sprp_sitkensis <- sprp[sprp$island %in% c("Admiralty", "Chichago & Baranof"),]
+sprp_sitkensis@data$subgroup <- "sitkensis"
+
+# horribilis
+clip_poly <- countries50[countries50$continent == "North America", ]
+clip_poly <- terra::buffer(clip_poly, 0.6)
+sprp_try <- raster::intersect(sprp, clip_poly)
+sprp_horribilis <- sprp_try - sprp_sitkensis - sprp_ungavaensis - sprp_middendorffi
+sprp_horribilis@data$subgroup <- "horribilis"
+
+sprp_america <- raster::bind(sprp_middendorffi, sprp_ungavaensis, sprp_sitkensis, sprp_horribilis)
+tm_shape(sprp_america) + tm_polygons("subgroup")
+
+# Eurasia and North Africa
+# crowtheri
+clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia"),]
+clip_poly <- terra::buffer(clip_poly, 0.1)
+sprp_crowtheri <- raster::intersect(sprp, clip_poly)
+sprp_crowtheri@data$subgroup <- "crowtheri"
+
+# pyrenaicus
+clip_poly <- countries50[countries50$name == "Spain",]
+clip_poly <- terra::buffer(clip_poly, 0.8) - sprp_crowtheri
+sprp_pyrenaicus <- raster::intersect(sprp, clip_poly)
+sprp_pyrenaicus@data$subgroup <- "pyrenaicus"
+
+# marsicanus
+clip_poly <- matrix(c(13, 44,
+                      16, 42,
+                      13, 40, 
+                      9, 43,
+                      13, 44),
+                     ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+sprp_marsicanus <- raster::intersect(sprp, clip_poly)
+sprp_marsicanus@data$subgroup <- "marsicanus"
+
+# syriacus
+clip_poly <-  matrix(c(23.9, 39, 
+                       35, 43,
+                       38, 45.5,
+                       62, 43.6,
+                       64, 37,
+                       77, 27,
+                       25, 27, 
+                       23.9, 39),
+                     ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_try <- raster::disaggregate(sprp)
+sprp_syriacus <- sprp_try[clip_poly,]
+sprp_syriacus@data$subgroup <- "syriacus"
+
+# pruinosus, isabellinus, gobiensis
+clip_poly <-  matrix(c(67, 48,
+                       91, 45, 
+                       106, 46,
+                       106, 27,
+                       77, 27,
+                       75.5, 32,
+                       74.8, 33,
+                       74, 34.8,
+                       72, 35.5,
+                       70, 37,
+                       65, 37),
+                     ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+tm_shape(clip_poly) + tm_polygons(alpha = 0) +tm_shape(sprp) + tm_polygons(alpha = 0)
+
+sprp_pruinosus <- sprp_try[clip_poly,]
+sprp_pruinosus@data$subgroup <- "pruinosus x isabellinus x gobiensis"
+
+#
+
+tm_shape(sprp_pruinosus) + tm_polygons()
 
 ## Ursus maritimus ####
 # no subpsecies on IUCN or msotw, and wiki states: 
