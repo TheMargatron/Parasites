@@ -33,7 +33,7 @@ source(here::here("Functions.R"))
 GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
 nrow(GMPD_Raw_Data); length(unique(GMPD_Raw_Data$HostCorrectedName)) #Beginning with 24323 rows and 462 hosts
 
-IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") #this takes about 10 mins
+IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") # plenty time to make a cup of tea
 
 River_Data50 <- ne_load(scale = 50,
                         type = "rivers_lake_centerlines",

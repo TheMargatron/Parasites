@@ -3065,14 +3065,52 @@ clip_poly <-  matrix(c(67, 48,
                      ncol = 2, byrow = TRUE)
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
-tm_shape(clip_poly) + tm_polygons(alpha = 0) +tm_shape(sprp) + tm_polygons(alpha = 0)
+#tm_shape(clip_poly) + tm_polygons(alpha = 0) +tm_shape(sprp) + tm_polygons(alpha = 0)
 
 sprp_pruinosus <- sprp_try[clip_poly,]
 sprp_pruinosus@data$subgroup <- "pruinosus x isabellinus x gobiensis"
 
-#
+# arctos
+# reusing yenisei/angara line from alces alces, but going the opposite way round
+YA_coords <- YA_coords[nrow(YA_coords):1,]
+YA_arctos_coords <- rbind(YA_coords,
+                         matrix(c(106.5, 50.3,
+                                  105.6, 48.1,
+                                  90.9, 44.5, 
+                                  77.1, 47.5, 
+                                  33.7, 45,
+                                  
+                                  29.1, 41.19,
+                                  29.07, 41.16,
+                                  29.08, 41.13,
+                                  29.07, 41.11,
+                                  29.07, 41.09,
+                                  
+                                  20.8, 37.6,
+                                  13.2, 44.8,
+                                  6.1, 43,
+                                  3.8, 43,
+                                  3.8, 71.8, 
+                                  81.2, 71.8,
+                                  YA_coords[1,1], YA_coords[1,2]), 
+                                ncol = 2, byrow = TRUE))
 
-tm_shape(sprp_pruinosus) + tm_polygons()
+clip_poly <- Polygon(YA_arctos_coords)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+sprp_arctos <- raster::intersect(sprp, clip_poly)
+sprp_arctos@data$subgroup <- "arctos"
+
+# collaris, beringianus, lasiotus
+sprp_try <- raster::bind(sprp_america, sprp_crowtheri, sprp_pyrenaicus, sprp_syriacus, 
+                         sprp_pruinosus, sprp_marsicanus, sprp_arctos)
+sprp_collaris <- sprp - sprp_try
+sprp_collaris@data$subgroup <- "collaris x beringianus x lasiotus"
+
+sprp_try <- raster::bind(sprp_try, sprp_collaris)
+tm_shape(sprp_try) + tm_polygons("subgroup")
+
+# Having difficulties with invalid geometries, so need to come back to this one
 
 ## Ursus maritimus ####
 # no subpsecies on IUCN or msotw, and wiki states: 
@@ -3160,7 +3198,7 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
-### Vulpes vulpes ####
+## Vulpes vulpes ####
 # 45 subspecies with patchy range descriptions which do not cover full extent of iucn range polygon
 # In Europe I have: crucifera, silacea, vulpes
 # In Africa: barbara
@@ -3172,22 +3210,98 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
 
-# barbarica x atlantica
+# barbara x atlantica
+clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia", "Libya"),]
+clip_poly <- terra::buffer(clip_poly, 0.1)
+sprp_barbara <- raster::intersect(sprp, clip_poly)
+sprp_barbara@data$subgroup <- "barbara x atlantica"
+
 # silacea
+clip_poly <- countries50[countries50$name %in% c( "Spain", "Portugal", "Andorra"),]
+clip_poly <- terra::buffer(clip_poly, 0.15)
+sprp_silacea <- raster::intersect(sprp, clip_poly)
+sprp_silacea@data$subgroup <- "silacea"
+
 # ichnusae
-# indutus
+sprp_ichnusae <- sprp[sprp$island %in% c("Sardinia", "Corsica"),]
+sprp_ichnusae@data$subgroup <- "ichnusae"
+
 # niloticus
+sprp_niloticus <- raster::disaggregate(sprp)[countries50[countries50$name == "Sudan",],]
+sprp_niloticus@data$subgroup <- "niloticus"
+
 # crucifera
+clip_poly <- countries50[countries50$continent == "Europe" & !countries50$name %in% c("Russia", "Finland", "Norway", "Sweden", "Spain", "Portugal", "Andorra"),]
+clip_poly <- terra::buffer(clip_poly, 0.2)
+poly_temp <- terra::buffer(countries50[countries50$name %in% c("Russia", "Sweden"),], 0.07)
+poly_temp <- gUnion(poly_temp, terra::buffer(countries50[countries50$name == "Turkey",], 0.1))
+clip_poly <- clip_poly - poly_temp - sprp_ichnusae - sprp_silacea
+
+poly_temp <-  matrix(c(20.7, 56, 
+                       25, 54.2, 
+                       18.5, 54,
+                       20.7, 56),
+                     ncol = 2, byrow = TRUE)
+poly_temp <- Polygon(poly_temp)
+poly_temp <- SpatialPolygons(list(Polygons(list(poly_temp), ID = "a")), proj4string=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- gUnion(clip_poly, poly_temp)
+
+sprp_crucifera <- raster::intersect(sprp, clip_poly)
+sprp_crucifera@data$subgroup <- "crucifera"
+sprp_crucifera@polygons[[2]]@ID <- "2"
+
 # arabica?
-# vulpes?
+# vulpes (split at the Urals, and removing caucasica)
+clip_poly <- matrix(c(67.4, 68.8,
+                      66.1, 68,
+                      65.7, 67.2,
+                      63.5, 66.5,
+                      62.8, 65.8, 
+                      61.1, 65,
+                      59.9, 65.1,
+                      58.9, 59.4,
+                      59.7, 55.3, 
+                      57.8, 54.5, 
+                      57.1, 52.5,
+                      57.2, 50.6,
+                      46.8, 49.3,
+                      40.1, 49.3, 
+                      3.4, 55,
+                      3.4, 71.3, 
+                      64.1, 71.3,
+                      67.4, 68.8),
+                    ncol = 2, byrow = TRUE)
+
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+clip_poly <- clip_poly - terra::buffer(countries50[countries50$name == "Kazakhstan",], 0.15) - sprp_crucifera
+
+sprp_vulpes <- raster::intersect(sprp, clip_poly)
+sprp_vulpes@data$subgroup <- "vulpes"
+
 # japonica
+sprp_japonica <- sprp[sprp$island %in% c("Kyushu", "Honshu"),]
+sprp_japonica@data$subgroup <- "japonica"
+
 # schrencki
+sprp_schrencki <- sprp[sprp$island %in% "Hokkaido",]
+sprp_schrencki@data$subgroup <- "schrencki"
+
 # splendidissima
+sprp_splendidissima <- sprp[sprp$island %in% "Kuril Islands",]
+sprp_splendidissima@data$subgroup <- "splendidissima"
 
+# other subspecies
+sprp_try <- raster::bind(sprp_barbara, sprp_silacea, sprp_ichnusae, sprp_niloticus,
+                         sprp_crucifera, sprp_vulpes, sprp_japonica, sprp_schrencki, sprp_splendidissima)
+sprp_otherssp <- sprp - sprp_try
+sprp_otherssp@data$subgroup <- "unknown"
 
+sprp_try <- raster::bind(sprp_try, sprp_otherssp)
+tm_shape(sprp_try) + tm_polygons("subgroup")
 
-
-
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
 
 # tidying up
 rm(list = ls(pattern = "^sprp"))
