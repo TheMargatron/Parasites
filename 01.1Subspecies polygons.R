@@ -2918,38 +2918,45 @@ rm(list = ls(pattern = "_Temp$"))
 ## Procyon pygmaeus ####
 # monotypic
 
-### Puma concolor ####
+## Puma concolor ####
 # need to decide about Florida
 
 # cat group recognises two subspecies: 
 # concolor "South America, possibly excluding W of Andes in north."
 # couguar "North and Central America, possibly N South America W of Andes."
-# Also going to treat Florida as its own population as it's isolated and has experienced inbreeding depression
+# Also going to remove Florida population as it's isolated and has experienced severe inbreeding depression
 
 curr.species <- "Puma concolor"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
 
-buffer_temp <- countries50[countries50$continent == "North America",]
-buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
-florida_temp <- terra::buffer(states50[states50$name == "Florida",], 0.1)
+# couguar
+clip_poly <- matrix(c(-77.5, 10.2,
+                      -81, 6.1,
+                      -108.1, 17.6,
+                      -127.9, 39.7,
+                      -132.4, 54,
+                      -128.9, 57.7,
+                      -123.5, 59.7,
+                      -102.1, 60,
+                      -86, 22.6,
+                      -77.5, 10.2),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
 
-tm_shape(sprp) + tm_polygons(col = "red") + 
-  tm_shape(buffer_temp) + tm_polygons(alpha = 0) +
-  tm_shape(florida_temp) + tm_polygons(alpha = 0)
-
-sprp_couguar <- raster::intersect(sprp, buffer_temp)
-sprp_couguar <- sprp_couguar - florida_temp
+sprp_try <- raster::disaggregate(sprp)
+sprp_couguar <- sprp_try[clip_poly,]
+sprp_couguar <- raster::aggregate(sprp_couguar, by = names(sprp_couguar))
 sprp_couguar@data$subgroup <- "couguar"
 
-sprp_florida <- raster::intersect(sprp, florida_temp)
-sprp_florida@data$subgroup <- "florida"
-
-sprp_concolor <- sprp - buffer_temp - florida_temp
+# concolor
+florida_temp <- terra::buffer(states50[states50$name == "Florida",], 0.1)
+sprp_concolor <- sprp - sprp_couguar - florida_temp
 sprp_concolor@data$subgroup <- "concolor"
 
-sprp_try <- raster::bind(sprp_couguar, sprp_florida, sprp_concolor)
+sprp_try <- raster::bind(sprp_couguar, sprp_concolor)
 tm_shape(sprp_try) + tm_polygons("subgroup")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
@@ -3457,7 +3464,7 @@ rm(list = ls(pattern = "^sprp"))
 rm(list = ls(pattern = "_temp$"))
 rm(list = ls(pattern = "_Temp$"))
 
-### Urocyon littoralis ####
+## Urocyon littoralis ####
 # Only have one sample location for each island so it's impossible to find any useful info
 "Six distinct subspecies are recognized, one on each of the islands where they occur:
 
