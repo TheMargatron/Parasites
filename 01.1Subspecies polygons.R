@@ -414,28 +414,42 @@ tm_shape(sprp_america) + tm_polygons("subgroup")
 # signatus is isolated (https://doi.org/10.1111/mec.14824) (Iberian population)
 # italicus is isolated (https://doi.org/10.1016/j.mambio.2017.01.005) and does not hybridise much with domestic dogs (https://doi.org/10.1007/BF03194151)
 
-sprp_eurasian <- sprp - clip_poly
-sprp_eurasian@data$subgroup <- "lupus pallipes chanco"
+sprp_lupus <- sprp - clip_poly
+sprp_lupus@data$subgroup <- "lupus"
 
 # signatus
 clip_poly <- countries50[countries50$name %in% c("Spain", "Portugal"),]
 clip_poly <- terra::buffer(clip_poly, 0.2)
-sprp_signatus <- raster::intersect(sprp_eurasian, clip_poly)
+sprp_signatus <- raster::intersect(sprp_lupus, clip_poly)
 
 clip_poly <- countries50[countries50$name == "Andorra",]
 clip_poly <- terra::buffer(clip_poly, 1)
 sprp_signatus <- sprp_signatus - clip_poly
 sprp_signatus@data$subgroup <- "signatus"
+sprp_lupus <- sprp_lupus - sprp_signatus
 
 # italicus
 clip_poly <- countries50[countries50$name %in% c("France", "Italy", "Andorra"),]
-clip_poly <- terra::buffer(clip_poly, 0.5)
-clip_poly <- clip_poly - countries50[countries50$name %in% c("Switzerland", "Belgium", "Luxembourg", "Germany", "Liechtenstein", "Austria"),]
-sprp_italicus <- raster::intersect(sprp_eurasian, clip_poly)
-sprp_italicus <- raster::disaggregate(sprp_italicus)[1,]
-sprp_italicus <- raster::bind(sprp_italicus, countries50[countries50$name == "Switzerland",])
+clip_poly <- terra::buffer(clip_poly, 0.08)
+# clip_poly <- clip_poly - countries50[countries50$name %in% c("Belgium", "Germany",
+#                                                              "Austria", "Switzerland"),]
+poly_temp <- terra::buffer(countries50[countries50$name == "Andorra",], 1)
+clip_poly <- gUnion(clip_poly, poly_temp) 
+
+poly_temp <- matrix(c(8.919, 45.885,
+                      8.919, 47.33,
+                      14.64, 47.33,
+                      14.64, 44.46,
+                      10.56, 45.3,
+                      8.919, 45.885), 
+                    ncol = 2, byrow = TRUE)
+poly_temp <- Polygon(poly_temp)
+poly_temp <- SpatialPolygons(list(Polygons(list(poly_temp), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_poly <- clip_poly - poly_temp
+
+sprp_italicus <- raster::intersect(sprp_lupus, clip_poly)
 sprp_italicus@data$subgroup <- "italicus"
-sprp_italicus@data <- sprp_italicus@data[, 1:29]
+sprp_lupus <- sprp_lupus - sprp_italicus
 
 # Asia:
 ## very few asian subspecies represented within gmpd, and those that are do not appear to be isolated
@@ -444,17 +458,91 @@ sprp_italicus@data <- sprp_italicus@data[, 1:29]
 # isolated arabs and pallipes population in Sinai peninsula, Israel, Jordan, Lebanon, Southern Syria
 # isolated pallipes population in Northwest India
 
+# pallipes and chanco
+clip_poly <- matrix(c(29, 40.8,
+                      29, 41.03,
+                      29.05, 41.06, 
+                      29.065, 41.09,
+                      29.08, 41.13,
+                      29.07, 41.16,
+                      29.16, 41.26,
+                      35, 43,
+                      40.01, 43.38,
+                      40.01, 43.41, 
+                      52, 39, # east
+                      54.02, 35.67, #iran
+                      62.76, 34.43, #afghan
+                      70.45, 37.29, #tajik
+                      75.16, 42, #kyrg
+                      80.21, 42.13, #china
+                      98.49, 48.37, # mongolia
+                      
+                      100.54, 51.594,
+                      103.723, 51.706,
+                      104.4, 51.6,
+                      105.8, 51.98,
+                      106.16, 52.36,
+                      108.006, 53.159,
+                      109.676, 55.689,
+                      112.093, 56.23,
+                      113.016, 56.205,
+                      114.422, 56.254,
+                      116.531, 56.352,
+                      117.718, 56.57,
+                      119.168, 57.004,
+                      121.453, 56.98,
+                      123.87, 56.401,
+                      126.375, 55.515,
+                      128.902, 54.692,
+                      131.649, 54.039,
+                      133.671, 54.3,
+                      
+                      135.7, 54.9,
+                      147, 54.9,
+                      147, 6.7,
+                      27, 6.7, # south
+                      27, 36.5,
+                      25, 39.7,
+                      26.3, 40.05,
+                      26.4, 40.14,
+                      26.4, 40.2,
+                      26.8, 40.45,
+                      29, 40.8),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+poly_temp <- terra::buffer(countries50[countries50$name %in% c("Georgia", "Azerbaijan", "Iran", "Afghanistan", "Tajikistan", "Kyrgyzstan", "China", "Mongolia"),], 0.05)
+clip_poly <- gUnion(clip_poly, poly_temp)
+
+poly_temp <- matrix(c(70.508, 40.961,
+                     70.954, 41.255,
+                     71.684, 41.683,
+                     73.651, 40.928,
+                     71.162, 39.582,
+                     70.069, 40.445,
+                     70.508, 40.961), 
+                   ncol = 2, byrow = TRUE)
+
+poly_temp <- Polygon(poly_temp)
+poly_temp <- SpatialPolygons(list(Polygons(list(poly_temp), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_poly <- gUnion(clip_poly, poly_temp)
+
+sprp_pallipes <- raster::intersect(sprp_lupus, clip_poly)
+sprp_pallipes@data$subgroup <- "pallipes chanco"
+sprp_lupus <- sprp_lupus - sprp_pallipes
+
 # arabs
 clip_poly <- countries50[countries50$name %in% c("Saudi Arabia", "Bahrain", "Qatar", "United Arab Emirates", "Oman", "Yemen"),]
 clip_poly <- terra::buffer(clip_poly, 0.5)
 clip_poly <- clip_poly - countries50[countries50$name %in% c("Egypt", "Israel", "Jordan", "Iraq"),]
 clip_poly <- clip_poly - terra::buffer(countries50[countries50$name == "Kuwait",], 0.05)
-sprp_arabs <- raster::intersect(sprp_eurasian, clip_poly)
+sprp_arabs <- raster::intersect(sprp_pallipes, clip_poly)
 sprp_arabs@data$subgroup <- "arabs"
+sprp_pallipes <- sprp_pallipes - sprp_arabs
 
 # adding all up 
-sprp_eurasian <- sprp_eurasian - sprp_signatus - sprp_italicus - sprp_arabs
-sprp_try <- raster::bind(sprp_america, sprp_eurasian, sprp_signatus, sprp_italicus, sprp_arabs)
+sprp_try <- raster::bind(sprp_america, sprp_eurasian, sprp_signatus, sprp_italicus, sprp_pallipes, sprp_arabs)
 tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
@@ -3842,7 +3930,7 @@ tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
 clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia", "Libya"),]
 clip_poly <- terra::buffer(clip_poly, 0.1)
 sprp_barbara <- raster::intersect(sprp, clip_poly)
-sprp_barbara@data$subgroup <- "barbara x atlantica"
+sprp_barbara@data$subgroup <- "barbara atlantica"
 
 # silacea
 clip_poly <- countries50[countries50$name %in% c( "Spain", "Portugal", "Andorra"),]
