@@ -67,20 +67,15 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "melampus"
 
-## Alcelaphus buselaphus ####
+### Alcelaphus buselaphus ####
 # 8 subspecies, GMPD data appears to represent major and cokii, and they are geographically distinct
 # https://en.wikipedia.org/wiki/Hartebeest#/media/File:Alcelaphus_recent.png
-# There is only one sample location for each subspecies so I'll have to drop this one :(
+# There is only one sample location for each subspecies 
 
 curr.species <- "Alcelaphus buselaphus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
-
-unique(sp.gmpd.points@coords)
-
-IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
-GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 
 ## Alces alces ####
 # There are multiple subspecies, GMPD represents shirasi, gigas, andersoni, and americana in North America
@@ -121,7 +116,7 @@ YA_alces_coords <- rbind(YA_coords,
 clip_poly <- Polygon(YA_alces_coords)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
 
-tm_shape(clip_poly) + tm_polygons() + tm_shape(sprp) + tm_polygons(alpha = 0)
+# tm_shape(clip_poly) + tm_polygons() + tm_shape(sprp) + tm_polygons(alpha = 0)
 
 # alces subspecies
 sprp_try <- sprp - clip_poly
@@ -306,6 +301,10 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 
 ## Blastocerus dichotomus ####
 # No taxonomic notes on IUCN, no description of subspecies on wiki or msotw
+curr.species <- "Blastocerus dichotomus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 ## Canis adustus ####
 # There are seven recognized subspecies of the side-striped jackal:[2]
@@ -568,7 +567,6 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 # For when I'm doing gmpd subspecies
 # sp.over <- over(sp.gmpd.points, gBuffer(sprp, byid = TRUE))
 # sp.gmpd$subspecies <- sp.over$subspecies
-# sp.gmpd$HostCorrectedName <- paste(sp.gmpd$HostCorrectedName, sp.over$subspecies, sep = " ")
 
 ## Canis simensis ####
 # Two geographically distinct subspecies and I only seem to have citernii
@@ -607,6 +605,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Capra ibex ####
 # no reported subspecies in iucn, wiki, or msotw
+curr.species <- "Capra ibex"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Capra pyrenaica ####
 # four subspecies, two extinct. I probably only have hispanica which is geographically distinct from victoriae
@@ -683,6 +685,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Capricornis crispus ####
 # No subspecies noted by IUCN, wiki, msotw
+curr.species <- "Capricornis crispus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Cephalophus natalensis ####
 # Two subspecies have been named: C. n. natalensis and C. n. robertsi (north of the Limpopo river)
@@ -995,6 +1001,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Chrysocyon brachyurus ####
 # no subspecies described by IUCN, wiki, or msotw
+curr.species <- "Chrysocyon brachyurus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Civettictis civetta #### 
 # IUCN doesn't describe any subspecies but they are recognised on wiki and msotw
@@ -1016,6 +1026,10 @@ tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Connochaetes gnou ####
 # No subspecies described by IUCN, wiki, or msotw
+curr.species <- "Connochaetes gnou"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Connochaetes taurinus ####
 # already included in species range polygons <3
@@ -1027,6 +1041,10 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 ## Crocuta crocuta ####
 # neither IUCN nor msotw list any subspecies and wiki states:
 # "all the variation seen in the then recognised subspecies could also be found in a single population"
+curr.species <- "Crocuta crocuta"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Cynictis penicillata ####
 # no subspecies listed by IUCN, no range descriptions on wiki, and the 12 listed on msotw have no range descriptions
@@ -1060,10 +1078,18 @@ tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]) + tm_pol
 ## Equus grevyi ####
 # No subspecies on msotw
 # "However, Groves and Bell (2004) concluded that the species is indeed monotypic."
+curr.species <- "Equus grevyi"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Equus quagga ####
 # No subspecies on msotw
 # "The molecular data represented a genetic cline" so it's monotypic
+curr.species <- "Equus quagga"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Equus zebra ####
 # "We continue to recognize Mountain Zebra as a single species comprising two subspecies."
@@ -1270,6 +1296,10 @@ rm(list = ls(pattern = "_Temp$"))
 ## Genetta thierryi ####
 # No subspecies listed by IUCN, wiki, or msotw
 # plus it has a small continuous range
+curr.species <- "Genetta thierryi"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Giraffa camelopardalis ####
 # already recorded <3
@@ -1364,6 +1394,10 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 
 ## Hyaena hyaena ####
 # As of 2005,[3] no subspecies are recognised. (wiki, from msotw)
+curr.species <- "Hyaena hyaena"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Kobus ellipsiprymnus ####
 # already labelled <3
@@ -1706,6 +1740,10 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Lynx canadensis ####
 # cat group says "Therefore we conclude that Lynx canadensis is a monotypic species"
+curr.species <- "Lynx canadensis"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Lynx lynx ####
 # On the basis of current evidence we propose the following six subspecies" (cat group)
@@ -1765,6 +1803,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Lynx pardinus ####
 # This is a monotypic species - cat group
+curr.species <- "Lynx pardinus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Lynx rufus ####
 # cat group splits into 2 on either side of the great plains which acts as a barrier
@@ -1986,6 +2028,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Martes pennanti ####
 # "in general, the fisher is recognized to be a monotypic species with no extant subspecies.[11]" (wiki)
+curr.species <- "Martes pennanti"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Meles meles ####
 # based on wiki description I have subspecies meles, marianensis, and possibly milleri, 
@@ -2672,6 +2718,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Oreamnos americanus ####
 # no subspecies on iucn, wiki, or msotw
+curr.species <- "Oreamnos americanus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Otocolobus manul ####
 # only one sample point :(
@@ -2709,6 +2759,10 @@ tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_poly
 
 ## Ovibos moschatus ####
 # no subspecies on iucn, wiki, msotw
+curr.species <- "Ovibos moschatus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Ovis ammon ####
 # Sample locations don't correspond at all to Ovis ammon range
@@ -2740,6 +2794,10 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 ## Ovis dalli ####
 # IUCN states there are two subspecies, but they are known to admix
 # see Fannin sheep (O. d. fannini)
+curr.species <- "Ovis dalli"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Ozotoceros bezoarticus ####
 # Not entirely sure which subspecies I have (only leucogaster, or bezoarticus as well) but can remove those I definitely don't have
@@ -2963,6 +3021,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Pelea capreolus ####
 # continuous range with samples across it, also no subspecies described by iucn, wiki, msotw
+curr.species <- "Pelea capreolus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Phacochoerus aethiopicus ####
 # range only includes extant subspecies, delamerei
@@ -2998,6 +3060,11 @@ tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
 "Procapra gutturosa has not given rise to distinct geographic races. Specimens from the Mongolian Altai are
 indistinguishable from those of eastern Mongolia and hence the subspecies P. g. altaica described from 
 Bayan-Tsagan-Gobi is not accepted (Sokolov and Lushchekina 1997)." #IUCN
+
+curr.species <- "Procapra gutturosa"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Procyon lotor ####
 # Many subspecies. Based on wiki I appear to have:
@@ -3063,6 +3130,10 @@ rm(list = ls(pattern = "_Temp$"))
 
 ## Procyon pygmaeus ####
 # monotypic
+curr.species <- "Procyon pygmaeus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 ## Puma concolor ####
 # cat group recognises two subspecies: 
@@ -3178,6 +3249,10 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 
 ## Redunca arundinum ####
 # iucn, wiki, msotw list no subspecies
+curr.species <- "Redunca arundinum"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 ## Redunca fulvorufula ####
 # already done <£
