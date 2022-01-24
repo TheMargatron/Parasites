@@ -23,6 +23,7 @@ library(raster)
 library(rnaturalearth)
 library(sp)
 library(tidyverse)
+library(tmap)
 
 restrict <- function(location.data, rastr){
   c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
@@ -452,4 +453,34 @@ species_cleaner <- function(synonym_row, dat){
   
   species_dat <- rename(species_dat, species = binomial)
   return(species_dat)
+}
+
+# Not sure whether to keep
+quick_map <- function(c.species){
+  sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == c.species, ]
+  sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == c.species, c("Longitude", "Latitude")])
+  tm_shape(sprp) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots() 
+}
+
+pip_test <- function(host, dat, range.polygon, subgroup.buff){
+  if("HostCorrectedName" %in% names(dat)){
+    sp.dat <- dat[dat$HostCorrectedName == host,]
+  } else if("binomial" %in% names(dat)){
+    sp.dat <- dat[dat$binomial == host,]
+  }
+  
+  sg.dat <- lapply(unique(subgroup.buff$subgroup), function(sg){
+    sg.polygon <- range.polygon[range.polygon$subgroup == sg,]
+    sg.polygon <- terra::buffer(sg.polygon, subgroup.buff[subgroup.buff$subgroup == sg, "buff"])
+    
+    sg.dat <- sp.dat[sg.polygon,]
+    sg.dat@data$subgroup <- sg
+    
+    return(sg.dat)
+  })
+  
+  sg.dat <- do.call(raster::bind, sg.dat)
+  if(nrow(sg.dat) > nrow(sp.dat)){warning("point(s) assigned multiple subgroups")}
+  if(nrow(sg.dat) < nrow(sp.dat)){warning("not all points assigned to subgroup")}
+  return(sg.dat)
 }
