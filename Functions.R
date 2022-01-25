@@ -471,7 +471,7 @@ pip_test <- function(host, dat, range.polygon, subgroup.buff){
   
   sg.dat <- lapply(unique(subgroup.buff$subgroup), function(sg){
     sg.polygon <- range.polygon[range.polygon$subgroup == sg,]
-    if(subgroup.buff$buff != 0){
+    if(subgroup.buff[subgroup.buff$subgroup == sg, "buff"] != 0){
       sg.polygon <- terra::buffer(sg.polygon, subgroup.buff[subgroup.buff$subgroup == sg, "buff"])
     }
     
