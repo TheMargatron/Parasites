@@ -3309,11 +3309,12 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 rm(list = ls(pattern = "^sprp"))
 
 ## Procyon pygmaeus ####
-# monotypic
+# only one sample 
 curr.species <- "Procyon pygmaeus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+
+IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
+GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 
 ## Puma concolor ####
 # cat group recognises two subspecies: 
