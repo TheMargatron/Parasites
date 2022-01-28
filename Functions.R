@@ -462,27 +462,43 @@ quick_map <- function(c.species){
   tm_shape(sprp) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots() 
 }
 
-pip_test <- function(host, dat, range.polygon, subgroup.buff){
-  if("HostCorrectedName" %in% names(dat)){
-    sp.dat <- dat[dat$HostCorrectedName == host,]
-  } else if("binomial" %in% names(dat)){
-    sp.dat <- dat[dat$binomial == host,]
-  }
-  
-  sg.dat <- lapply(unique(subgroup.buff$subgroup), function(sg){
-    sg.polygon <- range.polygon[range.polygon$subgroup == sg,]
-    if(subgroup.buff[subgroup.buff$subgroup == sg, "buff"] != 0){
-      sg.polygon <- terra::buffer(sg.polygon, subgroup.buff[subgroup.buff$subgroup == sg, "buff"])
+pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
+  if(subsp){
+    if("HostCorrectedName" %in% names(dat)){
+      sp.dat <- dat[dat$HostCorrectedName == host,]
+    } else if("binomial" %in% names(dat)){
+      sp.dat <- dat[dat$binomial == host,]
     }
     
-    sg.dat <- sp.dat[sg.polygon,]
-    sg.dat@data$subgroup <- sg
+    sg.dat <- lapply(unique(buff$subgroup), function(sg){
+      sg.polygon <- range.polygon[range.polygon$subgroup == sg,]
+      if(buff[buff$subgroup == sg, "buff"] != 0){
+        sg.polygon <- terra::buffer(sg.polygon, buff[buff$subgroup == sg, "buff"])
+      }
+      
+      sg.dat <- sp.dat[sg.polygon,]
+      sg.dat@data$subgroup <- sg
+      
+      return(sg.dat)
+    })
     
+    sg.dat <- do.call(raster::bind, sg.dat)
+    if(nrow(sg.dat) > nrow(sp.dat)){warning("point(s) assigned multiple subgroups")}
+    if(nrow(sg.dat) < nrow(sp.dat)){warning("not all points assigned to subgroup")}
     return(sg.dat)
-  })
-  
-  sg.dat <- do.call(raster::bind, sg.dat)
-  if(nrow(sg.dat) > nrow(sp.dat)){warning("point(s) assigned multiple subgroups")}
-  if(nrow(sg.dat) < nrow(sp.dat)){warning("not all points assigned to subgroup")}
-  return(sg.dat)
+  } else{
+    
+    if("HostCorrectedName" %in% names(dat)){
+      sp.dat <- dat[dat$HostCorrectedName == host,]
+    } else if("binomial" %in% names(dat)){
+      sp.dat <- dat[dat$binomial == host,] 
+    }
+    
+    if(buff != 0){
+      range.polygon <- terra::buffer(range.polygon, buff)
+    }
+    
+    sp.dat <- sp.dat[range.polygon,]
+    return(sp.dat)
+  }
 }

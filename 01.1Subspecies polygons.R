@@ -1,4 +1,4 @@
-# Figuring things out ####
+# Prep ####
 
 # going by subgroup rather than subspecies because of geographic groupings
 IUCN_Native_Data@data$subgroup <- IUCN_Native_Data@data$subspecies
@@ -22,8 +22,8 @@ GMPD_Spatial <- SpatialPointsDataFrame(coords      = GMPD_Data[, c("Longitude", 
 
 curr.species <- "Acinonyx jubatus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # upper
 clip_poly <- matrix(c(33.0, 0,
@@ -46,7 +46,7 @@ sprp_otherssp <- raster::intersect(sprp, clip_poly)
 sprp_try <- raster::bind(sprp_jubatus, sprp_otherssp)
 sprp_try@data[is.na(sprp_try@data$subgroup), "subgroup"] <- "other"
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -63,9 +63,9 @@ rm(list = ls(pattern = "^sprp"))
 # IUCN: "In Namibia, the Black-faced Impala is naturally confined to the Kaokoland in the north-west, and neighbouring south-western Angola"
 
 curr.species <- "Aepyceros melampus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 # All petersi samples already have subgroup data
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species & 
@@ -77,9 +77,9 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species &
 # There is only one sample location for each subspecies 
 
 curr.species <- "Alcelaphus buselaphus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 # All cokii samples already have subgroup data
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species & 
@@ -94,16 +94,16 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species &
 curr.species <- "Alces alces"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 # Used combination of Yenisei and Angara 
 YA_temp <- River_Data50[River_Data50$name %in% c("Yenisey", "Angara"),]
 
 YA_temp <- disaggregate(YA_temp)
 YA_temp$ID <- LETTERS[1:nrow(YA_temp)]
-tm_shape(YA_temp) + tm_lines("ID", lwd = 2)
+#map# tm_shape(YA_temp) + tm_lines("ID", lwd = 2)
 drop_ID <- "A|G|I|K"
-tm_shape(YA_temp[str_detect(YA_temp$ID, drop_ID, negate = TRUE),]) + tm_lines("ID", lwd = 2)
+#map# tm_shape(YA_temp[str_detect(YA_temp$ID, drop_ID, negate = TRUE),]) + tm_lines("ID", lwd = 2)
 
 YA_temp <- YA_temp[-grep(drop_ID, YA_temp$ID),] # to avoid self intersections
 YA_coords <- unlist(coordinates(YA_temp), recursive = FALSE)
@@ -124,7 +124,7 @@ YA_curr_coords <- rbind(YA_coords,
 clip_poly <- Polygon(YA_curr_coords)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
 
-# tm_shape(clip_poly) + tm_polygons() + tm_shape(sprp) + tm_polygons(alpha = 0)
+#map# tm_shape(clip_poly) + tm_polygons() + tm_shape(sprp) + tm_polygons(alpha = 0)
 
 # alces subspecies
 sprp_try <- sprp - clip_poly
@@ -149,14 +149,14 @@ sprp_otherssp <- raster::intersect(sprp, clip_poly)
 sprp_otherssp@data$subgroup <- "buturlini cameloides pfizenmayeri"
 
 sprp_try <- raster::bind(sprp_alces, sprp_americanus, sprp_otherssp)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("alces", "americana andersoni gigas shirasi"), buff = c(0.5, 4.5)))
+                           buff = data.frame(subgroup = c("alces", "americana andersoni gigas shirasi"), buff = c(0.5, 4.5)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -181,19 +181,18 @@ subspecies status (Peters & Brink 1992). "
 
 curr.species <- "Antidorcas marsupialis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 OV_temp <- River_Data50[(River_Data50$name == "Orange"| River_Data50$name == "Vaal"),]
 
-tm_shape(sprp) + tm_polygons() + tm_shape(OV_temp) + tm_lines() +
-  tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp) + tm_polygons() + tm_shape(OV_temp) + tm_lines() + tm_shape(sp.gmpd.points) + tm_dots()
 
 OV_temp <- disaggregate(OV_temp)
 OV_temp$ID <- LETTERS[1:nrow(OV_temp)]
-tm_shape(OV_temp) + tm_lines("ID", lwd = 2)
+#map# tm_shape(OV_temp) + tm_lines("ID", lwd = 2)
 drop_ID <- "G|A|E|B|D" ##### added D
-tm_shape(OV_temp[str_detect(OV_temp$ID, drop_ID, negate = TRUE),]) + tm_lines("ID", lwd = 2)
+#map# tm_shape(OV_temp[str_detect(OV_temp$ID, drop_ID, negate = TRUE),]) + tm_lines("ID", lwd = 2)
 OV_temp <- OV_temp[-grep(drop_ID, OV_temp$ID),] # to avoid self intersections
 
 OV_edit <- coordinates(OV_temp[OV_temp$ID == "F",])[[1]][[1]]
@@ -202,8 +201,7 @@ split_point <- nearestPointOnLine(OV_edit,
 
 split_row <- which(apply(OV_edit, 1, function(x) all(x == split_point)))
 OV_edit <- OV_edit[split_row:nrow(OV_edit),]
-tm_shape(OV_temp) +tm_lines() + 
-  tm_shape(SpatialLines(list(Lines(Line(OV_edit), ID = "6"))))  + tm_lines( col = "red")
+#map# tm_shape(OV_temp) +tm_lines() + tm_shape(SpatialLines(list(Lines(Line(OV_edit), ID = "6"))))  + tm_lines( col = "red")
 
 OV_coords <- unlist(coordinates(OV_temp), recursive = FALSE)
 names(OV_coords) <- OV_temp$ID
@@ -224,7 +222,7 @@ OV_coords <- rbind(OV_coords,
 clip_poly <- Polygon(OV_coords)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
 
-tm_shape(clip_poly) + tm_polygons()
+#map# tm_shape(clip_poly) + tm_polygons()
 
 sprp_marsupialis <- sprp - clip_poly
 sprp_marsupialis@data$subgroup <- "marsupialis"
@@ -232,7 +230,7 @@ sprp_otherssp <- raster::intersect(sprp, clip_poly)
 sprp_try <-  raster::bind(sprp_marsupialis, sprp_otherssp)
 
 sprp_try@data[is.na(sprp_try@data$subgroup), "subgroup"] <- "angolensis hofmeyri"
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -247,8 +245,8 @@ rm(list = ls(pattern = "^OV_"))
 # but peninsularis is quite geographically distinct from other subpopulations
 curr.species <- "Antilocapra americana"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 sprp_try <- raster::disaggregate(sprp)
 
@@ -256,7 +254,7 @@ sprp_try@data$subgroup <- "americana sonoriensis"
 sprp_try@data[17,"subgroup"] <- "peninsularis"
 
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -267,9 +265,9 @@ rm(list = ls(pattern = "^sprp"))
 ## Axis axis ####
 # Only have one sample point :(
 curr.species <- "Axis axis"
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 
-unique(sp.gmpd.points@coords)
+#map# unique(sp.gmpd.points@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -288,9 +286,9 @@ also hybridized with the plains subspecies, though the majority of the genetic m
 'Wood Buffalo.'" #https://en.wikipedia.org/wiki/Bovid_hybrid
 
 curr.species <- "Bison bison"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 IUCN_Native_Data@data[IUCN_Native_Data$binomial == curr.species, "subgroup"] <- "bison athabascae"
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "bison athabascae"
@@ -309,19 +307,19 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 # That means that the different habitat patches they occupy will not relate to their lineage, just to their overall species distribution
 
 curr.species <- "Bison bonasus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 IUCN_Native_Data@data[IUCN_Native_Data$binomial == curr.species, "subgroup"] <- "bonasus caucasicus"
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "bonasus caucasicus"
 
 ## Blastocerus dichotomus ####
 # No taxonomic notes on IUCN, no description of subspecies on wiki or msotw
-curr.species <- "Blastocerus dichotomus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Blastocerus dichotomus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Canis adustus ####
 # There are seven recognized subspecies of the side-striped jackal:[2]
@@ -344,10 +342,10 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 # Might be interesting to compare result from uncleaned polygons with cleaned. 
 # Split the streams again after adding this step?
 
-curr.species <- "Canis adustus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Canis adustus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Canis aureus ####
 "Recent studies based on mtDNA and morphology have shown that 'Golden Jackals' in Africa are larger in size than those from 
@@ -377,7 +375,7 @@ and merged with jackals coming from Asia (Fabbri et al. 2014; Rutkowski et al. 2
 curr.species <- "Canis aureus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 sp.gmpd.points <- sp.gmpd.points[sprp,]
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
@@ -389,10 +387,10 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 # The only subspecies I'm lacking are central american ones which don't appear geographically 
 # isolated from descriptions or geographic boundaries
 
-curr.species <- "Canis latrans"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Canis latrans"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Canis lupus ####
 # for Canis lupus rufus / Canis rufus:
@@ -407,7 +405,7 @@ which they considered a full species, as does this assessment."
 curr.species <- "Canis lupus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 # North America
 # mainland population is generally continuous apart from baileyi in Arizona/New Mexico
@@ -434,7 +432,7 @@ sprp_baileyi@data$subgroup <- "baileyi"
 sprp_america <- sprp_america - states50[states50$name %in% c("Arizona", "New Mexico"),]
 sprp_america <- raster::bind(sprp_america, sprp_baileyi)
 
-tm_shape(sprp_america) + tm_polygons("subgroup")
+#map# tm_shape(sprp_america) + tm_polygons("subgroup")
 
 # Europe:
 # signatus is isolated (https://doi.org/10.1111/mec.14824) (Iberian population)
@@ -569,16 +567,16 @@ sprp_pallipes <- sprp_pallipes - sprp_arabs
 
 # adding all up 
 sprp_try <- raster::bind(sprp_america, sprp_lupus, sprp_signatus, sprp_italicus, sprp_pallipes, sprp_arabs)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
-subgroup.buff_temp <- data.frame(subgroup = c("signatus", "italicus", "lupus", "pallipes chanco", "lycaon occidentalis nubilis"),
+buff_temp <- data.frame(subgroup = c("signatus", "italicus", "lupus", "pallipes chanco", "lycaon occidentalis nubilis"),
                                  buff = c(1.5, 0, 0, 0, 1))
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = subgroup.buff_temp)
+                           buff = buff_temp)
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -589,11 +587,11 @@ rm(list = ls(pattern = "^sprp"))
 curr.species <- "Canis mesomelas"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("mesomelas", "schmidti"), buff = c(0.5, 0)))
+                           buff = data.frame(subgroup = c("mesomelas", "schmidti"), buff = c(0.5, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -602,8 +600,8 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 # https://en.wikipedia.org/wiki/Ethiopian_wolf#/media/File:Canis_simensis_subspecies_range.png
 curr.species <- "Canis simensis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 clip_poly = matrix(c(37, 9,
                   40, 9,
@@ -622,7 +620,7 @@ sprp_otherssp <- raster::intersect(sprp, clip_poly)
 sprp_otherssp@data$subgroup <- "simensis"
 
 sprp_try <- raster::bind(sprp_try, sprp_otherssp)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -632,22 +630,22 @@ rm(list = ls(pattern = "^sprp"))
 
 ## Capra ibex ####
 # no reported subspecies in iucn, wiki, or msotw
-curr.species <- "Capra ibex"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Capra ibex"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Capra pyrenaica ####
 # four subspecies, two extinct. I probably only have hispanica which is geographically distinct from victoriae
 # subdivided based on IUCN description of ranges
 curr.species <- "Capra pyrenaica"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 sprp_try <- raster::disaggregate(sprp)
 sprp_try@data$temp <- letters[1:nrow(sprp_try@data)]
-tm_shape(sprp_try) + tm_polygons("temp")
+#map# tm_shape(sprp_try) + tm_polygons("temp")
 
 split_hispanica <- c("a", "b", "c", "d","e", "f", "g", "i", "m", "n")
 sprp_try@data <- sprp_try@data %>%
@@ -656,7 +654,7 @@ sprp_try@data <- sprp_try@data %>%
   dplyr::select(-temp)
 
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -670,8 +668,8 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 
 curr.species <- "Capreolus capreolus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 sprp_try <- raster::disaggregate(sprp)
 
@@ -699,7 +697,7 @@ sprp_capreolus@data$subgroup <- "italicus garganta capreolus"
 sprp_try <- raster::bind(sprp_coxi, sprp_caucasicus, sprp_capreolus)
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -709,10 +707,10 @@ rm(list = ls(pattern = "^sprp"))
 
 ## Capricornis crispus ####
 # No subspecies noted by IUCN, wiki, msotw
-curr.species <- "Capricornis crispus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Capricornis crispus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Cephalophus natalensis ####
 # Two subspecies have been named: C. n. natalensis and C. n. robertsi (north of the Limpopo river)
@@ -720,8 +718,8 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 curr.species <- "Cephalophus natalensis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 L_temp <- River_Data50[(River_Data50$name == "Limpopo"),]
 L_coords <- unlist(coordinates(L_temp), recursive = FALSE)[[1]]
@@ -743,13 +741,14 @@ sprp_robertsi <- sprp - clip_poly
 sprp_robertsi@data$subgroup <- "robertsi"
 
 sprp_try <- raster::bind(sprp_natalensis, sprp_robertsi)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "natalensis"
 
 rm(list = ls(pattern = "^sprp"))
+rm(list = ls(pattern = "^L_"))
 rm(list = ls(pattern = "_temp$"))
 
 ## Cerdocyon thous ####
@@ -758,8 +757,8 @@ rm(list = ls(pattern = "_temp$"))
 
 curr.species <- "Cerdocyon thous"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # azarae entrerianus
 sprp_try <- raster::disaggregate(sprp)
@@ -774,7 +773,7 @@ sprp_try <- sprp - sprp_azarae
 sprp_try@data$subgroup <- "thous aquilus germanus"
 
 sprp_try <- raster::bind(sprp_try, sprp_azarae)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -799,7 +798,7 @@ C. c. wallichii - G. Cuvier 1823 (SW China (SE Xizang), Bhutan)"
 curr.species <- "Cervus canadensis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- matrix(c(-125, 61,
                       -77,61,
@@ -817,7 +816,7 @@ sprp_americas@data$subgroup <- "canadensis nannodes roosevelti"
 sprp_otherssp <- sprp - clip_poly
 sprp_otherssp@data$subgroup <- "other"
 sprp_try <- raster::bind(sprp_americas, sprp_otherssp)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -829,7 +828,7 @@ GMPD_Spatial@data[GMPD_Spatial$HostCorrectedName == curr.species, "subgroup"] <-
 forming a continuous distribution throughout temperate Eurasia and North America. This belief was based 
 largely on the fully fertile hybrids that can be produced under captive conditions.[27][28][29]"
 elaphus_temp <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == "Cervus elaphus", ]
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(elaphus_temp) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(elaphus_temp) + tm_dots("subgroup")
 
 sprp_temp <- gBuffer(sprp_try[sprp_try$subgroup != "other",], byid = TRUE, width = 4)
 clip_points <- matrix(c(-148.5, 64),
@@ -848,7 +847,7 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial, elaphus_temp)
 
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 rm(list = ls(pattern = "^sprp"))
 rm(list = ls(pattern = "_temp$"))
@@ -882,7 +881,7 @@ the latter two nomials are considered synonyms and were recommended considered a
 curr.species <- "Cervus elaphus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # British Isles (scoticus)
 buffer_temp <- countries50[countries50$name %in% c("United Kingdom", "Ireland"),]
@@ -967,7 +966,7 @@ sprp_elaphus <- sprp - sprp_try
 sprp_elaphus@data$subgroup <- "elaphus"
 
 sprp_try <- raster::bind(sprp_try, sprp_elaphus)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -983,12 +982,12 @@ clip_points <- SpatialPolygonsDataFrame(terra::buffer(clip_points, 100000),
 
 sprp_try <- raster::bind(sprp_try, clip_points)
 
-subgroup.buff_temp <- data.frame(subgroup = c("scoticus", "hispanicus", "elaphus", "italicus", "atlanticus"), 
+buff_temp <- data.frame(subgroup = c("scoticus", "hispanicus", "elaphus", "italicus", "atlanticus"), 
                                  buff = c(0.1, 0, 0, 0, 0.5))
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = subgroup.buff_temp)
+                           buff = buff_temp)
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1009,7 +1008,7 @@ rm(list = ls(pattern = "_temp$"))
 curr.species <- "Cervus nippon"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- matrix(c(134.87, 35.8,
                       134.87, 35.66,
@@ -1038,7 +1037,7 @@ clip_poly <- matrix(c(134.87, 35.8,
 
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
-#tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
+#map# tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
 
 sprp_nippon <- raster::intersect(sprp, clip_poly)
 sprp_nippon@data$subgroup <- "nippon"
@@ -1053,7 +1052,7 @@ sprp_try <- raster::bind(sprp_nippon, sprp_aplodontus, sprp_yesoensis)
 sprp_otherssp <- sprp - sprp_try
 sprp_try <- raster::bind(sprp_otherssp, sprp_try)
 sprp_try@data[is.na(sprp_try@data$subgroup), "subgroup"] <- "other"
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1061,7 +1060,7 @@ IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != c
 # GMPD subgroup assignment
 # original subgroup designations correspond to polygons :)
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("nippon", "aplodontus", "yesoensis"), buff = c(0.5, 0, 0)))
+                           buff = data.frame(subgroup = c("nippon", "aplodontus", "yesoensis"), buff = c(0.5, 0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1069,10 +1068,10 @@ rm(list = ls(pattern = "^sprp"))
 
 ## Chrysocyon brachyurus ####
 # no subspecies described by IUCN, wiki, or msotw
-curr.species <- "Chrysocyon brachyurus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Chrysocyon brachyurus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Civettictis civetta #### 
 # IUCN doesn't describe any subspecies but they are recognised on wiki and msotw
@@ -1080,65 +1079,67 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 # Range appears continuous and hard to subdivide based on biogeographic barriers
 
 curr.species <- "Civettictis civetta"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Conepatus chinga ####
 # No subspecies described by IUCN or wiki, and range descriptions not available on msotw
 # Also range has no clearly isolated populations
-curr.species <- "Conepatus chinga"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Conepatus chinga"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Connochaetes gnou ####
 # No subspecies described by IUCN, wiki, or msotw
-curr.species <- "Connochaetes gnou"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Connochaetes gnou"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Connochaetes taurinus ####
 # already included in species range polygons <3
 curr.species <- "Connochaetes taurinus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("mearnsi", "albojubatus", "taurinus"), buff = c(0, 0, 1)))
+                           buff = data.frame(subgroup = c("mearnsi", "albojubatus", "taurinus"), buff = c(0, 0, 1)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
 ## Crocuta crocuta ####
 # neither IUCN nor msotw list any subspecies and wiki states:
 # "all the variation seen in the then recognised subspecies could also be found in a single population"
-curr.species <- "Crocuta crocuta"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Crocuta crocuta"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Cynictis penicillata ####
 # no subspecies listed by IUCN, no range descriptions on wiki, and the 12 listed on msotw have no range descriptions
 # Also range appears continuous
-curr.species <- "Cynictis penicillata"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Cynictis penicillata"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Damaliscus lunatus ####
 # already included in species range polygons <3
 curr.species <- "Damaliscus lunatus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 # Zambian sample already assigned lunatus which also corresponds with GBIF records
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("lunatus", "jimela"), buff = c(4, 0)))
+                           buff = data.frame(subgroup = c("lunatus", "jimela"), buff = c(4, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1147,35 +1148,37 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 curr.species <- "Damaliscus pygargus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
   mutate(subgroup = case_when(binomial == curr.species & is.na(subspecies) ~ "pygargus",
                               TRUE ~ subgroup))
-tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]) + tm_polygons("subgroup") 
+#map# tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]) + tm_polygons("subgroup") 
 
 # GMPD subgroup assignment
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("phillipsi", "pygargus"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("phillipsi", "pygargus"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
 ## Equus grevyi ####
 # No subspecies on msotw
 # "However, Groves and Bell (2004) concluded that the species is indeed monotypic."
-curr.species <- "Equus grevyi"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Equus grevyi"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Equus quagga ####
 # No subspecies on msotw
 # "The molecular data represented a genetic cline" so it's monotypic
 curr.species <- "Equus quagga"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Equus zebra ####
 # "We continue to recognize Mountain Zebra as a single species comprising two subspecies."
@@ -1183,11 +1186,11 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 curr.species <- "Equus zebra"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("hartmannae", "zebra"), buff = c(0.5, 0.5)))
+                           buff = data.frame(subgroup = c("hartmannae", "zebra"), buff = c(0.5, 0.5)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1199,7 +1202,7 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 curr.species <- "Felis silvestris"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Felis silvestris
 # grampia
@@ -1241,14 +1244,14 @@ sprp_caucasica <- raster::intersect(sprp, clip_poly)
 sprp_caucasica@data$subgroup <- "caucasica"
 
 sprp_try <- raster::bind(sprp_grampia, sprp_silvestris, sprp_caucasica)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # Sorting out GMPD 
 silvestris_temp <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("grampia", "silvestris"), buff = c(0, 0.7)))
+                           buff = data.frame(subgroup = c("grampia", "silvestris"), buff = c(0, 0.7)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], silvestris_temp)
 
@@ -1310,7 +1313,7 @@ sprp_lybica <- sprp - sprp_ornata - sprp_cafra
 sprp_lybica@data$subgroup <- "lybica"
 
 sprp_try <- raster::bind(sprp_ornata, sprp_cafra, sprp_lybica)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data, sprp_try)
 
@@ -1332,10 +1335,10 @@ Galictis cuja huronax – south-central Bolivia, eastern Argentina
 Galictis cuja luteola – extreme southern Peru, western Bolivia and northern Chile"
 
 # However, range appears continuous and I have no knowledge of barriers between subpopulations
-curr.species <- "Galictis cuja"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Galictis cuja"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Genetta genetta ####
 # wiki:
@@ -1354,7 +1357,7 @@ G. g. dongolana (Hemprich and Ehrenberg), 1832 — Arabia[34]"
 curr.species <- "Genetta genetta"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia", "Libya"),]
 clip_poly <- terra::buffer(clip_poly, 0.1)
@@ -1376,7 +1379,7 @@ sprp_senegalensis <- sprp - sprp_try
 sprp_senegalensis@data$subgroup <- "senegalensis"
 
 sprp_try <- raster::bind(sprp_try, sprp_senegalensis)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1390,22 +1393,22 @@ rm(list = ls(pattern = "_temp$"))
 ## Genetta thierryi ####
 # No subspecies listed by IUCN, wiki, or msotw
 # plus it has a small continuous range
-curr.species <- "Genetta thierryi"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Genetta thierryi"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Giraffa camelopardalis ####
 # already recorded <3
 curr.species <- "Giraffa camelopardalis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 # samples which appear to be within range of rothschildi are already recorded as reticulata
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("reticulata", "angolensis", "giraffa"), buff = c(1, 0, 1)))
+                           buff = data.frame(subgroup = c("reticulata", "angolensis", "giraffa"), buff = c(1, 0, 1)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1430,8 +1433,8 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 
 curr.species <- "Herpestes ichneumon"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 # Northwest Africa (sangronizi and numidicus) and Iberian peninsula (widdringtonii)
 clip_poly <- matrix(c(-16, 44,
@@ -1450,7 +1453,7 @@ sprp_ichneumon <- sprp - clip_poly
 sprp_ichneumon@data$subgroup <- "ichneumon"
 
 sprp_try <- raster::bind(sprp_otherssp, sprp_ichneumon)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1470,12 +1473,12 @@ H. a. constrictus has been tested.[9][10]" #(wiki)
 # However, it's really hard to tell if there's admixture because their population is so subdivided
 # Also subspecies ranges described in wiki have a lot of overlap
 
-curr.species <- "Hippopotamus amphibius"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Hippopotamus amphibius"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
-## Hippotragus niger
+## Hippotragus niger ####
 # Only variani is geographically separate, and descriptions of ranges do not specify biogeographical boundaries
 "Four subspecies are usually recognized: H. n. niger, H. n. kirkii, H. n. roosevelti and the isolated Giant Sable 
 (H. n. variani) from Angola. As for many other antelope species, the validity and precise distribution of most of the 
@@ -1484,55 +1487,55 @@ identified three genetic subdivisions representing a Kenya and east Tanzania cla
 clade (H. n. kirkii), and a southern African clade (H. n. niger) (Pitra et al. 2002)." #(IUCN)
 
 curr.species <- "Hippotragus niger"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data[IUCN_Native_Data$binomial == curr.species & is.na(IUCN_Native_Data$subgroup), "subgroup"] <- "niger kirkii roosevelti"
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "niger kirkii roosevelti"
 
 ## Hyaena hyaena ####
 # As of 2005,[3] no subspecies are recognised. (wiki, from msotw)
-curr.species <- "Hyaena hyaena"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Hyaena hyaena"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Kobus ellipsiprymnus ####
 # already labelled <3
 curr.species <- "Kobus ellipsiprymnus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("defassa", "ellipsiprymnus"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("defassa", "ellipsiprymnus"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
 ## Kobus kob ####
 # already done <3
 curr.species <- "Kobus kob"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "kob"
 
 ## Kobus leche ####
 # dooone <£
-curr.species <- "Kobus leche"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# curr.species <- "Kobus leche"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Leopardus geoffroyi ####
 # according to cat specialist group there's only one ssp
-curr.species <- "Leopardus geoffroyi"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Leopardus geoffroyi"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Leopardus pardalis ####
 # cat specialist group say there's two: pardalis (north) and mitis (south)
@@ -1544,7 +1547,7 @@ by molecular data as well as a clear biogeographical barrier, the Andes."
 curr.species <- "Leopardus pardalis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 buffer_temp <- countries50[countries50$continent == "North America" & countries50$name != "Panama",]
 buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
@@ -1555,7 +1558,7 @@ sprp_mitis <- sprp - buffer_temp
 sprp_mitis@data$subgroup <- "mitis"
 
 sprp_try <- raster::bind(sprp_pardalis, sprp_mitis)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1571,7 +1574,7 @@ clip_points <- SpatialPolygonsDataFrame(terra::buffer(clip_points, 100000),
 sprp_try <- raster::bind(sprp_try, clip_points)
 
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try,
-                                subgroup.buff = data.frame(subgroup = c("mitis", "pardalis"), buff = c(0, 0.5)))
+                                buff = data.frame(subgroup = c("mitis", "pardalis"), buff = c(0, 0.5)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1583,13 +1586,13 @@ rm(list = ls(pattern = "_temp$"))
 # They are geographically distinct and I only have one
 curr.species <- "Leopardus tigrinus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 sprp_try <- raster::disaggregate(sprp)
 sprp_try@data$subgroup <- c("tigrinus", "oncilla")
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1613,8 +1616,8 @@ L. c. sonora (Rhoads, 1898) – (U.S., Mexico)"
 
 curr.species <- "Lontra canadensis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- matrix(c(-78.5, 62.7,
                       -72.7, 62.9,
@@ -1655,7 +1658,7 @@ sprp_canadensis <- sprp_try[!(sprp_try$island %in% c("Kodiak", "Afognak", "Shuya
 sprp_canadensis@data$subgroup <- "canadensis pacifica sonora lataxina mira"
 
 sprp_try <- raster::bind(sprp_kodiacensis, sprp_periclyzomae, sprp_canadensis)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1673,8 +1676,8 @@ rm(list = ls(pattern = "^sprp"))
 
 curr.species <- "Lutra lutra"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # angustifrons
 clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia"),]
@@ -1687,7 +1690,7 @@ clip_poly <- countries50[countries50$name == "Sri Lanka",]
 clip_poly <- terra::buffer(clip_poly, 5)
 sprp_nair <- raster::intersect(sprp, clip_poly)
 sprp_nair@data$subgroup <- "nair"
-#tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
+##map# tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
 
 # barang
 clip_poly <- matrix(c(97.4, 23.8,
@@ -1800,7 +1803,7 @@ sprp_lutra <- sprp - sprp_try
 sprp_lutra@data$subgroup <- "lutra"
 
 sprp_try <- raster::bind(sprp_lutra, sprp_try)
-tm_shape(sprp_try) +tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) +tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1813,7 +1816,7 @@ rm(list = ls(pattern = "_temp$"))
 ## Lycalopex culpaeus ####
 # only one sample point :o
 curr.species <- "Lycalopex culpaeus"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -1821,7 +1824,7 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 ## Lycalopex fulvipes ####
 # only one sample
 curr.species <- "Lycalopex fulvipes"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -1832,10 +1835,10 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 localities of three of them lie outside the present-day range of the species:[1][4]"
 # Also has an apparently continuous range and subspecies range descriptions are not 
 
-curr.species <- "Lycalopex gymnocercus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Lycalopex gymnocercus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Lycaon pictus ####
 # five subspecies in wiki, though:
@@ -1848,17 +1851,17 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 # I at least have pictus and lupinus based on gbif, probably also somalicus
 # Too hard to know what's what and where there is or has been contact between subpopulations
 
-curr.species <- "Lycaon pictus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Lycaon pictus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Lynx canadensis ####
 # cat group says "Therefore we conclude that Lynx canadensis is a monotypic species"
-curr.species <- "Lynx canadensis"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Lynx canadensis"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Lynx lynx ####
 # On the basis of current evidence we propose the following six subspecies" (cat group)
@@ -1867,8 +1870,8 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 # Also see their map
 curr.species <- "Lynx lynx"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # using Yenisei to try and replicate cat map
 # I am assuming that the Yenisei acts as a biogeographic boundary between subspecies
@@ -1898,7 +1901,7 @@ Yeni_lynx_coords <- rbind(Yeni_coords,
 clip_poly <- Polygon(Yeni_lynx_coords)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string=CRS(proj4string(IUCN_Native_Data)))
 
-tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
+#map# tm_shape(clip_poly) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
 
 sprp_otherssp <- raster::intersect(sprp, clip_poly)
 sprp_otherssp@data[is.na(sprp_otherssp$subgroup), "subgroup"] <- "other"
@@ -1906,7 +1909,7 @@ sprp_lynx <- sprp - clip_poly
 sprp_lynx@data$subgroup <- "lynx"
 
 sprp_try <- raster::bind(sprp_otherssp, sprp_lynx)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -1917,25 +1920,24 @@ rm(list = ls(pattern = "^Yeni_"))
 
 ## Lynx pardinus ####
 # This is a monotypic species - cat group
-curr.species <- "Lynx pardinus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Lynx pardinus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Lynx rufus ####
 # cat group splits into 2 on either side of the great plains which acts as a barrier
-# Nice to see it's even apparent in the locations of parasite samples
 # They also group mexican populations into a rough subspecies
 curr.species <- "Lynx rufus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # Going for quite a crude split trying to replicate cat map
 
 buffer_temp <- countries50[countries50$name == "Mexico",]
 buffer_temp <- terra::buffer(buffer_temp, 0.1)
-# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(buffer_temp) + tm_polygons(alpha = 0)
+# #map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(buffer_temp) + tm_polygons(alpha = 0)
 
 sprp_mexican <- raster::intersect(sprp, buffer_temp)
 sprp_mexican@data$subgroup <- "mexican group"
@@ -1967,13 +1969,14 @@ sprp_fasciatus <- sprp_north - clip_poly
 sprp_fasciatus@data$subgroup <- "fasciatus"
 
 sprp_try <- raster::bind(sprp_rufus, sprp_mexican, sprp_fasciatus)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 # extending sprp_try because of overlapping buffers
+# floridanus not recognised
 clip_points <- matrix(c(-73, 53),
                       ncol = 2, byrow = TRUE)
 clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
@@ -1983,7 +1986,7 @@ clip_points <- SpatialPolygonsDataFrame(terra::buffer(clip_points, 100000),
 sprp_try <- raster::bind(sprp_try, clip_points)
 
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try,
-                           subgroup.buff = data.frame(subgroup = c("fasciatus", "rufus"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("fasciatus", "rufus"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -1996,9 +1999,11 @@ rm(list = ls(pattern = "_temp$"))
 # "found to intergrade in Montana and British Columbia" - IUCN
 # Also don't know of any island or otherwise isolated subspecies
 curr.species <- "Martes americana"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Martes foina ####
 "Some of the island populations are morphologically quite distinct, although the taxonomic significance 
@@ -2017,8 +2022,8 @@ of this is not yet clear"  #IUCN
 
 curr.species <- "Martes foina"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # bunites and milleri
 sprp_try <- raster::disaggregate(sprp)
@@ -2113,7 +2118,7 @@ sprp_rosanowi@data$subgroup <- "rosanowi"
 sprp_try <- sprp_try - clip_poly
 sprp_try <- raster::bind(sprp_try, sprp_rosanowi)
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -2123,10 +2128,10 @@ rm(list = ls(pattern = "^sprp"))
 
 ## Martes martes #####
 # has eight subspecies listed by msotw, but no range descriptions available that I can find
-curr.species <- "Martes martes"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Martes martes"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Martes melampus ####
 # I only have melampus
@@ -2136,24 +2141,24 @@ M. m. tsuensis is found on Tsushima Island.[3]" # wiki
 
 curr.species <- "Martes melampus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("island") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("island") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
   mutate(subgroup = case_when(binomial == curr.species & (is.na(island) | island == "Kamishima") ~ "tsuensis",
                               binomial == curr.species ~ "melampus",
                               TRUE ~ subgroup))
 
-tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup")
+#map# tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup")
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "melampus"
 
 ## Martes pennanti ####
 # "in general, the fisher is recognized to be a monotypic species with no extant subspecies.[11]" (wiki)
-curr.species <- "Martes pennanti"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Martes pennanti"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Meles meles ####
 # based on wiki description I have subspecies meles and marianensis
@@ -2164,7 +2169,7 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 curr.species <- "Meles meles"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # removing M. canescens
 clip_poly <- matrix(c(29, 40.8,
@@ -2197,7 +2202,7 @@ poly_temp <- terra::buffer(countries50[countries50$name %in% c("Georgia", "Azerb
 clip_poly <- gUnion(clip_poly, poly_temp)
 
 sprp_try <- sprp - clip_poly
-tm_shape(sprp_try) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
+#map# tm_shape(sprp_try) + tm_polygons(alpha = 0) + tm_shape(sprp) + tm_polygons(alpha = 0)
 
 # marianensis
 clip_poly <- countries50[countries50$name %in% c("Spain", "Portugal"),]
@@ -2210,14 +2215,14 @@ sprp_try <- sprp_try - sprp_marianensis
 sprp_try@data$subgroup <- "meles milleri heptneri"
 sprp_try <- raster::bind(sprp_try, sprp_marianensis)
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("marianensis", "meles milleri heptneri"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("marianensis", "meles milleri heptneri"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -2230,9 +2235,9 @@ rm(list = ls(pattern = "_temp$"))
 # All my samples appear to be M subaurantiaca so will adjust both polygons and gmpd
 
 curr.species <- "Melogale moschata"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 GMPD_Spatial@data <- GMPD_Spatial@data %>% 
   mutate(HostCorrectedName = case_when(HostCorrectedName == curr.species ~ "Melogale subaurantiaca",
@@ -2244,23 +2249,23 @@ IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
   mutate(binomial = case_when(binomial == curr.species & island == "Taiwan" ~ "Melogale subaurantiaca",
                               TRUE ~ binomial))
 
-curr.species <- "Melogale subaurantiaca"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# curr.species <- "Melogale subaurantiaca"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Mephitis mephitis ####
 # I have good sample coverage over most subspecies and they have a continuous range over North America
 # Not aware of any island or otherwise isolated subspecies
-curr.species <- "Mephitis mephitis"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Mephitis mephitis"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Mungos mungo ####
 # only one sample location 
 curr.species <- "Mungos mungo"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -2286,7 +2291,7 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 curr.species <- "Mustela erminea"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # North America
 # kadaiacensis
@@ -2630,7 +2635,7 @@ sprp_minima@data <- sprp_minima@data[,1:29]
 sprp_aestiva <- sprp_aestiva - clip_poly
 sprp_aestiva <- raster::bind(sprp_aestiva, sprp_minima)
 
-tm_shape(sprp_aestiva) + tm_polygons("subgroup")
+#map# tm_shape(sprp_aestiva) + tm_polygons("subgroup")
 
 # remaining subspecies
 sprp_try <- raster::bind(sprp_kadiacensis, sprp_polaris, sprp_arctica, sprp_stabilis, sprp_hibernica, sprp_aestiva)
@@ -2638,14 +2643,14 @@ sprp_otherssp <- sprp - sprp_try
 sprp_otherssp@data$subgroup <- "kaneii and other"
 sprp_try <- raster::bind(sprp_try, sprp_otherssp)
 
-tm_shape(sprp_try) +tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) +tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("arctica", "stabilis", "aestiva"), buff = c(0, 0, 0)))
+                           buff = data.frame(subgroup = c("arctica", "stabilis", "aestiva"), buff = c(0, 0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -2655,10 +2660,10 @@ rm(list = ls(pattern = "_temp$"))
 ## Mustela lutreola ####
 # seven subspecies, I only seem to have the french mink (biedermanni)
 # uncertain of where to split subspecies from descriptions on wiki
-curr.species <- "Mustela lutreola"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Mustela lutreola"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Mustela nivalis ####
 # Basing division on geography, rather than morphological size based categories (from wiki)
@@ -2667,8 +2672,8 @@ tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots()
 # from range descriptions, island populations seem to be treated as part of mainland subspecies, e.g. pygmaea or numidica
 curr.species <- "Mustela nivalis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- countries50[countries50$continent == "North America",]
 clip_poly <- raster::aggregate(clip_poly)
@@ -2681,7 +2686,7 @@ sprp_eurasian <- sprp - clip_poly
 sprp_eurasian@data$subgroup <- "eurasian"
 
 sprp_try <- raster::bind(sprp_americas, sprp_eurasian)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -2697,8 +2702,8 @@ rm(list = ls(pattern = "^sprp"))
 
 curr.species <- "Mustela putorius"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 sprp_try <- raster::disaggregate(sprp)
 
@@ -2718,7 +2723,7 @@ DB_temp <- River_Data50[River_Data50$name %in% c("Danube", "Bratul Chillia"),]
 
 DB_temp <- disaggregate(DB_temp)
 DB_temp$ID <- LETTERS[1:nrow(DB_temp)]
-tm_shape(DB_temp) + tm_lines("ID", lwd = 2)
+#map# tm_shape(DB_temp) + tm_lines("ID", lwd = 2)
 
 DB_coords <- rbind(DB_temp@lines[[2]]@Lines[[1]]@coords[116:144,], 
                    DB_temp@lines[[1]]@Lines[[1]]@coords[14:1,])
@@ -2771,7 +2776,7 @@ sprp_putorius <- sprp_putorius - sprp_rothschildi
 sprp_putorius <- raster::bind(sprp_putorius, sprp_rothschildi)
 
 sprp_try <- raster::bind(sprp_putorius, sprp_ukssp)
-tm_shape(sprp_try) + tm_polygons("subgroup")
+#map# tm_shape(sprp_try) + tm_polygons("subgroup")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -2785,7 +2790,7 @@ rm(list = ls(pattern = "^DB_"))
 ## Nasua nasua ####
 # only one sample location
 curr.species <- "Nasua nasua"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -2795,9 +2800,11 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 # I have multiple subspecies represented: vison, energumenos, evergladensis, and others 
 # only one that I would be confident in excluding is nesolestes but Admiralty Island is not included in the range anyway
 curr.species <- "Neovison vison"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Nyctereutes procyonoides ####
 # Going to follow current IUCN treatment of japanese populations as subspecies 
@@ -2814,9 +2821,9 @@ This taxon is synonymized with N. p. viverrinus in Mammal Species of the World,[
 analysis supports recognizing the Hokkaido population as a distinct subspecific unit.[13]" #wiki
 
 curr.species <- "Nyctereutes procyonoides"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("island") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("island") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
   mutate(subgroup = case_when(binomial == curr.species & island == "Hokkaido" ~ "albus",
@@ -2825,12 +2832,12 @@ IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
                               binomial == curr.species & is.na(island) ~ "other",
                               TRUE ~ subgroup))
 
-tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 # GMPD subgroup assignment
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("albus", "viverrinus"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("albus", "viverrinus"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -2848,9 +2855,11 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 # Going to leave it be as gap in IUCN may be artefact and I have no other evidence of isolation from fuliginatus
 
 curr.species <- "Odocoileus hemionus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Odocoileus virginianus ####
 # following wiki images of subspecies distributions
@@ -2864,8 +2873,8 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 curr.species <- "Odocoileus virginianus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 buffer_temp <- countries50[countries50$continent == "North America",]
 buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
@@ -2876,7 +2885,7 @@ sprp_south <- sprp - buffer_temp
 sprp_south@data$subgroup <- "southern"
 
 sprp_try <- raster::bind(sprp_north, sprp_south)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -2889,7 +2898,7 @@ rm(list = ls(pattern = "_temp$"))
 ## Oreamnos americanus ####
 # no subspecies on iucn, wiki, or msotw
 curr.species <- "Oreamnos americanus"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -2897,7 +2906,7 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 ## Otocolobus manul ####
 # only one sample point :(
 curr.species <- "Otocolobus manul"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -2907,11 +2916,11 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 curr.species <- "Otocyon megalotis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("megalotis", "virgatus"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("megalotis", "virgatus"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -2923,32 +2932,34 @@ isolated subspecies which is well differentiated in size and colour from other O
 from East Africa, the Kenya Oribi (O. o. keniae) from the lower slopes of Mount Kenya, is now apparently extinct."
 
 curr.species <- "Ourebia ourebi"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
   mutate(subgroup = case_when(binomial == curr.species & is.na(subgroup) ~ "oribi",
                               TRUE ~ subgroup)) 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "oribi"
 
-tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + 
-  tm_shape(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]) + tm_dots("subgroup") 
+#map# tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + 
+  #map# tm_shape(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]) + tm_dots("subgroup") 
 
 ## Ovibos moschatus ####
 # no subspecies on iucn, wiki, msotw
 curr.species <- "Ovibos moschatus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Ovis ammon ####
 # Sample locations don't correspond at all to Ovis ammon range
 # see "Subspecies info" as well 
 curr.species <- "Ovis ammon"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -2965,17 +2976,21 @@ exposure to different selection regimens."
 # unable to split according to lineages or subspecies as their range descriptions are not specific enough
 
 curr.species <- "Ovis canadensis"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Ovis dalli ####
 # IUCN states there are two subspecies, but they are known to admix
 # see Fannin sheep (O. d. fannini)
 curr.species <- "Ovis dalli"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+
+GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- NA
 
 ## Ozotoceros bezoarticus ####
 # Not entirely sure which subspecies I have (only leucogaster, or bezoarticus as well) but can remove those I definitely don't have
@@ -3000,7 +3015,7 @@ Department, Sierra de Los Ajos, 33º50’01”S; 54º01’34”W."
 curr.species <- "Ozotoceros bezoarticus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # celer
 clip_points <- matrix(c(-62.8, -38.8,
@@ -3062,14 +3077,14 @@ sprp_bezoarticus@data$subgroup <- "bezoarticus"
 
 sprp_try <- raster::bind(sprp_celer, sprp_uruguayensis, sprp_arerunguaensis, sprp_leucogaster, sprp_bezoarticus)
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("leucogaster", "bezoarticus"), buff = c(0.5, 1.5)))
+                           buff = data.frame(subgroup = c("leucogaster", "bezoarticus"), buff = c(0.5, 1.5)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -3078,9 +3093,9 @@ rm(list = ls(pattern = "^sprp"))
 ## Paguma larvata ####
 # I only have samples in their introduced range
 curr.species <- "Paguma larvata"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3089,9 +3104,9 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 # following the now outdated subspecies taxonomy of Asia (persica) and Africa (leo) as Asian population
 # is so geographically isolated
 curr.species <- "Panthera leo"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
   mutate(subgroup = case_when(binomial == curr.species & is.na(dist_comm) ~ "leo",
@@ -3100,8 +3115,8 @@ IUCN_Native_Data@data <- IUCN_Native_Data@data %>%
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "leo"
 
-tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + 
-  tm_shape(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]) + tm_dots() 
+#map# tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons("subgroup") + 
+  #map# tm_shape(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]) + tm_dots() 
 
 rm(list = ls(pattern = "^sprp"))
 
@@ -3119,8 +3134,8 @@ Ruiz-Garcia et al. (2006) found that the Andes Mountains incompletely isolates J
 
 curr.species <- "Panthera onca"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # Mexico and Guatemala
 clip_poly <- countries50[countries50$name %in% c("Mexico", "Guatemala", "Belize"), ]
@@ -3153,7 +3168,7 @@ sprp_south <- sprp - sprp_try
 sprp_south@data$subgroup <- "southern"
 
 sprp_try <- raster::bind(sprp_south, sprp_central, sprp_northern)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3165,9 +3180,9 @@ rm(list = ls(pattern = "^sprp"))
 ## Panthera pardus ####
 # already has subspecies designations <3
 curr.species <- "Panthera pardus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "pardus"
 
@@ -3180,8 +3195,8 @@ inter-specific genetic and chromosomal variation is occurring within this specie
 
 curr.species <- "Pecari tajacu"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 buffer_temp <- countries50[countries50$continent == "North America" & countries50$name != "Trinidad and Tobago",]
 buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
@@ -3192,7 +3207,7 @@ sprp_south <- sprp - buffer_temp
 sprp_south@data$subgroup <- "southern"
 
 sprp_try <- raster::bind(sprp_north, sprp_south)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3204,10 +3219,10 @@ rm(list = ls(pattern = "_temp$"))
 
 ## Pelea capreolus ####
 # continuous range with samples across it, also no subspecies described by iucn, wiki, msotw
-curr.species <- "Pelea capreolus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Pelea capreolus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Phacochoerus aethiopicus ####
 # range only includes extant subspecies, delamerei
@@ -3217,14 +3232,13 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 curr.species <- "Phacochoerus aethiopicus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp, bbox = bbox(sp.gmpd.points)) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp, bbox = bbox(sp.gmpd.points)) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # Some suspicious GMPD samples
 # odd ones are probably introduced for hunting
 
-sp.gmpd.points <- raster::intersect(sp.gmpd.points, terra::buffer(sprp, 4))
-GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
-GMPD_Spatial <- raster::bind(GMPD_Spatial, sp.gmpd.points)
+sp.gmpd.points <- sp.gmpd.points[terra::buffer(sprp, 4),]
+GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
 "See Grubb and d’Huart (2010) for a detailed historic overview of the classification of Phacochoerus."
 # https://doi.org/10.2982/028.099.0204
@@ -3234,20 +3248,20 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial, sp.gmpd.points)
 # I seem to have bicolor which has a range description as follows:
 # "The range extends from Zanzibar to the KwaZulu Natal region in South Africa."
 # This description includes Northern and Southern polygons so will leave the range as is 
-curr.species <- "Philantomba monticola"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Philantomba monticola"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Procapra gutturosa ####
 "Procapra gutturosa has not given rise to distinct geographic races. Specimens from the Mongolian Altai are
 indistinguishable from those of eastern Mongolia and hence the subspecies P. g. altaica described from 
 Bayan-Tsagan-Gobi is not accepted (Sokolov and Lushchekina 1997)." #IUCN
 
-curr.species <- "Procapra gutturosa"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# curr.species <- "Procapra gutturosa"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 ## Procyon lotor ####
 # Many subspecies. Based on wiki I appear to have:
@@ -3266,8 +3280,8 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 curr.species <- "Procyon lotor"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # grinnelli
 clip_poly <- matrix(c(-112.1, 27.9,
@@ -3300,7 +3314,7 @@ sprp_mainland <- sprp_try - sprp_grinnelli - sprp_insularis
 sprp_mainland@data$subgroup <- "mainland"
 
 sprp_try <- raster::bind(sprp_mainland, sprp_grinnelli, sprp_insularis)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3312,7 +3326,7 @@ rm(list = ls(pattern = "^sprp"))
 ## Procyon pygmaeus ####
 # only one sample 
 curr.species <- "Procyon pygmaeus"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3326,7 +3340,7 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 curr.species <- "Puma concolor"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # couguar
 clip_poly <- matrix(c(-77.5, 10.2,
@@ -3354,14 +3368,14 @@ sprp_concolor <- sprp - sprp_couguar - florida_temp
 sprp_concolor@data$subgroup <- "concolor"
 
 sprp_try <- raster::bind(sprp_couguar, sprp_concolor)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("concolor", "couguar"), buff = c(0, 2.5)))
+                           buff = data.frame(subgroup = c("concolor", "couguar"), buff = c(0, 2.5)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -3392,7 +3406,7 @@ rm(list = ls(pattern = "_temp$"))
 curr.species <- "Rangifer tarandus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # american subspecies
 buffer_temp <- countries50[countries50$continent == "North America",]
@@ -3416,14 +3430,14 @@ sprp_otherssp <- sprp - buffer_temp - norway_temp
 sprp_otherssp@data$subgroup <- "other"
 sprp_try <- raster::bind(sprp_americas, sprp_tara_platy, sprp_otherssp)
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("american", "tarandus", "platyrhynchus"), buff = c(0, 1, 0)))
+                           buff = data.frame(subgroup = c("american", "tarandus", "platyrhynchus"), buff = c(0, 1, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -3433,25 +3447,25 @@ rm(list = ls(pattern = "_temp$"))
 ## Raphicerus campestris ####
 # already done <3
 curr.species <- "Raphicerus campestris"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "campestris"
 
 ## Redunca arundinum ####
 # iucn, wiki, msotw list no subspecies
-curr.species <- "Redunca arundinum"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Redunca arundinum"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Redunca fulvorufula ####
 # already done <£
 curr.species <- "Redunca fulvorufula"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup"] <- "fulvorufula"
 
@@ -3465,7 +3479,7 @@ R. p. ornata (Abruzzo chamois): Central and southern Italy"
 curr.species <- "Rupicapra pyrenaica"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 sprp_ornata <- raster::intersect(sprp, countries50[countries50$name == "Italy",])
 sprp_ornata@data$subgroup <- "ornata"
@@ -3479,14 +3493,14 @@ sprp_try <- raster::bind(sprp_ornata,
 
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
 sprp_try@data <- sprp_try@data[,1:29]
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("parva", "pyrenaica"), buff = c(0.5, 1)))
+                           buff = data.frame(subgroup = c("parva", "pyrenaica"), buff = c(0.5, 1)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -3511,7 +3525,7 @@ R. r. tatrica (Tatra chamois): Slovakia (Tatras and Low Tatras) and Poland (Tatr
 curr.species <- "Rupicapra rupicapra"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # tatrica
 tatrica_temp <- terra::buffer(countries50[countries50$name == "Slovakia",], 0.1)
@@ -3565,7 +3579,7 @@ sprp_rupicapra <- raster::aggregate(sprp_rupicapra, by = names(sprp_rupicapra))
 
 sprp_try <- raster::bind(sprp_tatrica, sprp_carpatica, sprp_asiatica, sprp_caucasica, sprp_balcanica, sprp_rupicapra)
 sprp_try@data <- sprp_try@data[,1:29]
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3584,7 +3598,7 @@ rm(list = ls(pattern = "_temp$"))
 ## Rusa unicolor ####
 # only one sample
 curr.species <- "Rusa unicolor"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3592,31 +3606,28 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 ## Saiga tatarica ####
 # only have one sample point
 curr.species <- "Saiga tatarica"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 
 ## Spilogale gracilis ####
-# I only seem to have phenax, but apart from amphialus I'm unaware of barriers to admixture
-# amphialus not sampled and not recognised in range polyons so don't need to adjust
-"S. g. amphialus Dickey, 1929 — Channel Islands spotted skunk (Channel Islands of California)
-S. g. gracilis Merriam, 1890 — from south-eastern Washington to the extreme west of Oklahoma
-S. g. latifrons Merriam, 1890 — southwestern British Columbia to western Oregon
-S. g. leucoparia Merriam, 1890 — southern Arizona, New Mexico, and Texas, and northern Mexico
-S. g. lucasana Merriam, 1890 — southern Baja California
-S. g. martirensis Elliot, 1903 — northern and central Baja California
-S. g. phenax Merriam, 1890 — California"
+# I only have two amphialus samples for which the location data is inaccurate. 
+# Recorded as Santa Rosa Island and Santa Cruz Island but coordinates do not map to correct locations
+# amphialus is also not recognised in range polygons 
 
 curr.species <- "Spilogale gracilis"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
+GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 
 ## Spilogale putorius ####
 # only have one sample location
 curr.species <- "Spilogale putorius"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3624,7 +3635,7 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 ## Suricata suricatta ####
 # only one sample
 curr.species <- "Suricata suricatta"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3640,8 +3651,8 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 # can at least split into regional, algira, meridionalis, and majori
 curr.species <- "Sus scrofa"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # Indonesian
 clip_poly <- countries50[countries50$name %in% c("Malaysia", "Indonesia"),]
@@ -3725,7 +3736,7 @@ sprp_western@data$subgroup <- "western"
 
 # finishing off
 sprp_try <- raster::bind(sprp_try, sprp_western)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3739,21 +3750,21 @@ rm(list = ls(pattern = "^sprp"))
 "Fourteen subspecies were recognized by Grubb and Groves (2001) and Wilson (2013). Distribution is continuous, 
 there are many cases of intergradation and geographical boundaries between forms have not been delineated 
 accurately"
-curr.species <- "Sylvicapra grimmia"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Sylvicapra grimmia"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Syncerus caffer ####
 # already done <3
 curr.species <- "Syncerus caffer"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
-                           subgroup.buff = data.frame(subgroup = c("caffer", "nanus"), buff = c(1.5, 0)))
+                           buff = data.frame(subgroup = c("caffer", "nanus"), buff = c(1.5, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -3766,22 +3777,22 @@ T. t. taxus, in the Great Plains ecosystem from the United States into the prair
 and T. t. jeffersonii, in the western United States and southern British Columbia."
 # Likely to be taxus, but range is continuous and boundaries unclear
 
-curr.species <- "Taxidea taxus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Taxidea taxus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Tragelaphus angasii ####
 # no subspecies described by IUCN, wiki, or msotw
-curr.species <- "Tragelaphus angasii"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Tragelaphus angasii"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Tragelaphus eurycerus ####
 # only one sample location
 curr.species <- "Tragelaphus eurycerus"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3790,19 +3801,19 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 # "Three subspecies of Common Eland have been recognized, although their validity requires investigation" - IUCN
 # oryx, livingstonii, and pattersonianus
 # according to wiki I have all three and their ranges are contiguous without clear barriers
-curr.species <- "Tragelaphus oryx"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Tragelaphus oryx"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Tragelaphus scriptus ####
 # very complex taxonomic history (see iucn taxonomic notes and wiki discussion)
 # As a result (and because range is largely continuous) it's not possible to divide into subspecies based on info I have
 # although this would be desirable considering there are two divergent lineages that may be distinct species
-curr.species <- "Tragelaphus scriptus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Tragelaphus scriptus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Tragelaphus spekii ####
 # unable to split based on basins because of lack of specificity in descriptions
@@ -3812,10 +3823,10 @@ T. s. spekii (Speke, 1863): Nile sitatunga or East African sitatunga. Found in t
 T. s. gratus (Sclater, 1880): Congo sitatunga or forest sitatunga. Found in western and central Africa.
 T. s. selousi (W. Rothschild, 1898): Southern sitatunga or Zambezi sitatunga. Found in southern Africa."
 
-curr.species <- "Tragelaphus spekii"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Tragelaphus spekii"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Tragelaphus strepsiceros ####
 # seems as though I have strepsiceros, which is connected to chora by rift valley
@@ -3828,8 +3839,8 @@ T. s. cottoni – Chad and western Sudan"
 
 curr.species <- "Tragelaphus strepsiceros"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- matrix(c(26, 8,
                       17, 8,
@@ -3861,7 +3872,7 @@ sprp_strepsiceros <- sprp - clip_poly - sprp_cottoni
 sprp_strepsiceros@data$subgroup <- "strepsiceros"
 
 sprp_try <- raster::bind(sprp_cottoni, sprp_chora, sprp_strepsiceros)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3875,14 +3886,14 @@ rm(list = ls(pattern = "^sprp"))
 curr.species <- "Urocyon cinereoargenteus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 sprp_try <- raster::disaggregate(sprp)
 sprp_try@data[2, "subgroup"] <- "venezuelae"
 sprp_try@data[c(1,3), "subgroup"] <- "northern"
 
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -3898,7 +3909,7 @@ clip_points <- SpatialPolygonsDataFrame(terra::buffer(clip_points, 100000),
 sprp_try <- raster::bind(sprp_try, clip_points)
 
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try,
-                           subgroup.buff = data.frame(subgroup = c("northern", "venezuelae"), buff = c(0.1, 0)))
+                           buff = data.frame(subgroup = c("northern", "venezuelae"), buff = c(0.1, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -3918,9 +3929,9 @@ San Clemente Island Fox (U. l. clementae Merriam, 1903), San Clemente Island."
 
 # I have Santa Catalina (catalinae), San Nicolas (dickeyi), and San Clemente (clementae)
 curr.species <- "Urocyon littoralis"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -3934,8 +3945,8 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 # https://doi.org/10.1093/molbev/msv114
 curr.species <- "Ursus americanus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # Dall island and Haida Gwaii (pugnax and carlottae)
 sprp_haida <- matrix(c(-134, 54.5,
@@ -3995,7 +4006,7 @@ sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
 sprp_try@data$subgroup <- "mainland"
 
 sprp_try <- raster::bind(sprp_try, sprp_haida, sprp_kenai, sprp_vancouveri)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -4015,7 +4026,7 @@ the end of the last Ice Age.[40][41] "
 curr.species <- "Ursus arctos"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # North America
 # middendorffi
@@ -4051,7 +4062,7 @@ sprp_horribilis <- sprp_try - sprp_sitkensis - sprp_ungavaensis - sprp_middendor
 sprp_horribilis@data$subgroup <- "horribilis"
 
 sprp_america <- raster::bind(sprp_middendorffi, sprp_ungavaensis, sprp_sitkensis, sprp_horribilis)
-tm_shape(sprp_america) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_america) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 # Eurasia and North Africa
 # crowtheri
@@ -4110,7 +4121,7 @@ clip_poly <-  matrix(c(67, 48,
                      ncol = 2, byrow = TRUE)
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
-#tm_shape(clip_poly) + tm_polygons(alpha = 0) +tm_shape(sprp) + tm_polygons(alpha = 0)
+##map# tm_shape(clip_poly) + tm_polygons(alpha = 0) +tm_shape(sprp) + tm_polygons(alpha = 0)
 
 sprp_pruinosus <- sprp_try[clip_poly,]
 sprp_pruinosus@data$subgroup <- "pruinosus isabellinus gobiensis"
@@ -4170,16 +4181,16 @@ sprp_collaris@data$subgroup <- "collaris beringianus lasiotus"
 sprp_try <- raster::bind(sprp_america, sprp_crowtheri, sprp_pyrenaicus, sprp_syriacus, 
                          sprp_pruinosus, sprp_marsicanus, sprp_arctos, sprp_collaris)
 
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
 
 # GMPD subgroup assignment
-subgroup.buff_temp <- data.frame(subgroup = c("horribilis", "middendorffi", "marsicanus", "arctos"), 
+buff_temp <- data.frame(subgroup = c("horribilis", "middendorffi", "marsicanus", "arctos"), 
                                  buff = c(0, 0, 0, 0.5))
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = subgroup.buff_temp)
+                           buff = buff_temp)
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -4190,15 +4201,15 @@ rm(list = ls(pattern = "_temp$"))
 # no subpsecies on IUCN or msotw, and wiki states: 
 "When the polar bear was originally documented, two subspecies were identified [...] This 
 distinction has since been invalidated."
-curr.species <- "Ursus maritimus"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Ursus maritimus"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Vulpes corsac ####
 # only one sample
 curr.species <- "Vulpes corsac"
-unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
+#map# unique(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species,]@coords)
 
 IUCN_Native_Data <- IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,]
 GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
@@ -4217,7 +4228,7 @@ Pribilof Islands Arctic fox, V. l. pribilofensis" # (wiki)
 curr.species <- "Vulpes lagopus"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # foragoapusis (Iceland)
 sprp_foragoapusis <- sprp[!is.na(sprp$island) & sprp@data$island == "Iceland",]
@@ -4246,17 +4257,17 @@ sprp_pribilofensis <- sprp[sprp$island %in% pribilof_temp, ]
 sprp_pribilofensis@data$subgroup <- "pribilofensis"
 
 sprp_try <- raster::bind(sprp_lagopus, sprp_foragoapusis, sprp_fuliginosus, sprp_beringensis, sprp_pribilofensis)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>% 
   mutate(subgroup = case_when(binomial == curr.species & is.na(subgroup) ~ "macrotis",
                               TRUE ~ subgroup))
 
 # GMPD subgroup assignment
-subgroup.buff_temp <- data.frame(subgroup = c("fuliginosus", "lagopus", "foragoapusis"), 
+buff_temp <- data.frame(subgroup = c("fuliginosus", "lagopus", "foragoapusis"), 
                                  buff = c(5, 1, 0))
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = subgroup.buff_temp)
+                           buff = buff_temp)
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
@@ -4269,7 +4280,7 @@ other kit foxes may be included in a second subspecies, V. m. macrotis"
 curr.species <- "Vulpes macrotis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data@data <- IUCN_Native_Data@data %>% 
   mutate(subgroup = case_when(binomial == curr.species & is.na(subgroup) ~ "macrotis",
@@ -4290,16 +4301,16 @@ sprp_macrotis <- sprp_macrotis - sprp_mutica
 sprp_try <- raster::bind(sprp_mutica, sprp_macrotis)
 
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
-                           subgroup.buff = data.frame(subgroup = c("macrotis", "mutica"), buff = c(0, 0)))
+                           buff = data.frame(subgroup = c("macrotis", "mutica"), buff = c(0, 0)))
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
 ## Vulpes velox ####
 # no subspecies in IUCN, wiki, or msotw
-curr.species <- "Vulpes velox"
-sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
-sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
+#map# curr.species <- "Vulpes velox"
+#map# sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
+#map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
+#map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 ## Vulpes vulpes ####
 # 45 subspecies with patchy range descriptions which do not cover full extent of iucn range polygon
@@ -4311,7 +4322,7 @@ tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 curr.species <- "Vulpes vulpes"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
-tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+#map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # barbara and atlantica
 clip_poly <- countries50[countries50$name %in% c("Morocco", "Algeria", "Tunisia", "Libya"),]
@@ -4401,7 +4412,7 @@ sprp_otherssp <- sprp - sprp_try
 sprp_otherssp@data$subgroup <- "unknown"
 
 sprp_try <- raster::bind(sprp_try, sprp_otherssp)
-tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
+#map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
                                  sprp_try)
@@ -4418,17 +4429,20 @@ clip_points <- SpatialPolygonsDataFrame(terra::buffer(clip_points, 100000),
 
 sprp_try <- raster::bind(sprp_try, clip_points)
 
-subgroup.buff_temp <- data.frame(subgroup = c("barbara atlantica", "silacea", "crucifera", "vulpes", "unknown", "japonica", "schrencki"), 
+buff_temp <- data.frame(subgroup = c("barbara atlantica", "silacea", "crucifera", "vulpes", "unknown", "japonica", "schrencki"), 
                                  buff = c(0, 0, 0, 0, 0, 0, 0.1))
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try,
-                           subgroup.buff = subgroup.buff_temp)
+                           buff = buff_temp)
 
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
-# tidying up
+# Finishing up ####
+
+GMPD_Subspecies <- as.data.frame(GMPD_Spatial)
+
+# tidying
 rm(list = ls(pattern = "^sprp"))
 rm(list = ls(pattern = "_temp$"))
 rm(list = ls(pattern = "^YA_"))
-rm(turkey_rangepol, L_coords, sp.gmpd.points, list = ls(pattern = "^clip_"))
-rm(drop_ID, list = ls(pattern = "^split_"))
-
+rm(turkey_rangepol, sp.gmpd.points, list = ls(pattern = "^clip_"))
+rm(drop_ID, curr.species, list = ls(pattern = "^split_"))
