@@ -463,36 +463,41 @@ quick_map <- function(c.species){
 }
 
 pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
+  if("HostCorrectedName" %in% names(dat)){
+    sp.dat <- dat[dat$HostCorrectedName == host,]
+  } else if("binomial" %in% names(dat)){
+    sp.dat <- dat[dat$binomial == host,] 
+  }
+  
   if(subsp){
-    if("HostCorrectedName" %in% names(dat)){
-      sp.dat <- dat[dat$HostCorrectedName == host,]
-    } else if("binomial" %in% names(dat)){
-      sp.dat <- dat[dat$binomial == host,]
-    }
-    
     sg.dat <- lapply(unique(buff$subgroup), function(sg){
-      sg.polygon <- range.polygon[range.polygon$subgroup == sg,]
+      sg.polygon <- range.polygon[range.polygon$subgroup == sg,] 
       if(buff[buff$subgroup == sg, "buff"] != 0){
-        sg.polygon <- terra::buffer(sg.polygon, buff[buff$subgroup == sg, "buff"])
+        sg.polygon <- terra::buffer(sg.polygon, buff[buff$subgroup == sg, "buff"]) 
       }
       
-      sg.dat <- sp.dat[sg.polygon,]
-      sg.dat@data$subgroup <- sg
+      sg.dat <- sp.dat[sg.polygon,] 
+      if(nrow(sg.dat) > 0){
+        sg.dat@data$subgroup <- sg
+      }
       
       return(sg.dat)
     })
     
-    sg.dat <- do.call(raster::bind, sg.dat)
-    if(nrow(sg.dat) > nrow(sp.dat)){warning("point(s) assigned multiple subgroups")}
-    if(nrow(sg.dat) < nrow(sp.dat)){warning("not all points assigned to subgroup")}
-    return(sg.dat)
-  } else{
-    
-    if("HostCorrectedName" %in% names(dat)){
-      sp.dat <- dat[dat$HostCorrectedName == host,]
-    } else if("binomial" %in% names(dat)){
-      sp.dat <- dat[dat$binomial == host,] 
+    sg.dat <- sg.dat[which(lapply(sg.dat, function(x)nrow(x) != 0) == TRUE)] 
+    if(length(sg.dat) == 0){
+      return(NULL)
+    } else if(length(sg.dat) == 1){
+      return(sg.dat[[1]])
+    } else {
+      sg.dat <- do.call(raster::bind, sg.dat)
+      if(nrow(sg.dat) > nrow(sp.dat)){warning("point(s) assigned multiple subgroups")}
+      if(nrow(sg.dat) < nrow(sp.dat)){warning("not all points assigned to subgroup")}
+      return(sg.dat)
+      
     }
+
+  } else{
     
     if(buff != 0){
       range.polygon <- terra::buffer(range.polygon, buff)
@@ -501,4 +506,12 @@ pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
     sp.dat <- sp.dat[range.polygon,]
     return(sp.dat)
   }
+}
+
+pip_test_host <- function(hostlist, dat, range.polygon, buff, subsp = TRUE){
+  out <- lapply(hostlist, function(host){
+    range.polygon <- range.polygon[range.polygon$binomial == host,]
+    out <- pip.test(host, dat, range.polygon, buff, subsp)
+  })
+  out <- do.call(raster::bind, sg.dat)
 }

@@ -14,6 +14,7 @@
 
 # Libraries and data ##########################################################################################
 
+library(beepr)
 library(CoordinateCleaner)  # cleaning geographic data
 library(geosphere)          # calculating distances
 library(here)               #
@@ -40,7 +41,7 @@ River_Data50 <- ne_load(scale = 50,
                         category = "physical",
                         destdir = here::here("Data/Extras/ne_rivers"))
 
-sf::sf_use_s2(FALSE) #Not sure about keeping this here. May move. For "invalid spherical geometry" errors
+sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 tmap_mode("view")
 
 # Basic data cleaning #########################################################################################
@@ -171,12 +172,12 @@ GMPD_Data <- GMPD_Data %>%
                                 TRUE          ~ Prevalence))
 
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
-GMPD_base_plots_00 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, plot_type = "base")
-names(GMPD_base_plots_00) <- sort(Hostlist)
-
-pdf(file = here::here('Data/GMPD/GMPD_base_plots_00.pdf'), width = 10, height = 7)
-GMPD_base_plots_00
-dev.off()
+# GMPD_base_plots_00 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, plot_type = "base")
+# names(GMPD_base_plots_00) <- sort(Hostlist)
+# 
+# pdf(file = here::here('Data/GMPD/GMPD_base_plots_00.pdf'), width = 10, height = 7)
+# GMPD_base_plots_00
+# dev.off()
 
 ## Sample cleaning ############################################################################################
 
@@ -455,12 +456,12 @@ rm(list = ls(pattern = "_temp$"))
 # Plotting with full polygons before restricting
 
 Legend_Text <- sort(unique(IUCN_Data$legend))
-GMPD_plots_01 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Data, plot_type = "iucn")
-names(GMPD_plots_01) <- sort(Hostlist)
-
-pdf(file = here::here('Data/GMPD/GMPD_plots_01.pdf'), width = 10, height = 7)
-GMPD_plots_01
-dev.off()
+# GMPD_plots_01 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Data, plot_type = "iucn")
+# names(GMPD_plots_01) <- sort(Hostlist)
+# 
+# pdf(file = here::here('Data/GMPD/GMPD_plots_01.pdf'), width = 10, height = 7)
+# GMPD_plots_01
+# dev.off()
 
 # removing unwanted polygons
 
@@ -478,45 +479,67 @@ Native_DF <- lapply(Hostlist, function(host) {
 
 IUCN_Native_Data <- raster::bind(lapply(Hostlist, drop_introduced, range.polygon = IUCN_Data, native.df = Native_DF))
 
-GMPD_plots_native_base_02 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Native_Data, plot_type = "iucn")
-names(GMPD_plots_native_base_02) <- sort(Hostlist)
+# GMPD_plots_native_base_02 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Native_Data, plot_type = "iucn")
+# names(GMPD_plots_native_base_02) <- sort(Hostlist)
+# 
+# pdf(file = here::here('Data/GMPD/GMPD_plots_native_base_02.pdf'), width = 10, height = 7)
+# GMPD_plots_native_base_02
+# dev.off()
 
-pdf(file = here::here('Data/GMPD/GMPD_plots_native_base_02.pdf'), width = 10, height = 7)
-GMPD_plots_native_base_02
-dev.off()
-
-## Removing subspecies ####
+## Adjusting subspecies ####
 
 source(here::here("01.1Subspecies polygons.R"))
 
-## Restricting by native IUCN polygon ####
+## Restricting by native IUCN polygon by species ####
+Hostlist <- unique(GMPD_Spatial@data$HostCorrectedName)
+GMPD_Data_res_all <- lapply(Hostlist, function(host, dat = GMPD_Spatial, range.polygon = IUCN_Native_Data, buff = 0, subsp = FALSE){
+  range.polygon <- range.polygon[range.polygon$binomial == host,]
+  out <- pip_test(host, dat, range.polygon, buff, subsp)
+})
 
-GMPD_Data_res <- GMPD_Data %>%                        
-  rename(binomial = HostCorrectedName) %>%
-  cc_iucn(IUCN_Native_Data,
-          lon = "Longitude",
-          lat = "Latitude",
-          species = "binomial") %>%
-  rename(HostCorrectedName = binomial)
-nrow(GMPD_Data_res); length(unique(GMPD_Data_res$HostCorrectedName)) # 7458 and 126
+GMPD_Data_res_all <- GMPD_Data_res_all[which(lapply(GMPD_Data_res_all, function(x)nrow(x) != 0) == TRUE)]
+GMPD_Data_res_all <- do.call(raster::bind, GMPD_Data_res_all)
+GMPD_Data_res_all <- as.data.frame(GMPD_Data_res_all)
 
-GMPD_Data_res <- GMPD_Data_res %>%
+GMPD_Data_res_all <- GMPD_Data_res_all %>%
   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
   filter(n() > 1) %>% 
   ungroup()
-nrow(GMPD_Data_res); length(unique(GMPD_Data_res$HostCorrectedName)) # 7287 and 120
+nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7116 and 106
 
-GMPD_plots_native_restricted_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res, range.polygon = IUCN_Native_Data, plot_type = "iucn")
-names(GMPD_plots_native_restricted_03) <- sort(Hostlist)
+# GMPD_plots_native_restricted_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res_all, range.polygon = IUCN_Native_Data, plot_type = "iucn")
+# names(GMPD_plots_native_restricted_03) <- sort(Hostlist)
+# 
+# pdf(file = here::here('Data/GMPD/GMPD_plots_native_restricted_03.pdf'), width = 10, height = 7)
+# GMPD_plots_native_restricted_03
+# dev.off()
 
-pdf(file = here::here('Data/GMPD/GMPD_plots_native_restricted_03.pdf'), width = 10, height = 7)
-GMPD_plots_native_restricted_03
-dev.off()
+## Restricting by native IUCN polygon by subspecies group ####
+
+buffer_temp <- unique(GMPD_Subspecies[,c("HostCorrectedName", "subgroup")])
+buffer_temp$buff <- 0
+
+GMPD_Data_res_sub <- lapply(Hostlist, function(host, dat = GMPD_Spatial, range.polygon = IUCN_Native_Data, buff = buffer_temp){
+  range.polygon <- range.polygon[range.polygon$binomial == host,]
+  buff <- buff[buff$HostCorrectedName == host,]
+  out <- pip_test(host, dat, range.polygon, buff)
+})
+
+GMPD_Data_res_sub <- GMPD_Data_res_sub[which(lapply(GMPD_Data_res_sub, is.null) == FALSE)]
+GMPD_Data_res_sub <- do.call(raster::bind, GMPD_Data_res_sub)
+GMPD_Data_res_sub <- as.data.frame(GMPD_Data_res_sub)
+
+GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
+  group_by(ParasiteCorrectedName, HostCorrectedName) %>%
+  filter(n() > 1) %>% 
+  ungroup()
+nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 7084 and 104
 
 ## Cleaning by native IUCN polygon ####
+# old code
 Native_Clean <- Native_DF %>%
   filter(!keep) %>%
-  filter(HostCorrectedName %in% unique(GMPD_Data$HostCorrectedName)) %>%
+  filter(HostCorrectedName %in% unique(GMPD_Subspecies$HostCorrectedName)) %>%
   mutate(buffer = case_when(str_detect(HostCorrectedName, "Capra ibex|Martes melampus") ~ 0,
                             HostCorrectedName == "Vulpes vulpes"                        ~ 2,
                             TRUE                                                        ~ 1))
@@ -524,7 +547,7 @@ Native_Clean <- Native_DF %>%
 GMPD_clean_plots <- lapply(sort(unique(Native_Clean$HostCorrectedName)), iucn_test)
 names(GMPD_clean_plots) <- sort(unique(Native_Clean$HostCorrectedName))
 
-GMPD_Data_cln <- iucn_cleaning(dat = GMPD_Data, native.df = Native_Clean)
+GMPD_Data_cln <- iucn_cleaning(dat = GMPD_Subspecies, native.df = Native_Clean)
 GMPD_Data_cln <- GMPD_Data_cln %>%
   filter(is.na(out) | !out) %>%
   dplyr::select(-out)
