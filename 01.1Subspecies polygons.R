@@ -4441,7 +4441,7 @@ GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr
 GMPD_Spatial@data[is.na(GMPD_Spatial@data$subgroup), "subgroup"] <- "not used"
 IUCN_Native_Data@data[is.na(IUCN_Native_Data@data$subgroup), "subgroup"] <- "not used"
 
-GMPD_Subspecies <- as.data.frame(GMPD_Spatial)
+GMPD_Subgroups <- as.data.frame(GMPD_Spatial)
 
 # tidying
 rm(list = ls(pattern = "^sprp"))

@@ -516,7 +516,7 @@ nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7
 
 ## Restricting by native IUCN polygon by subspecies group ####
 
-buffer_temp <- unique(GMPD_Subspecies[,c("HostCorrectedName", "subgroup")])
+buffer_temp <- unique(GMPD_Subgroups[,c("HostCorrectedName", "subgroup")])
 buffer_temp$buff <- 0
 
 GMPD_Data_res_sub <- lapply(Hostlist, function(host, dat = GMPD_Spatial, range.polygon = IUCN_Native_Data, buff = buffer_temp){
@@ -536,91 +536,50 @@ GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
 nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 7084 and 104
 
 ## Cleaning by native IUCN polygon ####
-# old code
-Native_Clean <- Native_DF %>%
-  filter(!keep) %>%
-  filter(HostCorrectedName %in% unique(GMPD_Subspecies$HostCorrectedName)) %>%
-  mutate(buffer = case_when(str_detect(HostCorrectedName, "Capra ibex|Martes melampus") ~ 0,
-                            HostCorrectedName == "Vulpes vulpes"                        ~ 2,
-                            TRUE                                                        ~ 1))
+# Method in 01.1 already cleans species and subspecies
 
-GMPD_clean_plots <- lapply(sort(unique(Native_Clean$HostCorrectedName)), iucn_test)
-names(GMPD_clean_plots) <- sort(unique(Native_Clean$HostCorrectedName))
+GMPD_Data_cln <- GMPD_Subgroups %>%
+  group_by(ParasiteCorrectedName, HostCorrectedName) %>%
+  filter(n() > 1) %>% 
+  ungroup()
+nrow(GMPD_Data_cln); length(unique(GMPD_Data_cln$HostCorrectedName)) # 8130 and 113
 
-GMPD_Data_cln <- iucn_cleaning(dat = GMPD_Subspecies, native.df = Native_Clean)
-GMPD_Data_cln <- GMPD_Data_cln %>%
-  filter(is.na(out) | !out) %>%
-  dplyr::select(-out)
-
-GMPD_plots_native_clean_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
-names(GMPD_plots_native_clean_03) <- sort(Hostlist)
-
-pdf(file = here::here('Data/GMPD/GMPD_plots_native_clean_03.pdf'), width = 10, height = 7)
-GMPD_plots_native_clean_03
-dev.off()
+# GMPD_plots_native_clean_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
+# names(GMPD_plots_native_clean_03) <- sort(Hostlist)
+# 
+# pdf(file = here::here('Data/GMPD/GMPD_plots_native_clean_03.pdf'), width = 10, height = 7)
+# GMPD_plots_native_clean_03
+# dev.off()
 
 # Restricting each by proximity ####################################################################################
-## IUCN restricted ####
-# Creating nested data frame
+## IUCN restricted subgroup ####
+Res_Temp <- restrict_deci(GMPD_Data_res_sub, subsp = TRUE)
+Res_Temp <- Res_Temp[Res_Temp$enough, ]
+GMPD_Data_res_sub <- GMPD_Data_res_sub[GMPD_Data_res_sub$HostCorrectedName %in% Res_Temp$HostCorrectedName &
+                                         GMPD_Data_res_sub$subgroup %in% Res_Temp$subgroup,]
+nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName))
 
-Host_Par_Loc_Nest_res <- GMPD_Data_res %>%
-  dplyr::select(HostCorrectedName, ParasiteCorrectedName, Longitude, Latitude) %>%
-  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
-  nest(Location = c(Longitude, Latitude))
-nrow(Host_Par_Loc_Nest_res) # 1221
+## IUCN restricted species ####
+# new method
+Res_Temp <- restrict_deci(GMPD_Data_res_all)
+Res_Temp <- Res_Temp[Res_Temp$enough, ]
+GMPD_Data_res_all <- GMPD_Data_res_all[GMPD_Data_res_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
+nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName))
 
-# Restricting to those that occupy at least two 60/60 res grid squares
+## IUCN cleaned subgroup ####
+Res_Temp <- restrict_deci(GMPD_Data_cln, subsp = TRUE)
+Res_Temp <- Res_Temp[Res_Temp$enough, ]
+GMPD_Data_cln_sub <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName &
+                                 GMPD_Data_cln$subgroup %in% Res_Temp$subgroup,]
+nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName))
 
-Rastr_60 <- raster(resolution = (60/60))
+## IUCN cleaned species ####
+Res_Temp <- restrict_deci(GMPD_Data_cln)
+Res_Temp <- Res_Temp[Res_Temp$enough, ]
+GMPD_Data_cln_all <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
+nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName))
 
-Host_Par_Loc_Nest_res <- Host_Par_Loc_Nest_res %>%
-  mutate(Across60 = restrict(Location, rastr = Rastr_60)) %>%
-  filter(Across60) %>%
-  dplyr::select(-Across60)
-nrow(Host_Par_Loc_Nest_res) # 875
-
-GMPD_Data_res <- merge(GMPD_Data_res, Host_Par_Loc_Nest_res[c(1, 2)], by = c("HostCorrectedName", "ParasiteCorrectedName"), 
-                   sort = FALSE, all.x = FALSE)
-nrow(GMPD_Data_res) # 6135
-
-# Plotting again
-
-GMPD_plots_clean_04_restricted <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res, range.polygon = IUCN_Native_Data, plot_type = "iucn")
-names(GMPD_plots_clean_04_restricted) <- sort(Hostlist)
-
-pdf(file = here::here('Data/GMPD/GMPD_plots_clean_04_restricted.pdf'), width = 10, height = 7)
-GMPD_plots_clean_04_restricted
-dev.off()
-
-## IUCN cleaned ####
-# Creating nested data frame
-
-Host_Par_Loc_Nest_cln <- GMPD_Data_cln %>%
-  dplyr::select(HostCorrectedName, ParasiteCorrectedName, Longitude, Latitude) %>%
-  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
-  nest(Location = c(Longitude, Latitude))
-nrow(Host_Par_Loc_Nest_cln) # 1582
-
-# Restricting to those that occupy at least two 60/60 res grid squares
-
-Host_Par_Loc_Nest_cln <- Host_Par_Loc_Nest_cln %>%
-  mutate(Across60 = restrict(Location, rastr = Rastr_60)) %>%
-  filter(Across60) %>%
-  dplyr::select(-Across60)
-nrow(Host_Par_Loc_Nest_cln) # 1079
-
-GMPD_Data_cln <- merge(GMPD_Data_cln, Host_Par_Loc_Nest_cln[c(1, 2)], by = c("HostCorrectedName", "ParasiteCorrectedName"), 
-                   sort = FALSE, all.x = FALSE)
-nrow(GMPD_Data_cln) # 7337
-
-# Plotting again
-
-GMPD_plots_clean_04_clean <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
-names(GMPD_plots_clean_04_clean) <- sort(Hostlist)
-
-pdf(file = here::here('Data/GMPD/GMPD_plots_clean_04_clean.pdf'), width = 10, height = 7)
-GMPD_plots_clean_04_clean
-dev.off()
+rm(Res_Temp)
 
 # Misc ########################################################################################################
 
@@ -630,8 +589,12 @@ rm(IUCN_Mammals)
 
 # Write files #################################################################################################
 
-write.csv(GMPD_Data_res, file = here::here("Data/Data back ups/GMPD_Data_res_01.csv"), row.names = FALSE)
-write.csv(GMPD_Data_cln, file = here::here("Data/Data back ups/GMPD_Data_cln_01.csv"), row.names = FALSE)
+write.csv(GMPD_Data_res_all, file = here::here("Data/Data back ups/GMPD_Data_res_all_01.csv"), row.names = FALSE)
+write.csv(GMPD_Data_res_sub, file = here::here("Data/Data back ups/GMPD_Data_res_sub_01.csv"), row.names = FALSE)
+
+write.csv(GMPD_Data_cln_all, file = here::here("Data/Data back ups/GMPD_Data_cln_all_01.csv"), row.names = FALSE)
+write.csv(GMPD_Data_cln_sub, file = here::here("Data/Data back ups/GMPD_Data_cln_sub_01.csv"), row.names = FALSE)
+
 write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data_01.csv"), row.names = FALSE)
 write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), row.names = FALSE)
 

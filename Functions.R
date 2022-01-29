@@ -25,9 +25,36 @@ library(sp)
 library(tidyverse)
 library(tmap)
 
-restrict <- function(location.data, rastr){
+restrict_grid <- function(location.data, rastr){
   c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
   return(length(Which(c.rast, cells = TRUE))>1) 
+}
+
+restrict_deci <- function(dat, subsp = FALSE){
+  hostlist <- unique(dat$HostCorrectedName)
+
+  enough <- lapply(hostlist, function(host){
+    sp.dat <- dat[dat$HostCorrectedName == host,]
+    sp.dat <- sp.dat %>%
+      mutate(across(c(Latitude, Longitude), ~ trunc(.x)))
+    
+    if(subsp){
+      subgroups <- unique(sp.dat$subgroup)
+      nrow.sg.dat <- lapply(subgroups, function(sg){
+        sg.dat <- sp.dat[sp.dat$subgroup == sg,]
+        
+        out <- data.frame(HostCorrectedName = host,
+                          subgroup = sg, 
+                          enough = nrow(unique(sg.dat[c("Latitude", "Longitude")])) > 1)
+      })
+      nrow.sg.dat <- bind_rows(nrow.sg.dat)
+      
+    } else {
+      out <- data.frame(HostCorrectedName = host,
+                        enough = nrow(unique(sp.dat[c("Latitude", "Longitude")])) > 1)
+    }
+  })
+  enough <- bind_rows(enough)
 }
 
 
