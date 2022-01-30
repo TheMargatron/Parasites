@@ -492,9 +492,9 @@ quick_map <- function(c.species){
 pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
   if("HostCorrectedName" %in% names(dat)){
     sp.dat <- dat[dat$HostCorrectedName == host,]
-  } else if("binomial" %in% names(dat)){
-    sp.dat <- dat[dat$binomial == host,] 
-  }
+  } else if("species" %in% names(dat)){
+    sp.dat <- dat[dat$species == host,] 
+  } 
   
   if(subsp){
     sg.dat <- lapply(unique(buff$subgroup), function(sg){
@@ -517,9 +517,14 @@ pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
     } else if(length(sg.dat) == 1){
       return(sg.dat[[1]])
     } else {
-      sg.dat <- do.call(raster::bind, sg.dat)
-      if(nrow(sg.dat) > nrow(sp.dat)){warning("point(s) assigned multiple subgroups")}
-      if(nrow(sg.dat) < nrow(sp.dat)){warning("not all points assigned to subgroup")}
+      suppressWarnings(sg.dat <- do.call(raster::bind, sg.dat))
+      
+      if(nrow(sg.dat) > nrow(sp.dat)){
+        warning("point(s) assigned multiple subgroups")
+      } else if(nrow(sg.dat) < nrow(sp.dat)){
+        warning("not all points assigned to subgroup")
+      }
+      
       return(sg.dat)
       
     }
