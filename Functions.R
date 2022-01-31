@@ -97,34 +97,32 @@ range_distances <- function(dat, range.pol, range.dat, method){
     range.traits <- do.call(rbind, lapply(dat.out, function(dat) dat[[2]]))
     
   } else if(method == "gbif"){
-    range.pol <- range.pol[range.pol@data$binomial %in% unique(dat$HostCorrectedName), ] # restrict range.pol to match hosts in dat
-    range.dat <- filter(range.dat, species %in% unique(dat$HostCorrectedName))
+    range.dat <- filter(range.dat, species %in% unique(dat$HostCorrectedName)) # restrict range.dat to match hosts in dat
     
-    dat.sets <- split(dat, f = dat$HostCorrectedName)
+    dat.sets <- split(dat, f = dat$HostCorrectedName) # split input data by host
     
     dat.out <- lapply(dat.sets, function(k){
-      range.pol.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName), ] # subset range.pol to current host
-      range.dat.sub <- filter(range.dat, species == unique(k$HostCorrectedName))
-      range.abs.vals <- abs(range.dat.sub$decimalLatitude)
+      range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName), ] # subset range.dat to current host
+      range.abs.vals <- abs(range.dat.sub@coords[,"Latitude"]) # vector of absolute latitudes in gbif
       
       range.max <- max(range.abs.vals)
       range.min <- min(range.abs.vals)
       range.span <- geosphere::distGeo(c(0, range.max), c(0, range.min))
-      range.area <- sum(geosphere::areaPolygon(range.pol.sub))
+      # range.area <- ## Currently no method for range area from gbif, but could use convex hull
       range.median <- median(range.max, range.min)
       range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
                                  "RangeMax" = range.max,
                                  "RangeMin" = range.min,
                                  "RangeSpan" = range.span,
-                                 "RangeArea" = range.area,
+                                 #"RangeArea" = range.area,
                                  "RangeMedian" = range.median)
       
       k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
       
-      k$EquatorwardsDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.min))
-      k$EquatorwardsProp <- k$EquatorwardsDist/range.span
-      k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median))
-      k$MedianProp <- k$MedianDist/(range.span/2)
+      k$EquatorwardsDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.min)) # vertical distances to lowest latitude from input data sample locations
+      k$EquatorwardsProp <- k$EquatorwardsDist/range.span # as a proportion of range span
+      k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median)) # vertical distances to range median
+      k$MedianProp <- k$MedianDist/(range.span/2) # as proportion of half range span
       
       k$zeros <- NULL
       
