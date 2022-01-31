@@ -44,7 +44,7 @@ sprp_jubatus <- sprp - clip_poly
 sprp_jubatus@data$subgroup <- "jubatus"
 sprp_otherssp <- raster::intersect(sprp, clip_poly)
 sprp_try <- raster::bind(sprp_jubatus, sprp_otherssp)
-sprp_try@data[is.na(sprp_try@data$subgroup), "subgroup"] <- "other"
+sprp_try@data[is.na(sprp_try@data$subgroup), "subgroup"] <- "hecki soemmeringii"
 
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
