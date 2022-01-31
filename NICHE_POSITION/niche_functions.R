@@ -3,6 +3,7 @@
 
 ##### Modified by Regan Early
 ##### Modified by Margaret Bolton
+##### Probably modified by Henry Hakkinen at some point too!
 
 ##
 ## DESCRIPTION
@@ -84,67 +85,96 @@
 
 ##################################################################################################
 
-glob <- scores.clim
-sp <- scores.occ
-R <- 100
-th.sp <- 0
-th.env <- 0
-gmpd <- scores.gmpd
+## Examples for test run
+# glob <- scores.env
+# sp <- scores.occ
+# gmpd <- scores.gmpd
+# R <- 100
+# th.sp <- 0
+# th.env <- 0
 
-
-grid.clim <- function(glob, sp, gmpd, R, th.sp = 0, th.env = 0){
+grid.clim <- function(scores.env, scores.occ, scores.gmpd, R, th.sp, th.env){
   l <- list()
-  glob <- as.matrix(glob); sp <- as.matrix(sp)
+  glob <- as.matrix(scores.env); sp <- as.matrix(scores.occ)
   if(ncol(glob) == 2){ #if scores in two dimensions (e.g. PCA)
     
     library(adehabitatMA)
     library(adehabitatHR)
-    xmin <- min(glob[, 1]); xmax <- max(glob[, 1]); ymin <- min(glob[, 2]); ymax <- max(glob[, 2])			# data preparation
-    globr <- data.frame(cbind((glob[, 1] - xmin)/abs(xmax - xmin), (glob[, 2] - ymin)/abs(ymax - ymin)))	# data preparation
-    spr <- data.frame(cbind((sp[, 1] - xmin)/abs(xmax - xmin), (sp[, 2] - ymin)/abs(ymax - ymin))) 			# data preparation
+    xmin <- min(glob[, 1]); xmax <- max(glob[, 1]); ymin <- min(glob[, 2]); ymax <- max(glob[, 2]) ## data preparation
+    globr <- data.frame(cbind((glob[, 1] - xmin)/abs(xmax - xmin), (glob[, 2] - ymin)/abs(ymax - ymin))) ## Standardise the PCA scores of each env grid-cell between 0 and 1 
+    spr <- data.frame(cbind((sp[, 1] - xmin)/abs(xmax - xmin), (sp[, 2] - ymin)/abs(ymax - ymin))) 	## Standardise the PCA scores at species locations to match the env standardisation
+    
+    ### Make a spatial pixels data frame (grid) that encompasses the standardised environmental and species location scores
     mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
     coordinates(mask.xy) <- ~ x + y
     gridded(mask.xy) <- TRUE
-    sp.dens <- kernelUD(SpatialPoints(spr[,1:2]), h = "href", grid = mask.xy, kern = "bivnorm")					# calculate the density of occurrences in a grid of RxR pixels along the score gradients
+    
+    ### Calculate the density of occurrences in a grid of RxR pixels along the score gradients
+    ## The Utilization Distribution (UD) is the bivariate function giving the probability density that a species is found within a grid-cell, based on it's occupancy of environmental conditions.
+    sp.dens <- kernelUD(SpatialPoints(spr[,1:2]), h = "href", grid = mask.xy, kern = "bivnorm")	## s4 object, length is the number of cells in the grid.				
     # using a gaussian kernel density function, with RxR bins.
-#    sp.dens <- asc2spixdf(sp.dens[[1]]$UD)							# data manipulation, no longer need this 
+    #    sp.dens <- asc2spixdf(sp.dens[[1]]$UD)							# data manipulation, no longer need this 
     #sp.dens$var[sp.dens$var>0 & sp.dens$var<1] <- 0
-    glob.dens <- kernelUD(SpatialPoints(globr[, 1:2]), grid = mask.xy, kern = "bivnorm")
-#    glob.dens <- asc2spixdf(glob.dens[[1]]$UD)
+    
+    ### Calculate the density of environmental conditions in a grid of RxR pixels along the score gradients
+    glob.dens <- kernelUD(SpatialPoints(globr[, 1:2]), h = "href", grid = mask.xy, kern = "bivnorm") ## s4 object, length is the number of cells in the grid.
+    #    glob.dens <- asc2spixdf(glob.dens[[1]]$UD)
     #glob.dens$var[glob.dens$var < 1 & glob.dens$var > 0] <- 0
-    x <- seq(from = min(glob[, 1]), to = max(glob[, 1]), length.out = R)				# breaks on score gradient 1
-    y <- seq(from = min(glob[, 2]), to = max(glob[, 2]), length.out = R)				# breaks on score gradient 2
-    ###***### Here can see which gridcell ends up in.
-    z <- rotate2(matrix((sp.dens@data*nrow(sp)/sum(sp.dens@data))[, 1], nrow = R, ncol = R, byrow = F))		#rescale density to the number of occurrences in sp
-    Z <- rotate2(matrix((glob.dens@data*nrow(glob)/sum(glob.dens@data))[, 1], nrow = R, ncol = R, byrow = F)) 	#rescale density to the number of sites in glob
+    
+    x <- seq(from = min(glob[, 1]), to = max(glob[, 1]), length.out = R) ## The locations of the grid-cell breaks on PCA axis 1
+    y <- seq(from = min(glob[, 2]), to = max(glob[, 2]), length.out = R) ## The locations of the grid-cell breaks on PCA axis 2
+    
+    ### Make scaled matrices of species and environmental densities.
+    z <- rotate2(matrix((sp.dens@data*nrow(sp)/sum(sp.dens@data))[, 1], nrow = R, ncol = R, byrow = F))	## Rescale species' occurrence density to the number of grid-cells in which the sp occurs. Multiplies the densities of species' occurrences in each grid-cell by the number of grid-cells the species occupies, then divides by the total species density summed across all grid-cells. rotate2 is a function in this source file (below)
+    Z <- rotate2(matrix((glob.dens@data*nrow(glob)/sum(glob.dens@data))[, 1], nrow = R, ncol = R, byrow = F))	## Rescale density of environmental conditions to the number of all sites with environmental data. Multiplies the densities of sites with conditions that match each grid-cell by the number of sites with env data, then divides by the total density of all env conditions summed across all grid-cells. rotate2 is a function in this source file (below)
+    
+    ### Remove infinitesimally small number generated by kernel density function
     spr <- pts2img(sp, cbind(x, y))
     globr <- pts2img(glob, cbind(x, y))
-    z.th <- quantile(as.vector(z[which(spr == 1)]), th.sp)
+    
+    z.th <- quantile(as.vector(z[which(spr == 1)]), th.sp) ## Identifies the proportion of the data with density below the specified threshold
     Z.th <- quantile(as.vector(Z[which(globr[] == 1)]), th.env)  
-    z[z < z.th] <- 0 					#z[z<max(z)/(nrow(sp)/6)] <- 0 or z[z<(nrow(sp)^(1/6)*0.005)] <- 0 				# remove infinitesimally small number generated by kernel density function
+    z[z < z.th] <- 0 					#z[z<max(z)/(nrow(sp)/6)] <- 0 or z[z<(nrow(sp)^(1/6)*0.005)] <- 0 				
     Z[Z < Z.th] <- 0     # [Z<(nrow(glob)^(1/6)*0.005)]
-    z.uncor <- z/max(z)											# rescale between [0:1] for comparison with other species  
-    w <- z.uncor 											# remove infinitesimally small number generated by kernel density function
-    w[w > 0] <- 1
-    z <- z/Z												# correct for environment prevalence
-    z[is.na(z)] <- 0											# remove n/0 situations
-    z[z == "Inf"] <- 0            	# remove n/0 situations
-    z.cor <- z/max(z)											# rescale between [0:1] for comparison with other species
     
-    gmpdr <- vals2img(gmpd, cbind(x, y))
+    ### Correct species density for environmental prevalence, and scale for comparison between species.
+    z.uncor <- z/max(z)	## Rescale uncorrected species densities between [0:1] for comparison with other species  
+    w <- z.uncor 
+    w[w > 0] <- 1 ## Identify the grid-cells where the species has a non-trivial density
+    z <- z/Z	## Correct for environment prevalence
+    z[is.na(z)] <- 0	## Remove situations where density of both species and environment is 0
+    z[z == "Inf"] <- 0 ## Remove n/0 situations
+    z.cor <- z/max(z)	## Rescale corrected densities between [0:1] for comparison with other species
+    
+    ### Calculate the distance between parasite sampling locations and the centre of the host species' distribution in environmental space.
+    gmpdr <- vals2img(scores.gmpd, cbind(x, y)) 
     gmpdr.xy <- as.matrix(gmpdr[, c(1, 2)])
-    gmpd.cor <- distangles(gmpdr.xy, which(z.cor == 1, arr.ind = T))
-    gmpd.cor <- cbind(gmpd.cor, z.cor[gmpdr.xy], gmpdr[, 3:ncol(gmpdr)])
-    names(gmpd.cor)[which(names(gmpd.cor) == "z.cor[gmpdr.xy]")] <- "zp.cor"
     
-    gmpd.uncor <- distangles(gmpdr.xy, which(z.uncor == 1, arr.ind = T))
-    gmpd.uncor <- cbind(gmpd.uncor, z.uncor[gmpdr.xy], gmpdr[, 3:ncol(gmpdr)])
+    gmpd.uncor <- distangles(gmpdr.xy, which(z.uncor == 1, arr.ind = T)) ## Distance and angle of parasite locations from the grid-cell where the uncorrected species density is highest, i.e. 1. Distangles is a function in this source file (below)
+    gmpd.uncor <- cbind(gmpd.uncor, z.uncor[gmpdr.xy], gmpdr[, 3:ncol(gmpdr)]) ## Makes a nice dataframe containing the key information
     names(gmpd.uncor)[which(names(gmpd.uncor) == "z.uncor[gmpdr.xy]")] <- "zp.uncor"
     
-    zp.uncor <- c(x[which((z.uncor) == 1,arr.ind = T)[, 1]], y[which((z.uncor) == 1, arr.ind = T)[, 2]])
-    zp.cor <- c(x[which((z.cor) == 1, arr.ind = T)[, 1]], y[which((z.cor) == 1, arr.ind = T)[, 2]])
+    gmpd.cor <- distangles(gmpdr.xy, which(z.cor == 1, arr.ind = T)) ## Distance and angle of parasite locations from the grid-cell where the environmentally-corrected species density is highest, i.e. 1. Distangles is a function in this source file (below)
+    gmpd.cor <- cbind(gmpd.cor, z.cor[gmpdr.xy], gmpdr[, 3:ncol(gmpdr)]) ## Makes a nice dataframe containing the key information
+    names(gmpd.cor)[which(names(gmpd.cor) == "z.cor[gmpdr.xy]")] <- "zp.cor"
     
-    l$x <- x; l$y <- y; l$z.uncor <- z.uncor; l$z.cor <- z.cor; l$Z <- Z; l$glob <- glob; l$sp <- sp; l$gmpd.uncor <- gmpd.uncor; l$gmpd.cor <- gmpd.cor; l$w <- w; l$zp.uncor <- zp.uncor; l$zp.cor <- zp.cor
+    ## Positions of the host range centroids
+    zp.uncor <- c(x[which((z.uncor) == 1,arr.ind = T)[, 1]], y[which((z.uncor) == 1, arr.ind = T)[, 2]]) ## The xy locations of the centre of the host species' uncorrected distribution
+    zp.cor <- c(x[which((z.cor) == 1, arr.ind = T)[, 1]], y[which((z.cor) == 1, arr.ind = T)[, 2]]) ## The xy locations of the centre of the host species' environmentally-corrected distribution
+    
+    ## Distance between the centroid and the most distant of the host species' range
+    gbif <- vals2img(scores.occ, cbind(x, y)) 
+    gbif.xy <- as.matrix(gbif[, c(1, 2)])
+    
+    gbif.uncor <- distangles(gbif.xy, which(z.uncor == 1, arr.ind = T)) ## Distance and angle of host locations from the grid-cell where the environmentally-corrected host density is highest, i.e. 1. Distangles is a function in this source file (below)
+    gbif.uncor <- cbind(gbif.uncor, z.uncor[gbif.xy], gbif[, 3:ncol(gbif)]) ## Makes a nice dataframe containing the key information
+    names(gbif.uncor)[which(names(gbif.uncor) == "z.uncor[gbif.xy]")] <- "zp.uncor"
+    
+    gbif.cor <- distangles(gbif.xy, which(z.cor == 1, arr.ind = T)) ## Distance and angle of host locations from the grid-cell where the environmentally-corrected host density is highest, i.e. 1. Distangles is a function in this source file (below)
+    gbif.cor <- cbind(gbif.cor, z.cor[gbif.xy], gbif[, 3:ncol(gbif)]) ## Makes a nice dataframe containing the key information
+    names(gbif.cor)[which(names(gbif.cor) == "z.cor[gbif.xy]")] <- "zp.cor"
+
+    l$x <- x; l$y <- y; l$hostdens.uncor <- z.uncor; l$hostdens.cor <- z.cor; l$env.dens <- Z; l$scores.env <- glob; l$scores.occ <- sp; l$pardist.uncor <- gmpd.uncor; l$pardist.cor <- gmpd.cor; l$occdist.uncor <- gbif.uncor; l$occdist.cor <- gbif.cor; l$hostocc <- w; l$hostcent.uncor <- zp.uncor; l$hostcent.cor <- zp.cor
   }
   return(l)
 }
@@ -152,7 +182,7 @@ grid.clim <- function(glob, sp, gmpd, R, th.sp = 0, th.env = 0){
 dists <- function(locs, locus){
   locus <- matrix(locus, ncol = 2)
   locs <- as.matrix(locs)
-  D <- sqrt((locs[, 1] - locus[, 1])^2+(locs[, 2] - locus[, 2])^2)
+  D <- sqrt((locs[, 1] - locus[, 1])^2+(locs[, 2] - locus[, 2])^2) ## Pythagoras
   return(D)
 }
 
