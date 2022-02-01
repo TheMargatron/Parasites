@@ -3201,6 +3201,13 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 buffer_temp <- countries50[countries50$continent == "North America" & countries50$name != "Trinidad and Tobago",]
 buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
 
+clip_points <- matrix(c(-96.3, 28.4,
+                        -87.6, 13.3,
+                        -79.7, 8.6),
+                      ncol = 2, byrow = TRUE) # patching up gaps
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+buffer_temp <- gUnion(buffer_temp, terra::buffer(clip_points, 10000))
+
 sprp_north <- raster::intersect(sprp, buffer_temp)
 sprp_north@data$subgroup <- "northern"
 sprp_south <- sprp - buffer_temp
@@ -3343,7 +3350,7 @@ sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 #map# tm_shape(sprp) + tm_polygons(alpha = 0) + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 # couguar
-clip_poly <- matrix(c(-77.5, 10.2,
+clip_poly <- matrix(c(-77.2, 9.8,
                       -81, 6.1,
                       -108.1, 17.6,
                       -127.9, 39.7,
@@ -3352,7 +3359,7 @@ clip_poly <- matrix(c(-77.5, 10.2,
                       -123.5, 59.7,
                       -102.1, 60,
                       -86, 22.6,
-                      -77.5, 10.2),
+                      -77.2, 9.8),
                     ncol = 2, byrow = TRUE)
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
@@ -4259,9 +4266,8 @@ sprp_pribilofensis@data$subgroup <- "pribilofensis"
 sprp_try <- raster::bind(sprp_lagopus, sprp_foragoapusis, sprp_fuliginosus, sprp_beringensis, sprp_pribilofensis)
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
 
-IUCN_Native_Data@data <- IUCN_Native_Data@data %>% 
-  mutate(subgroup = case_when(binomial == curr.species & is.na(subgroup) ~ "macrotis",
-                              TRUE ~ subgroup))
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
 
 # GMPD subgroup assignment
 buff_temp <- data.frame(subgroup = c("fuliginosus", "lagopus", "foragoapusis"), 
