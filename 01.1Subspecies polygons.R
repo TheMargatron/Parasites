@@ -4243,25 +4243,61 @@ sprp_foragoapusis@data$subgroup <- "foragoapusis"
 
 # fuliginosus (Greenland)
 sprp_fuliginosus <- sprp[!is.na(sprp$island) & sprp$island == "Greenland",]
+sprp_try <- raster::disaggregate(sprp)
+
+clip_points <- matrix(c(-53.375, 69.829),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_fuliginosus <- raster::bind(sprp_fuliginosus, sprp_try[clip_points,])
 sprp_fuliginosus@data$subgroup <- "fuliginosus"
 
-# lagopus
-bering_temp <- c("St. Matthew", "Hall", "St. Lawrence")
-pribilof_temp <- c("St. Paul", "St. George")
-sprp_lagopus <- sprp[!sprp$island %in% c(bering_temp, pribilof_temp, "Greenland", "Iceland"),]
-sprp_lagopus@data$subgroup <- "lagopus"
-
-sprp_lagopus <- raster::disaggregate(sprp_lagopus)
-sprp_lagopus@data[26, "subgroup"] <- "fuliginosus"
-sprp_lagopus <- raster::aggregate(sprp_lagopus, by = names(sprp_lagopus))
-
 # beringensis
+# polygon is missing some islands in Bering Sea where there are gbif samples
+bering_temp <- c("St. Matthew", "Hall", "St. Lawrence")
 sprp_beringensis <- sprp[sprp$island %in% bering_temp, ]
 sprp_beringensis@data$subgroup <- "beringensis"
 
+a_temp <-  matrix(c(165.757016, 55.283572,
+                    165.965757, 55.361706,
+                    166.273374, 55.308592,
+                    166.255908, 55.183336,
+                    166.591977, 54.909539,
+                    166.674375, 54.678355,
+                    166.070127, 55.063977,
+                    166.081113, 55.123701,
+                    165.989103, 55.220562),
+                  ncol = 2, byrow = TRUE)
+a_temp <- Polygon(a_temp)
+
+b_temp <-  matrix(c(167.446164, 54.866095,
+                    167.731809, 54.761639,
+                    167.935056, 54.652145,
+                    168.102597, 54.497719,
+                    167.748288, 54.647378,
+                    167.451657, 54.818649),
+                  ncol = 2, byrow = TRUE)
+b_temp <- Polygon(b_temp)
+clip_poly <- SpatialPolygons(list(Polygons(list(a_temp, b_temp), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+data_temp <- sprp@data[nrow(sprp),]
+data_temp$island <- "Bering"
+data_temp$subgroup <- "beringensis"
+
+clip_poly <- SpatialPolygonsDataFrame(Sr          = clip_poly,
+                                      data        = data_temp, 
+                                      match.ID    = FALSE)
+
+sprp_beringensis <- raster::bind(sprp_beringensis, clip_poly)
+
 # pribilofensis
+pribilof_temp <- c("St. Paul", "St. George")
 sprp_pribilofensis <- sprp[sprp$island %in% pribilof_temp, ]
 sprp_pribilofensis@data$subgroup <- "pribilofensis"
+
+# lagopus
+sprp_lagopus <- sprp[!sprp$island %in% c(bering_temp, pribilof_temp, "Greenland", "Iceland"),]
+sprp_lagopus <- sprp_lagopus - sprp_try[clip_points,]
+sprp_lagopus@data$subgroup <- "lagopus"
 
 sprp_try <- raster::bind(sprp_lagopus, sprp_foragoapusis, sprp_fuliginosus, sprp_beringensis, sprp_pribilofensis)
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup")
