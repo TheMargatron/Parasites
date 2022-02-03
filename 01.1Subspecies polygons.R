@@ -1570,6 +1570,11 @@ sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 buffer_temp <- countries50[countries50$continent == "North America" & countries50$name != "Panama",]
 buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
 
+clip_points <- matrix(c(-87.6, 13.3),
+                      ncol = 2, byrow = TRUE) # patching up gaps
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+buffer_temp <- gUnion(buffer_temp, terra::buffer(clip_points, 10000))
+
 sprp_pardalis <- raster::intersect(sprp, buffer_temp)
 sprp_pardalis@data$subgroup <- "pardalis"
 sprp_mitis <- sprp - buffer_temp
