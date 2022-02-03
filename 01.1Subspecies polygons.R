@@ -1182,11 +1182,29 @@ GMPD_Spatial@data[GMPD_Spatial@data$HostCorrectedName == curr.species, "subgroup
 
 ## Equus zebra ####
 # "We continue to recognize Mountain Zebra as a single species comprising two subspecies."
-# polygons already labelled <3
+# polygons already labelled but with rogue hartmannae polygons within zebra range
+# this is despite IUCN describing them as allopatric subspecies
 curr.species <- "Equus zebra"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 #map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
+
+# correcting polygons
+clip_poly <- Polygon(matrix(c(16.9, -29.5,  
+                              28, -29.5,  
+                              28, -35, 
+                              16.9, -35, 
+                              16.9, -29.5), 
+                            ncol = 2, byrow = TRUE))
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_try <- raster::disaggregate(sprp)
+sprp_try <- sprp_try[clip_poly,]
+sprp_try@data$subgroup <- "zebra"
+
+sprp_try <- raster::bind(sprp - sprp_try, sprp_try)
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
 
 # GMPD subgroup assignment
 sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp, 
