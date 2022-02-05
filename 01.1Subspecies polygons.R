@@ -2692,14 +2692,13 @@ rm(list = ls(pattern = "_temp$"))
 # Basing division on geography, rather than morphological size based categories (from wiki)
 # North American subspecies: allegheniensis, campestris, eskimo, rixosa
 # European/Asian: nivalis, boccamela, caucasica, heptneri, namiyei, numidica, pallida, pygmaea, russelliana, vulgaris
-# from range descriptions, island populations seem to be treated as part of mainland subspecies, e.g. pygmaea or numidica
 curr.species <- "Mustela nivalis"
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 #map# sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 #map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- countries50[countries50$continent == "North America",]
-clip_poly <- raster::aggregate(clip_poly)
+# clip_poly <- raster::aggregate(clip_poly)
 clip_poly <- terra::buffer(clip_poly, 0.8)
 
 sprp_americas <- raster::intersect(sprp, clip_poly)
@@ -2708,7 +2707,29 @@ sprp_americas@data$subgroup <- "american"
 sprp_eurasian <- sprp - clip_poly
 sprp_eurasian@data$subgroup <- "eurasian"
 
-sprp_try <- raster::bind(sprp_americas, sprp_eurasian)
+# numidica
+sprp_numidica <- raster::disaggregate(sprp_eurasian)
+clip_points <- matrix(c(-3, 34),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_numidica <- sprp_numidica[clip_points, ]
+sprp_numidica@data$subgroup <- "numidica"
+
+# namiyei
+sprp_eurasian@data[sprp$island == "Honshu" & !is.na(sprp$island), "subgroup"] <- "namiyei"
+
+# formosana (taiwan)
+# http://dx.doi.org/10.3106/041.035.0305
+sprp_formosana <- raster::disaggregate(sprp_eurasian)
+clip_points <- matrix(c(121, 23.5),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_formosana <- sprp_formosana[clip_points, ]
+sprp_formosana@data$subgroup <- "formosana"
+
+sprp_eurasian <- sprp_eurasian - sprp_numidica - sprp_formosana
+
+sprp_try <- raster::bind(sprp_americas, sprp_eurasian, sprp_numidica, sprp_formosana)
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
@@ -2901,6 +2922,21 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 
 buffer_temp <- countries50[countries50$continent == "North America",]
 buffer_temp <- terra::buffer(buffer_temp, 0.08) # smallest buffer I could get away with
+
+clip_points <- matrix(c(-96.3, 28.4,
+                        -87.6, 13.3,
+                        -79.7, 8.6,
+                        -89.9, 29.3,
+                        -76.3, 35.2,
+                        -76.2, 36.1,
+                        -76.4, 38.9,
+                        -69.9, 41.5,
+                        -70.1, 43.7,
+                        -64.4, 44.2,
+                        -66.4, 50.2),
+                      ncol = 2, byrow = TRUE) # patching up gaps
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+buffer_temp <- gUnion(buffer_temp, terra::buffer(clip_points, 50000))
 
 sprp_north <- raster::intersect(sprp, buffer_temp)
 sprp_north@data$subgroup <- "northern"
@@ -3550,6 +3586,7 @@ R. r. tatrica (Tatra chamois): Slovakia (Tatras and Low Tatras) and Poland (Tatr
 
 # asiatica, caucasica, carpatica, and tatrica subspecies are isolated and not represented
 # Don't have cartusiana based on range description here: http://www.wilddocu.de/chartreuse-chamois-rupicapra-rupicapra-cartusiana/
+# Can't separate it anyway because of gbif data distribution
 # balcanica is a bit hard to separate, but need to do it anyway
 
 curr.species <- "Rupicapra rupicapra"
@@ -3604,10 +3641,18 @@ clip_poly <- raster::bind(tatrica_temp, carpatica_temp, asiatica_temp, caucasica
 sprp_rupicapra <- sprp - clip_poly
 sprp_rupicapra@data$subgroup <- "rupicapra"
 sprp_rupicapra <- raster::disaggregate(sprp_rupicapra)
-sprp_rupicapra@data[15, "subgroup"] <- "cartusiana"
+
+clip_points <- matrix(c(5.831968, 45.368239),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_cartusiana <- sprp_rupicapra[clip_points,]
+sprp_cartusiana@data$subgroup <- "cartusiana"
+
+sprp_rupicapra <- sprp_rupicapra - sprp_cartusiana
 sprp_rupicapra <- raster::aggregate(sprp_rupicapra, by = names(sprp_rupicapra))
 
-sprp_try <- raster::bind(sprp_tatrica, sprp_carpatica, sprp_asiatica, sprp_caucasica, sprp_balcanica, sprp_rupicapra)
+sprp_try <- raster::bind(sprp_tatrica, sprp_carpatica, sprp_asiatica, sprp_caucasica, sprp_balcanica, sprp_rupicapra, sprp_cartusiana)
 sprp_try@data <- sprp_try@data[,1:29]
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
