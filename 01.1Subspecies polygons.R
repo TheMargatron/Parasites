@@ -3639,20 +3639,9 @@ sprp_balcanica@data$subgroup <- "balcanica"
 # rupicapra and cartusiana
 clip_poly <- raster::bind(tatrica_temp, carpatica_temp, asiatica_temp, caucasica_temp, balcanica_temp)
 sprp_rupicapra <- sprp - clip_poly
-sprp_rupicapra@data$subgroup <- "rupicapra"
-sprp_rupicapra <- raster::disaggregate(sprp_rupicapra)
+sprp_rupicapra@data$subgroup <- "rupicapra cartusiana"
 
-clip_points <- matrix(c(5.831968, 45.368239),
-                      ncol = 2, byrow = TRUE)
-clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
-
-sprp_cartusiana <- sprp_rupicapra[clip_points,]
-sprp_cartusiana@data$subgroup <- "cartusiana"
-
-sprp_rupicapra <- sprp_rupicapra - sprp_cartusiana
-sprp_rupicapra <- raster::aggregate(sprp_rupicapra, by = names(sprp_rupicapra))
-
-sprp_try <- raster::bind(sprp_tatrica, sprp_carpatica, sprp_asiatica, sprp_caucasica, sprp_balcanica, sprp_rupicapra, sprp_cartusiana)
+sprp_try <- raster::bind(sprp_tatrica, sprp_carpatica, sprp_asiatica, sprp_caucasica, sprp_balcanica, sprp_rupicapra)
 sprp_try@data <- sprp_try@data[,1:29]
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
@@ -3663,8 +3652,8 @@ IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != c
 # removing tatrica because GMPD subgroup says there's one rupi and one tatrica there 
 # and they are v isolated
 sprp_try <- raster::disaggregate(sprp_try)
-sp.gmpd.points <- sp.gmpd.points[terra::buffer(sprp_try[sprp_try$subgroup == "rupicapra",], 0.5),]
-sp.gmpd.points@data$subgroup <- "rupicapra"
+sp.gmpd.points <- sp.gmpd.points[terra::buffer(sprp_try[sprp_try$subgroup == "rupicapra cartusiana",], 0.5),]
+sp.gmpd.points@data$subgroup <- "rupicapra cartusiana"
 GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
 
 rm(list = ls(pattern = "^sprp"))
@@ -4015,7 +4004,7 @@ GMPD_Spatial <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,]
 # subspecific taxonomy is too complex and mainland populations are too admixed to separate reasonably
 # coupled with the fact that I have samples across the full range
 # can therefore only really exclude island subspecies populations
-# I don't have Haida Gwaii (carlottae), Dall Island (pugnax), Vancouver Island (vancouveri), Kenai (perniger)
+# I don't have Haida Gwaii (carlottae), Dall Island (pugnax), Vancouver Island (vancouveri), Kenai (perniger), Newfoundland (hamiltoni)
 # afaik these are the only geographically isolated subpops
 # https://doi.org/10.1093/molbev/msv114
 curr.species <- "Ursus americanus"
@@ -4077,6 +4066,17 @@ sprp_try <- raster::disaggregate(sprp_try)
 sprp_vancouveri <- sprp_try[clip_points,]
 sprp_vancouveri@data$subgroup <- "vancouveri"
 sprp_try <- sprp_try - sprp_vancouveri
+
+# Newfoundland (hamiltoni)
+clip_points <- matrix(c(-56.3, 48.6),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_hamiltoni <- sprp_try[clip_points,]
+sprp_hamiltoni@data$subgroup <- "hamiltoni"
+sprp_try <- sprp_try - sprp_hamiltoni
+
+# mainland
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
 sprp_try@data$subgroup <- "mainland"
 
