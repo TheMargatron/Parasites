@@ -419,7 +419,7 @@ nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 8840 and 132
 
 IUCN_Data <- IUCN_Mammals[IUCN_Mammals$binomial %in% Hostlist, ]
 
-# Correcting legend for two species
+# Correcting legend for two species and Rupicapra rupicapra to retain Aubrac polygon
 
 # Oreamnos americanus
 O_americanus_temp <- IUCN_Data[IUCN_Data$binomial == "Oreamnos americanus",]
@@ -450,6 +450,21 @@ tm_shape(O_moschatus_temp) + tm_polygons("legend")
 
 IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Ovibos moschatus",]
 IUCN_Data <- raster::bind(IUCN_Data, O_moschatus_temp)
+
+# Rupicapra rupicapra
+R_rupicapra_temp <- IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",]
+
+clip_points <- matrix(c(2.935324, 45.199909),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+R_r_rupicapra_temp <- R_rupicapra_temp[clip_points,]
+R_r_rupicapra_temp@data$legend <- "Extant & Reintroduced (Extant)"
+
+R_rupicapra_temp <- R_rupicapra_temp - R_r_rupicapra_temp
+R_rupicapra_temp <- raster::bind(R_rupicapra_temp, R_r_rupicapra_temp)
+
+IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Rupicapra rupicapra",]
+IUCN_Data <- raster::bind(IUCN_Data, R_rupicapra_temp)
 
 rm(list = ls(pattern = "_temp$"))
 
