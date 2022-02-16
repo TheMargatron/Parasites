@@ -413,7 +413,7 @@ sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 ## remaining subspecies are lycaon, occidentalis, and nubilis
 ## uncertain about geographic boundaries between species so will leave as one
 clip_poly <- countries50[countries50$continent == "North America",]
-clip_poly <- terra::buffer(clip_poly, 0.3) 
+clip_poly <- terra::buffer(clip_poly, 0.4) 
 
 sprp_america <- raster::intersect(sprp, clip_poly)
 sprp_america@data$subgroup <- "lycaon occidentalis nubilis"
@@ -691,7 +691,12 @@ sprp_caucasicus <- sprp_try[clip_points,]
 sprp_caucasicus@data$subgroup <- "caucasicus"
 
 # italicus garganta capreolus
-sprp_capreolus <- sprp_try - sprp_caucasicus - sprp_coxi
+clip_points <- matrix(c(54.045, 36.89),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_remove <- sprp_try[clip_points,]
+
+sprp_capreolus <- sprp_try - sprp_caucasicus - sprp_coxi - sprp_remove
 sprp_capreolus@data$subgroup <- "italicus garganta capreolus"
 
 sprp_try <- raster::bind(sprp_coxi, sprp_caucasicus, sprp_capreolus)
@@ -1794,7 +1799,13 @@ clip_poly <- matrix(c(59.6, 28.7,
                     ncol = 2, byrow = TRUE)
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
-clip_poly <- clip_poly - sprp_akm - countries50[countries50$name %in% c("Kyrgyzstan", "Iran"),]
+
+clip_points <- matrix(c(73.85, 34.88),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 100000)
+
+clip_poly <- clip_poly - sprp_akm - countries50[countries50$name %in% c("Kyrgyzstan", "Iran"),] - clip_points
 
 sprp_seistanica <- raster::intersect(sprp, clip_poly)
 sprp_seistanica@data$subgroup <- "seistanica"
@@ -1815,14 +1826,37 @@ clip_poly <- matrix(c(44.1, 39.31,
                     ncol = 2, byrow = TRUE)
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
-clip_poly <- clip_poly - countries50[countries50$name %in% c("Turkey", "Turkmenistan", "Afghanistan"),]
+
+clip_points <- matrix(c(62.38, 35.2),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+
+clip_poly <- clip_poly - countries50[countries50$name %in% c("Turkey", "Turkmenistan", "Afghanistan"),] - clip_points
+
+clip_points <- matrix(c(53.92, 37.35, 
+                        58.27, 37.64),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+
+clip_poly <- gUnion(clip_poly, clip_points)
 
 sprp_meridionalis <- raster::intersect(sprp, clip_poly)
 sprp_meridionalis@data$subgroup <- "meridionalis"
 
 # lutra
 sprp_try <- raster::bind(sprp_angustifrons, sprp_meridionalis, sprp_seistanica, sprp_nair, sprp_akm, sprp_barang, sprp_chinensis, sprp_hainana)
-sprp_lutra <- sprp - sprp_try
+clip_poly <- matrix(c(57.52, 32.25,
+                      63.3, 32.25,
+                      63.3, 28.26,
+                      57.52, 28.26,
+                      57.52, 32.25),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_lutra <- sprp - sprp_try - clip_poly
 sprp_lutra@data$subgroup <- "lutra"
 
 sprp_try <- raster::bind(sprp_lutra, sprp_try)
@@ -2698,7 +2732,6 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 #map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 clip_poly <- countries50[countries50$continent == "North America",]
-# clip_poly <- raster::aggregate(clip_poly)
 clip_poly <- terra::buffer(clip_poly, 0.8)
 
 sprp_americas <- raster::intersect(sprp, clip_poly)
@@ -2716,7 +2749,7 @@ sprp_numidica <- sprp_numidica[clip_points, ]
 sprp_numidica@data$subgroup <- "numidica"
 
 # namiyei
-sprp_eurasian@data[sprp$island == "Honshu" & !is.na(sprp$island), "subgroup"] <- "namiyei"
+sprp_eurasian@data[sprp_eurasian$island == "Honshu" & !is.na(sprp_eurasian$island), "subgroup"] <- "namiyei"
 
 # formosana (taiwan)
 # http://dx.doi.org/10.3106/041.035.0305
@@ -3222,7 +3255,7 @@ sprp_central <- raster::intersect(sprp, clip_poly)
 sprp_central@data$subgroup <- "central"
 
 # Southern
-sprp_try <- terra::buffer(raster::bind(sprp_central, sprp_northern), 0)
+sprp_try <- terra::buffer(raster::bind(sprp_central, sprp_northern), 0.3)
 sprp_south <- sprp - sprp_try
 sprp_south@data$subgroup <- "southern"
 
@@ -3375,8 +3408,8 @@ clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4str
 sprp_insularis <- raster::intersect(sprp, clip_poly)
 sprp_insularis@data$subgroup <- "insularis"
 
-sprp_try <- raster::disaggregate(sprp)
-sprp_mainland <- sprp_try - sprp_grinnelli - sprp_insularis
+# mainland subspecies
+sprp_mainland <- sprp - sprp_grinnelli - sprp_insularis
 sprp_mainland@data$subgroup <- "mainland"
 
 sprp_try <- raster::bind(sprp_mainland, sprp_grinnelli, sprp_insularis)
@@ -3430,7 +3463,7 @@ sprp_couguar@data$subgroup <- "couguar"
 
 # concolor
 florida_temp <- terra::buffer(states50[states50$name == "Florida",], 0.1)
-sprp_concolor <- sprp - sprp_couguar - florida_temp
+sprp_concolor <- sprp - sprp_couguar - florida_temp - clip_poly
 sprp_concolor@data$subgroup <- "concolor"
 
 sprp_try <- raster::bind(sprp_couguar, sprp_concolor)
@@ -3547,10 +3580,10 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 sp.gmpd.points <- GMPD_Spatial[GMPD_Spatial$HostCorrectedName == curr.species, ]
 #map# tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
-sprp_ornata <- raster::intersect(sprp, countries50[countries50$name == "Italy",])
+sprp_ornata <- raster::intersect(sprp, terra::buffer(countries50[countries50$name == "Italy",], 0))
 sprp_ornata@data$subgroup <- "ornata"
 
-sprp_parva <- raster::intersect(sprp[is.na(sprp$subspecies),], countries50[countries50$name == "Spain",])
+sprp_parva <- raster::intersect(sprp[is.na(sprp$subspecies),], terra::buffer(countries50[countries50$name == "Spain",], 0))
 sprp_parva@data$subgroup <- "parva"
 
 sprp_try <- raster::bind(sprp_ornata,
@@ -3558,7 +3591,6 @@ sprp_try <- raster::bind(sprp_ornata,
                          sprp[!is.na(sprp$subspecies),])
 
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
-sprp_try@data <- sprp_try@data[,1:29]
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots() 
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
@@ -3600,7 +3632,7 @@ sprp_tatrica <- raster::intersect(sprp, tatrica_temp)
 sprp_tatrica@data$subgroup <- "tatrica"
 
 # carpatica
-carpatica_temp <- countries50[countries50$name == "Romania",]
+carpatica_temp <- terra::buffer(countries50[countries50$name == "Romania",], 0)
 sprp_carpatica <- raster::intersect(sprp, carpatica_temp)
 sprp_carpatica@data$subgroup <- "carpatica"
 
@@ -3610,8 +3642,7 @@ sprp_asiatica <- raster::intersect(sprp, asiatica_temp)
 sprp_asiatica@data$subgroup <- "asiatica"
 
 # caucasica
-caucasica_temp <- countries50[countries50$name == "Georgia",]
-caucasica_temp <- terra::buffer(caucasica_temp, 1.5)
+caucasica_temp <- terra::buffer(countries50[countries50$name == "Georgia",], 1.5)
 caucasica_temp <- caucasica_temp - asiatica_temp
 sprp_caucasica <- raster::intersect(sprp, caucasica_temp)
 sprp_caucasica@data$subgroup <- "caucasica"
@@ -3642,7 +3673,6 @@ sprp_rupicapra <- sprp - clip_poly
 sprp_rupicapra@data$subgroup <- "rupicapra cartusiana"
 
 sprp_try <- raster::bind(sprp_tatrica, sprp_carpatica, sprp_asiatica, sprp_caucasica, sprp_balcanica, sprp_rupicapra)
-sprp_try@data <- sprp_try@data[,1:29]
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots("subgroup") 
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
@@ -3720,7 +3750,7 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species, ]
 
 # Indonesian
 clip_poly <- countries50[countries50$name %in% c("Malaysia", "Indonesia"),]
-clip_poly <- terra::buffer(clip_poly, 0.1)
+clip_poly <- terra::buffer(clip_poly, 0.12)
 sprp_vittatus <- raster::intersect(sprp, clip_poly)
 sprp_vittatus@data$subgroup <- "vittatus"
 
@@ -3749,6 +3779,8 @@ clip_poly <- matrix(c(64.6, 25.1,
                       69.8, 31.9,
                       73.9, 35.2,
                       98.3, 30.9,
+                      101.3, 21.6,
+                      103.4, 10.9, 
                       104.9, 4.6,
                       64.6, 4.6,
                       64.6, 25.1),

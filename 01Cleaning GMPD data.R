@@ -76,7 +76,7 @@ GMPD_Data <- GMPD_Data %>%
   separate(HostReportedName, c("HostReportedGenus", "HostReportedSpecies", "HostReportedSubspecies"), remove = FALSE) 
 GMPD_Data[1045, "HostReportedName"]
 
-subsp_info <- unique(GMPD_Data[which(GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName), c("HostReportedName", 
+subsp_info <- unique(GMPD_Data[GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName, c("HostReportedName", 
                                                                                           "HostReportedGenus", 
                                                                                           "HostReportedSpecies",
                                                                                           "HostReportedSubspecies",
@@ -423,14 +423,20 @@ IUCN_Data <- IUCN_Mammals[IUCN_Mammals$binomial %in% Hostlist, ]
 
 # Oreamnos americanus
 O_americanus_temp <- IUCN_Data[IUCN_Data$binomial == "Oreamnos americanus",]
-tm_shape(O_americanus_temp) + tm_polygons("legend")
-tm_shape(O_americanus_temp) + tm_polygons("dist_comm") # aggregated with Chichagof Island
+# tm_shape(O_americanus_temp) + tm_polygons("legend")
+# tm_shape(O_americanus_temp) + tm_polygons("dist_comm") # aggregated with Chichagof Island
+
+clip_points <- matrix(c(-153.38, 57.41),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
 
 O_americanus_temp <- raster::disaggregate(O_americanus_temp)
-tm_shape(O_americanus_temp[1,]) + tm_polygons()
+O_americanus_temp <- O_americanus_temp[clip_points,]
+O_americanus_temp@data$legend <- "Extant & Introduced (resident)"
 
-O_americanus_temp@data[1, "legend"] <- "Extant & Introduced (resident)"
-O_americanus_temp <- raster::aggregate(O_americanus_temp, by = names(O_americanus_temp))
+O_americanus_temp <- raster::bind((IUCN_Data[IUCN_Data$binomial == "Oreamnos americanus",] - O_americanus_temp),
+                                  O_americanus_temp)
+
 tm_shape(O_americanus_temp) + tm_polygons("legend")
 
 IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Oreamnos americanus",]
@@ -438,30 +444,43 @@ IUCN_Data <- raster::bind(IUCN_Data, O_americanus_temp)
 
 # Ovibos moschatus
 O_moschatus_temp <- IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",]
-tm_shape(O_moschatus_temp) + tm_polygons("legend")
-tm_shape(O_moschatus_temp) + tm_polygons("SHAPE_Area") # aggregated across Greenland 
+# tm_shape(O_moschatus_temp) + tm_polygons("legend")
+# tm_shape(O_moschatus_temp) + tm_polygons("SHAPE_Area") # aggregated across Greenland 
+
+clip_points <- matrix(c(-54.86, 71.54, 
+                        -49.98, 66.64,
+                        -47.69, 61.36),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
 
 O_moschatus_temp <- raster::disaggregate(O_moschatus_temp)
-tm_shape(O_moschatus_temp[c(53, 55, 58),]) + tm_polygons()
+O_moschatus_temp <- O_moschatus_temp[clip_points,]
+O_moschatus_temp@data$legend <- "Extant & Introduced (resident)"
 
-O_moschatus_temp@data[c(53, 55, 58), "legend"] <- "Extant & Introduced (resident)"
-O_moschatus_temp <- raster::aggregate(O_moschatus_temp, by = names(O_moschatus_temp))
-tm_shape(O_moschatus_temp) + tm_polygons("legend")
+O_moschatus_temp <- raster::bind((IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",] - O_moschatus_temp),
+                                 O_moschatus_temp)
+
+# tm_shape(O_moschatus_temp) + tm_polygons("legend")
 
 IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Ovibos moschatus",]
 IUCN_Data <- raster::bind(IUCN_Data, O_moschatus_temp)
 
 # Rupicapra rupicapra
 R_rupicapra_temp <- IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",]
+# tm_shape(R_rupicapra_temp) + tm_polygons("legend")
 
 clip_points <- matrix(c(2.935324, 45.199909),
                       ncol = 2, byrow = TRUE)
-clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
-R_r_rupicapra_temp <- R_rupicapra_temp[clip_points,]
-R_r_rupicapra_temp@data$legend <- "Extant & Reintroduced (Extant)"
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
 
-R_rupicapra_temp <- R_rupicapra_temp - R_r_rupicapra_temp
-R_rupicapra_temp <- raster::bind(R_rupicapra_temp, R_r_rupicapra_temp)
+R_rupicapra_temp <- raster::disaggregate(R_rupicapra_temp)
+R_rupicapra_temp <- R_rupicapra_temp[clip_points,]
+R_rupicapra_temp@data$legend <- "Extant & Reintroduced (Extant)"
+
+R_rupicapra_temp <- raster::bind((IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",] - R_rupicapra_temp), 
+                                 R_rupicapra_temp)
+
+# tm_shape(R_rupicapra_temp) + tm_polygons("legend")
 
 IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Rupicapra rupicapra",]
 IUCN_Data <- raster::bind(IUCN_Data, R_rupicapra_temp)
