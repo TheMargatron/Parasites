@@ -9,7 +9,6 @@ plot_temp <- function(host, infra = TRUE){
   }
 }
 
-
 # Acinonyx jubatus ####
 curr.species <- "Acinonyx jubatus"
 plot_temp(curr.species)
@@ -200,19 +199,74 @@ curr.species <- "Canis adustus"
 # map # plot_temp(curr.species)
 GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
 
-## Canis aureus ####
+# Canis aureus ####
 curr.species <- "Canis aureus"
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
 
-## Canis latrans ####
+# aureus syriacus
+sprp_aureus <- sprp[sprp$subgroup == "aureus syriacus",]
+clip_points <- matrix(c(45.3, 47.8,
+                        43.8, 49.2),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_aureus <- raster::bind(sprp_aureus, terra::buffer(clip_points, 10000))
+sprp_aureus@data$subgroup <- "aureus syriacus"
+sprp_aureus <- gBuffer(sprp_aureus, width = 0.2, byid = TRUE)
+
+# indicus naria cruesmanni
+sprp_indicus <- sprp[sprp$subgroup == "indicus naria cruesmanni",]
+sprp_indicus <- gBuffer(sprp_indicus, width = 2.1, byid = TRUE)
+sprp_indicus <- sprp_indicus - sprp_aureus
+
+# moreotica ecsedensis
+# Not going beyond 2 because I don't know if widespread samples are established populations or migratory
+sprp_moreotica <- sprp[sprp$subgroup == "moreotica ecsedensis",]
+sprp_moreotica <- gBuffer(sprp_moreotica, width = 2, byid = TRUE)
+sprp_moreotica <- sprp_moreotica - sprp_aureus
+
+sprp_try <- raster::bind(sprp_aureus, sprp_indicus, sprp_moreotica)
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("aureus syriacus", "indicus naria cruesmanni", "moreotica ecsedensis"), 
+                          buff = c(0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
+
+# Canis latrans ####
 curr.species <- "Canis latrans"
-# map # plot_temp(curr.species)
-# unsure of island subspecies
 GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
 
-## Canis lupus ####
+# Canis lupus ####
 curr.species <- "Canis lupus"
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+sp.gbif <- sp.gbif[is.na(sp.gbif$subgroup) | !sp.gbif$subgroup %in% c("familiaris", "dingo"),]
+sp.gbif <- sp.gbif[!str_detect(sp.gbif$verbatimScientificName, "familiaris"),]
+
+sprp_crassodon <- gBuffer(sprp[sprp$subgroup == "crassodon",], width = 0.1, byid = TRUE)
+sprp_lycaon <- gBuffer(sprp[sprp$subgroup == "lycaon occidentalis nubilis",], width = 3, byid = TRUE) - sprp_crassodon
+sprp_signatus <- gBuffer(sprp[sprp$subgroup == "signatus",], width = 1.4, byid = TRUE)
+sprp_pallipes <- gBuffer(sprp[sprp$subgroup == "pallipes chanco",], width = 0.1, byid = TRUE)
+sprp_lupus <- gBuffer(sprp[sprp$subgroup == "lupus",], width = 1.06, byid = TRUE) - sprp_pallipes - sprp[sprp$subgroup == "italicus",]
+sprp_italicus <- gBuffer(sprp[sprp$subgroup == "italicus",], width = 3, byid = TRUE) - sprp_lupus - sprp_signatus
+
+sprp_try <- raster::bind(sprp[sprp$subgroup %in% c("baileyi", "arctos", "arabs"),],
+                         sprp_crassodon, sprp_lycaon, sprp_signatus, sprp_pallipes, sprp_lupus, sprp_italicus)
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("baileyi", "arctos", "crassodon", 
+                                       "lycaon occidentalis nubilis", "signatus", "arabs",
+                                       "pallipes chanco", "lupus", "italicus"), 
+                          buff = c(3, 3, 0, 0, 0, 0, 0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = sp.gbif, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Canis mesomelas ####
 curr.species <- "Canis mesomelas"
@@ -242,11 +296,25 @@ sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial,
 
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Capreolus capreolus ####
+# Capreolus capreolus ####
 curr.species <- "Capreolus capreolus"
-gbif_sp_temp <- GBIF_Spatial[GBIF_Spatial$species == curr.species & !is.na(GBIF_Spatial$subgroup),]
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
-tm_shape(sprp) + tm_polygons("subgroup") + tm_shape(gbif_sp_temp) + tm_dots("subgroup")
+
+sprp_caucasicus <- gBuffer(sprp[sprp$subgroup == "caucasicus",], width = 1, byid = TRUE)
+sprp_coxi <- gBuffer(sprp[sprp$subgroup == "coxi",], width = 0.5, byid = TRUE)
+
+sprp_capreolus <- gBuffer(sprp[sprp$subgroup == "italicus garganta capreolus",], width = 4, byid = TRUE)
+sprp_capreolus <- sprp_capreolus - sprp_caucasicus - sprp_coxi
+
+sprp_try <- raster::bind(sprp_caucasicus, sprp_coxi, sprp_capreolus)
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("caucasicus", "coxi", "italicus garganta capreolus"), 
+                          buff = c(0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Capricornis crispus ####
 curr.species <- "Capricornis crispus"
@@ -664,11 +732,42 @@ sp.gbif <- sp.gbif[IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,],
 sp.gbif@data$subgroup <- "not used"
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Giraffa camelopardalis ####
+# Giraffa camelopardalis ####
 curr.species <- "Giraffa camelopardalis"
-plot_temp(curr.species)
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
 
-# giraffa = 0.5
+# rothschildi
+sprp_roths <- gBuffer(sprp[sprp$subgroup == "rothschildi",], width = 0.7, byid = TRUE)
+sprp_roths <- sprp_roths - sprp[sprp$subgroup == "reticulata",] - sprp[sprp$subgroup == "tippelskirchi",]
+
+clip_points <- matrix(c(37.5, 0.15),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_roths <- raster::bind(sprp_roths, terra::buffer(clip_points, 20000))
+sprp_roths@data[is.na(sprp_roths$subgroup), "subgroup"] <- "rothschildi"
+
+clip_points <- matrix(c(37.7, 0.5),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_roths <- sprp_roths - terra::buffer(clip_points, 20000)
+
+# reticulata and tippelskirchi
+sprp_retic <- gBuffer(sprp[sprp$subgroup == "reticulata",], width = 0.7, byid = TRUE)
+sprp_retic <- sprp_retic - sprp_roths - terra::buffer(sprp[sprp$subgroup == "tippelskirchi",], 0.1)
+
+sprp_tipp <- gBuffer(sprp[sprp$subgroup == "tippelskirchi",], width = 0.5, byid = TRUE)
+sprp_tipp <- sprp_tipp - sprp_roths - sprp_retic
+
+sprp_try <- raster::bind(sprp_roths, sprp_retic, sprp_tipp, sprp[sprp$subgroup == "giraffa",])
+
+# pip_Test
+buffer_temp <- data.frame(subgroup = c("giraffa", "reticulata", "rothschildi", "tippelskirchi"), 
+                          buff = c(0.5, 0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Herpestes ichneumon ####
 curr.species <- "Herpestes ichneumon"
@@ -708,9 +807,26 @@ sp.gbif <- sp.gbif[terra::buffer(IUCN_Native_Data[IUCN_Native_Data$binomial == c
 sp.gbif@data$subgroup <- "not used"
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Kobus ellipsiprymnus ####
+# Kobus ellipsiprymnus ####
 curr.species <- "Kobus ellipsiprymnus"
-plot_temp(curr.species)
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+sprp_defassa <- gBuffer(sprp[sprp$subgroup == "defassa",], width = 1, byid = TRUE)
+sprp_defassa <- sprp_defassa - sprp[sprp$subgroup == "ellipsiprymnus",]
+
+sprp_ellipsiprymnus <- gBuffer(sprp[sprp$subgroup == "ellipsiprymnus",], width = 1, byid = TRUE)
+sprp_ellipsiprymnus <- sprp_ellipsiprymnus - sprp[sprp$subgroup == "defassa",]
+
+sprp_try <- raster::bind(sprp_ellipsiprymnus, sprp_defassa)
+
+# pip_test
+# dropping most points in SA and Namibia because they are likely managed for hunting 
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = data.frame(subgroup = c("defassa", "ellipsiprymnus"), 
+                                      buff = c(0, 0)))
+
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Kobus leche ####
 curr.species <- "Kobus leche"
@@ -842,9 +958,13 @@ sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial,
 
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Lynx pardinus ####
+# Lynx pardinus ####
 curr.species <- "Lynx pardinus"
-plot_temp(curr.species)
+
+# http://dx.doi.org/10.13140/RG.2.2.12500.94087
+# keeping all samples because they are from recent historic range
+
+GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
 
 # Lynx rufus ####
 curr.species <- "Lynx rufus"
@@ -886,9 +1006,37 @@ curr.species <- "Martes americana"
 plot_temp(curr.species)
 GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
 
-## Martes foina ####
+# Martes foina ####
 curr.species <- "Martes foina"
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+# nehringi syriaca
+sprp_nehringi <- gBuffer(sprp[sprp$subgroup == "nehringi syriaca",], width = 1, byid = TRUE)
+clip_points <- matrix(c(45.496,35.404),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_nehringi <- raster::bind(sprp_nehringi, terra::buffer(clip_points, 100000))
+sprp_nehringi@data[is.na(sprp_nehringi$subgroup), "subgroup"] <- "nehringi syriaca"
+
+sprp_nehringi <- sprp_nehringi - sprp[sprp$subgroup %in% c("milleri", "western"),] 
+
+# western
+sprp_western <- gBuffer(sprp[sprp$subgroup == "western",], width = 5, byid = TRUE)
+sprp_western <- sprp_western - sprp_nehringi - sprp[sprp$subgroup %in% c("milleri", "bunites", "rosanowi"),]
+
+sprp_try <- raster::bind(sprp_nehringi, sprp_western, sprp[sprp$subgroup %in% c("eastern", "milleri", "bunites", "rosanowi"),])
+
+# pip_Test
+buffer_temp <- data.frame(subgroup = c("western", "bunites", "milleri", 
+                                       "nehringi syriaca", "rosanowi", "eastern"), 
+                          buff = c(0, 0, 0, 
+                                   0, 0, 1))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Martes martes ####
 curr.species <- "Martes martes"
@@ -910,9 +1058,25 @@ tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == "Martes pennanti",]) + tm
   tm_shape(GBIF_Spatial[GBIF_Spatial$species == curr.species,]) + tm_dots()
 GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
 
-## Meles meles ####
+# Meles meles ####
 curr.species <- "Meles meles"
-plot_temp(curr.species) # lots of data, crashes R
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+sprp_marianensis <- gBuffer(sprp[sprp$subgroup == "marianensis",], width = 0.05, byid = TRUE)
+sprp_marianensis <- sprp_marianensis - sprp[sprp$subgroup == "meles milleri heptneri",]
+
+sprp_meles <- gBuffer(sprp[sprp$subgroup == "meles milleri heptneri",], width = 1.5, byid = TRUE)
+sprp_meles <- sprp_meles - sprp_marianensis
+
+sprp_try <- raster::bind(sprp_meles, sprp_marianensis)
+
+# pip_Test
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = data.frame(subgroup = c("marianensis", "meles milleri heptneri"), buff = c(0, 0)))
+
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Melogale moschata/subaruantiaca ####
 curr.species <- "Melogale moschata"
@@ -933,9 +1097,46 @@ sp.gbif <- sp.gbif[terra::buffer(IUCN_Native_Data[IUCN_Native_Data$binomial == c
 sp.gbif@data$subgroup <- "not used"
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Mustela erminea ####
+# Mustela erminea ####
 curr.species <- "Mustela erminea"
-plot_temp(curr.species) # lots of samples, crashes R
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+# arctica
+sprp_arctica <- gBuffer(sprp[sprp$subgroup == "arctica",], width = 2.7, byid = TRUE)
+sprp_arctica <- sprp_arctica - sprp[sprp$subgroup == "kadiacensis",]
+
+# hibernica
+sprp_hibernica <- gBuffer(sprp[sprp$subgroup == "hibernica",], width = 0.1, byid = TRUE)
+clip_points <- matrix(c(-4.5441,54.2216),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_hibernica <- raster::bind(sprp_hibernica, terra::buffer(clip_points, 20000))
+sprp_hibernica@data[is.na(sprp_hibernica$subgroup), "subgroup"] <- "hibernica"
+
+# stabilis
+sprp_stabilis <- gBuffer(sprp[sprp$subgroup == "stabilis",], width = 1, byid = TRUE)
+sprp_stabilis <- sprp_stabilis - sprp[sprp$subgroup == "aestiva",] - sprp_hibernica
+
+# aestiva
+sprp_aestiva <- gBuffer(sprp[sprp$subgroup == "aestiva",], width = 1.5, byid = TRUE)
+sprp_aestiva <- sprp_aestiva - sprp_stabilis - sprp[sprp$subgroup %in% c("minima", "kaneii and other", "erminea"),]
+
+sprp_try <- raster::bind(sprp[sprp$subgroup %in% c("kadiacensis", "polaris", "kaneii and other", "erminea", "minima"),],
+                         sprp_arctica, sprp_hibernica, sprp_stabilis, sprp_aestiva)
+
+# pip_Test
+buffer_temp <- data.frame(subgroup = c("arctica", "kadiacensis", "polaris", 
+                                       "kaneii and other", "erminea", "hibernica",
+                                       "stabilis", "aestiva", "minima"), 
+                          buff = c(0, 0, 0, 
+                                   0, 0, 0,
+                                   0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
+
 
 # Mustela lutreola ####
 curr.species <- "Mustela lutreola"
@@ -964,6 +1165,7 @@ clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Nat
 sprp <- raster::bind(sprp, terra::buffer(clip_points, 100000))
 sprp@data[is.na(sprp$subgroup), "subgroup"] <- "eurasian"
 
+# pip_test
 buffer_temp <- data.frame(subgroup = c("american", "numidica", "formosana", "eurasian"), 
                           buff = c(0, 0, 0.3, 0.3))
 sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
@@ -971,9 +1173,43 @@ sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial,
                     buff = buffer_temp)
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Mustela putorius ####
+# Mustela putorius ####
 curr.species <- "Mustela putorius"
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+# removing domesic ferret as much as possible
+sp.gbif <- sp.gbif[!str_detect(sp.gbif$verbatimScientificName, "furo"),]
+
+# anglia caledoniae
+# https://www.vwt.org.uk/wp-content/uploads/2016/04/Polecat-Report-2016.pdf
+# roughly following distribution from above as it's described as verifiable records or true polecats
+# essentially only including mainland England, Wales, and Scotland samples
+
+sprp_anglia <- raster::disaggregate(countries50[countries50$name == "United Kingdom",])
+clip_points <- matrix(c(-1.692,53.958),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_anglia <- sprp_anglia[clip_points,]
+sprp_anglia@data <- sprp@data[sprp$subgroup == "anglia caledoniae",]
+sprp_anglia <- gBuffer(sprp_anglia, width = 0.25, byid = TRUE)
+
+# rothschildi
+sprp_rothschildi <- gBuffer(sprp[sprp$subgroup == "rothschildi",], width = 0.1, byid = TRUE)
+
+# putorius and european
+sprp_putorius <- gBuffer(sprp[sprp$subgroup == "putorius and european",], width = 1.3, byid = TRUE)
+sprp_putorius <- sprp_putorius - sprp_rothschildi - sprp_anglia
+
+sprp_try <- raster::bind(sprp_anglia, sprp_rothschildi, sprp_putorius)
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("anglia caledoniae", "rothschildi", "putorius and european"), 
+                          buff = c(0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = sp.gbif, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Mustela vison/Neovison vison ####
 curr.species <- "Mustela vison"
@@ -1156,9 +1392,48 @@ curr.species <- "Procapra gutturosa"
 plot_temp(curr.species)
 GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
 
-## Procyon lotor ####
+# Procyon lotor ####
 curr.species <- "Procyon lotor"
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+# IUCN polygon is missing Vancouver island
+sprp_vancouverensis <- raster::disaggregate(countries50[countries50$name == "Canada",])
+clip_points <- matrix(c(-125.5640,49.6982),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_vancouverensis <- sprp_vancouverensis[clip_points,]
+sprp_vancouverensis@data <- sprp@data[sprp$subgroup == "grinnelli",]
+sprp_vancouverensis <- gBuffer(sprp_vancouverensis, width = 0.15, byid = TRUE)
+
+clip_points <- matrix(c(-123.0869,48.5379),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_vancouverensis <- raster::bind(sprp_vancouverensis, terra::buffer(clip_points, 15000))
+sprp_vancouverensis@data$subgroup <- "vancouverensis"
+
+# inesperatus 
+sprp_inesperatus <- gBuffer(sprp[sprp$subgroup == "inesperatus",], width = 0.1, byid = TRUE)
+
+# mainland
+sprp_mainland <- gBuffer(sprp[sprp$subgroup == "mainland",], width = 2.1, byid = TRUE)
+clip_points <- matrix(c(-78.388,26.622,
+                        -78.207,7.881),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 100000)
+
+sprp_mainland <- sprp_mainland - sprp_vancouverensis - sprp_inesperatus - clip_points - sprp[sprp$subgroup == "grinnelli",]
+
+sprp_try <- raster::bind(sprp_vancouverensis, sprp_inesperatus, sprp_mainland, sprp[sprp$subgroup == "grinnelli",])
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("vancouverensis", "inesperatus", "mainland", "grinnelli"), 
+                          buff = c(0, 0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Puma concolor ####
 curr.species <- "Puma concolor"
@@ -1227,24 +1502,128 @@ sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial,
                     buff = buffer_temp)
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Rupicapra rupicapra ####
-# Need to rerun 01 scripts so that Aubrac is kept 
+# Rupicapra rupicapra ####
 curr.species <- "Rupicapra rupicapra"
-plot_temp(curr.species)
-
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
 sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+# rupicapra cartusiana
+sprp_rupicapra <- gBuffer(sprp[sprp$subgroup == "rupicapra cartusiana",], width = 2.5, byid = TRUE)
+clip_points <- matrix(c(7.384,50.520,
+                        16.684,49.334,
+                        16.847,50.211),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+sprp_rupicapra <- sprp_rupicapra - clip_points - terra::buffer(sprp[sprp$subgroup == "balcanica",], 0.2)
+
+# balcanica
+sprp_balcanica <- gBuffer(sprp[sprp$subgroup == "balcanica",], width = 0.7, byid = TRUE)
+sprp_balcanica <- sprp_balcanica - sprp_rupicapra
+
+sprp_try <- raster::bind(sprp_rupicapra, sprp_balcanica, sprp[sprp$subgroup %in% c("asiatica", "carpatica", "caucasica", "tatrica"),])
 
 # pip_test
 buffer_temp <- data.frame(subgroup = c("asiatica", "balcanica", "carpatica", "caucasica", "rupicapra cartusiana", "tatrica"), 
-                          buff = c(0.1, 0.7, 0.7, 0.1, x, 0.1))
+                          buff = c(0.1, 0, 0.7, 0.1, 0, 0.1))
 sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
-                    range.polygon = sprp, 
+                    range.polygon = sprp_try, 
                     buff = buffer_temp)
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-## Sus scrofa ####
+# Sus scrofa ####
 curr.species <- "Sus scrofa"
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+sp.gbif <- sp.gbif[!str_detect(sp.gbif$verbatimScientificName, "domestic"),]
+sp.gbif <- sp.gbif[sp.gbif$establishmentMeans != "INTRODUCED",]
+
+# introduced to Sicily and only domestic on Mallorca
+
+# vittatus
+sprp_vittatus <- gBuffer(sprp[sprp$subgroup == "vittatus",], width = 0.2, byid = TRUE)
+clip_points <- matrix(c(119.525,-8.598,
+                        126.161,-7.765),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+sprp_vittatus <- raster::bind(sprp_vittatus, clip_points)
+sprp_vittatus@data$subgroup <- "vittatus"
+
+# meridionalis
+sprp_meridionalis <- gBuffer(sprp[sprp$island %in% c("Sardinia", "Corsica"),], width = 0.1, byid = TRUE)
+
+spain_temp <- terra::buffer(countries50[countries50$name == "Spain",], 0.1)
+clip_poly <- matrix(c(-6.2880,36.7198,
+                      -4.4866,37.5771,
+                      -3.8487,37.8578,
+                      -3.1598,38.0415,
+                      -3.02319,38.22421,
+                      -1.6319,38.7475,
+                      -0.7722,37.8905,
+                      -0.6954,37.6261,
+                      -2.1120,36.5546,
+                      -5.6015,35.9596,
+                      -6.0499,36.1747,
+                      -6.2880,36.7198),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_meridionalis <- raster::bind(sprp_meridionalis, raster::intersect(spain_temp, clip_poly))
+sprp_meridionalis@data$subgroup <- "meridionalis"
+
+# algira
+sprp_algira <- gBuffer(sprp[sprp$subgroup == "algira",], width = 0.5, byid = TRUE)
+sprp_algira <- sprp_algira - sprp_meridionalis
+
+# indian
+sprp_indian <- gBuffer(sprp[sprp$subgroup == "indian",], width = 1, byid = TRUE)
+sprp_indian <- sprp_indian - sprp_vittatus
+
+# majori
+sprp_majori <- gBuffer(sprp[sprp$subgroup == "majori",], width = 0.1, byid = TRUE)
+clip_points <- matrix(c(10.394,42.755,
+                        16.436,41.011, 
+                        16.592,40.628, 
+                        17.032,40.514),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+
+sprp_majori <- raster::bind(sprp_majori, clip_points)
+sprp_majori@data$subgroup <- "majori"
+sprp_majori <- sprp_majori - sprp[sprp$subgroup == "western",]
+
+# western
+# large buffer to include recent range expansion into Scotland and because of high density of samples around range borders
+sprp_western <- gBuffer(sprp[sprp$subgroup == "western",], width = 6, byid = TRUE)
+clip_points <- matrix(c(3.253,39.793,
+                        13.466,37.859,
+                        18.728,57.589,
+                        14.704,37.622),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 80000)
+sprp_western <- sprp_western - clip_points - sprp_algira - sprp_indian - sprp[sprp$subgroup == "eastern",] - sprp_majori - sprp_meridionalis
+
+sprp_try <- raster::bind(sprp_algira, sprp[sprp$subgroup == "eastern",], sprp_indian, 
+                         sprp_majori, sprp_meridionalis, sprp_vittatus, sprp_western)
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("algira", "eastern", "indian",
+                                       "majori", "meridionalis", "vittatus", "western"), 
+                          buff = c(0, 0.6, 0, 
+                                   0, 0, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = sp.gbif, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
+
+
+writeOGR(sp.gbif[,names(sp.gbif)[!names(sp.gbif) %in% "gbifID"]], here::here("Data/Big species"), paste(curr.species, "dots"), driver = "ESRI Shapefile")
+writeOGR(sprp_try, here::here("Data/Big species"), paste(curr.species, "try"), driver = "ESRI Shapefile")
 
 # Sylvicapra grimmia ####
 curr.species <- "Sylvicapra grimmia"
@@ -1518,12 +1897,41 @@ sp.gbif@data[sp.gbif$subgroup == "velox", "species"] <- "Vulpes velox"
 
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
-# Vulpes velox ####
+## Vulpes velox ####
 curr.species <- "Vulpes velox"
-tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]) + tm_polygons() + 
-  tm_shape(GBIF_Spatial[GBIF_Spatial$species == curr.species,]) + tm_dots("verbatimScientificName")
-# looks likes some are actually macrotis
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
 
+# almost all records are filtered out by _SPECIMEN
+sp.gbif.raw <- GBIF_Raw_Data[GBIF_Raw_Data$species == curr.species,]
+sp.gbif.raw <- sp.gbif.raw %>%
+  filter(countryCode != "") %>%
+  mutate(countryCode = countrycode(countryCode, origin = "iso2c", destination = "iso3c"))
+
+sp.gbif.raw <- clean_coordinates(x = sp.gbif.raw,
+                                 lon = "decimalLongitude", 
+                                 lat = "decimalLatitude", 
+                                 countries = "countryCode",
+                                 tests = c("capitals", "centroids", "countries", "gbif", "institutions", "zeros"), 
+                                 capitals_rad = 10000,
+                                 centroids_rad = 1000,
+                                 centroids_detail = "country",
+                                 inst_rad = 100,
+                                 zeros_rad = 0.5,
+                                 value = "clean")
+
+sp.gbif.raw <- sp.gbif.raw %>%
+  filter(!str_detect(verbatimScientificName, "macrotis")) %>%
+  filter(coordinateUncertaintyInMeters <= 5000 | is.na(coordinateUncertaintyInMeters)) %>%
+  filter(coordinatePrecision <= 0.02 | is.na(coordinatePrecision)) %>%
+  filter(!str_detect(locality, regex("zoo", ignore_case = TRUE))) %>%
+  filter(basisOfRecord != "MATERIAL_SAMPLE" & basisOfRecord != "FOSSIL_SPECIMEN" & basisOfRecord != "UNKNOWN")
+  
+sp.gbif.raw <- SpatialPointsDataFrame(coords      = sp.gbif.raw[, c("decimalLongitude", "decimalLatitude")],
+                                      data        = sp.gbif.raw[, names(sp.gbif.raw)[!names(sp.gbif.raw) %in% c("decimalLongitude", "decimalLatitude")]], 
+                                      proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+# So I don't lose the macrotis samples entirely
 GBIF_Spatial@data <- GBIF_Spatial@data %>%
   mutate(species = case_when(verbatimScientificName == "Vulpes velox subsp. macrotis" ~ "Vulpes macrotis",
                              TRUE ~ species)) %>%
@@ -1532,6 +1940,134 @@ GBIF_Spatial@data <- GBIF_Spatial@data %>%
   mutate(subgroup = case_when(species == curr.species ~ "not used",
                               TRUE ~ subgroup))
 
-## Vulpes vulpes ####
+# Vulpes vulpes ####
 curr.species <- "Vulpes vulpes" # crashes R
-plot_temp(curr.species)
+sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+sp.gbif <- sp.gbif[terra::buffer(sprp, 5),]
+
+# schrencki
+sprp_schrencki <- gBuffer(sprp[sprp$subgroup == "schrencki",], width = 0.1, byid = TRUE)
+clip_poly <- matrix(c(141.1, 54.3,
+                      144.4, 54.3,
+                      144.4, 45.6,
+                      141.1, 45.6,
+                      141.1, 54.3),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_schrencki <- raster::bind(sprp_schrencki, clip_poly)
+sprp_schrencki@data$subgroup <- "schrencki"
+
+# japonica 
+sprp_japonica <- gBuffer(sprp[sprp$subgroup == "japonica",], width = 0.1, byid = TRUE)
+clip_points <- matrix(c(132.660,33.594),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+sprp_japonica <- raster::bind(sprp_japonica, terra::buffer(clip_points, 50000))
+sprp_japonica@data$subgroup <- "japonica"
+
+# niloticus 
+sprp_niloticus <- gBuffer(sprp[sprp$subgroup == "niloticus",], width = 1.5, byid = TRUE)
+
+# barbara atlantica
+sprp_barbara <- gBuffer(sprp[sprp$subgroup == "barbara atlantica",], width = 0.5, byid = TRUE)
+clip_points <- matrix(c(132.660,33.594),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+sprp_barbara <- sprp_barbara - clip_points - spain_temp
+
+clip_points <- matrix(c(10.825,33.803),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+sprp_barbara <- raster::bind(sprp_barbara, clip_points)
+sprp_barbara@data$subgroup <- "barbara atlantica"
+
+# silacea
+sprp_silacea <- gBuffer(sprp[sprp$subgroup == "silacea",], width = 0.1, byid = TRUE)
+sprp_silacea <- sprp_silacea - sprp[sprp$subgroup == "crucifera",]
+
+# vulpes
+sprp_vulpes <- gBuffer(sprp[sprp$subgroup == "vulpes",], width = 0.05, byid = TRUE)
+clip_points <- matrix(c(16.532,56.505,
+                        16.870,56.994,
+                        18.325,57.208,
+                        18.664,57.722,
+                        18.488,59.289,
+                        22.414,60.180,
+                        49.649,69.289,
+                        23.7344,70.7012,
+                        18.828,69.735,
+                        18.072,69.471,
+                        17.447,69.314,
+                        16.414,68.750,
+                        15.958,69.122,
+                        15.586,68.546,
+                        14.943,68.570,
+                        14.174,68.186,
+                        13.430,68.078,
+                        12.493,65.964,
+                        11.148,64.895,
+                        9.0581,63.5176,
+                        8.3504,63.2105,
+                        7.6531,63.0648,
+                        6.3209,62.4456,
+                        5.5871,60.5669,
+                        5.2488,59.2243,
+                        11.6132,58.0899),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+sprp_vulpes <- raster::bind(sprp_vulpes, clip_points)
+sprp_vulpes@data$subgroup <- "vulpes"
+sprp_vulpes <- sprp_vulpes - sprp[sprp$subgroup %in% c("crucifera", "unknown"),]
+
+# unknown
+sprp_unknown <- gBuffer(sprp[sprp$subgroup == "unknown",], width = 0.4, byid = TRUE)
+clip_points <- matrix(c(32.8807,34.8661),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 60000)
+sprp_unknown <- raster::bind(sprp_unknown, clip_points)
+sprp_unknown@data$subgroup <- "unknown"
+sprp_unknown <- sprp_unknown - sprp_niloticus - sprp[sprp$subgroup %in% c("crucifera", "vulpes"),]
+
+# crucifera
+sprp_crucifera <- gBuffer(sprp[sprp$subgroup == "crucifera",], width = 0.5, byid = TRUE)
+clip_points <- matrix(c(-4.627,54.184,
+                        -6.568,57.435,
+                        10.5307,55.2159,
+                        10.9414,54.9260,
+                        11.5935,54.7570,
+                        12.3585,54.9824,
+                        11.9076,54.9905,
+                        11.5171,55.4977,
+                        12.1773,55.7795,
+                        22.4904,58.4443,
+                        22.6140,58.8556),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Native_Data)))
+clip_points <- terra::buffer(clip_points, 50000)
+sprp_crucifera <- raster::bind(sprp_crucifera, clip_points)
+sprp_crucifera@data$subgroup <- "crucifera"
+sprp_crucifera <- sprp_crucifera - sprp_unknown - sprp_silacea - sprp_vulpes
+
+sprp_try <- raster::bind(sprp_barbara, sprp_crucifera, sprp_japonica, sprp_niloticus,
+                         sprp_schrencki, sprp_silacea, sprp_unknown, sprp_vulpes, 
+                         sprp[sprp$subgroup %in% c("ichnusae", "splendidissima"),])
+
+# pip_test
+buffer_temp <- data.frame(subgroup = c("barbara atlantica", "crucifera", "ichnusae", 
+                                       "japonica", "niloticus", "schrencki",
+                                       "silacea", "splendidissima", "unknown", "vulpes"), 
+                          buff = c(0, 0, 0.1, 
+                                   0, 0, 0,
+                                   0, 0.1, 0, 0))
+sp.gbif <- pip_test(curr.species, dat = GBIF_Spatial, 
+                    range.polygon = sprp_try, 
+                    buff = buffer_temp)
+GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
+
