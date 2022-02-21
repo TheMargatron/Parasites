@@ -38,7 +38,12 @@ clip_poly <- matrix(c(33.0, 0,
 
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
-clip_poly <- gUnion(clip_poly, sprp[13, ])
+
+clip_points <- matrix(c(38.7, 4.2),
+                      ncol = 2, byrow = TRUE)
+clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
+
+clip_poly <- gUnion(clip_poly, sprp[clip_points, ])
 
 sprp_jubatus <- sprp - clip_poly
 sprp_jubatus@data$subgroup <- "jubatus"
@@ -364,12 +369,69 @@ overlooked distinct species, the African Wolf, Canis lupaster (see Rueness et al
 # syriacus: Israel, Syria,[38] Lebanon,[62] and Jordan
 
 # Have aureus in Iran and probably moreotica in Greece
-# Could subdivide according to : https://doi.org/10.1093/mspecies/sey002
+# Could subdivide according to: https://doi.org/10.1093/mspecies/sey002
+# or: https://en.wikipedia.org/wiki/Sri_Lankan_jackal#/media/File:Canis_aureus_subspecies_range.png
 # However: 
 "In Greece and Dalmatia, C. aureus is documented from the Holocene (Sommer and Benecke 2005; 
 Malez 1984 in Rutkowski et al. 2015) and the ancient Mediterranean populations have persisted 
 and merged with jackals coming from Asia (Fabbri et al. 2014; Rutkowski et al. 2015)."
-# Indicates good dispersal ability and admixture of subspecies populations so little reason to expect they are genetically isolated
+# Indicates good dispersal ability and admixture of subspecies populations 
+# little reason to expect they are genetically isolated, but they will be locally adapted to some degree
+curr.species <- "Canis aureus"
+sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
+
+# indicus naria and cruesmanni
+clip_poly <- countries50[countries50$name %in% c("India", "Nepal", "Bhutan", 
+                                                 "Bangladesh", "Myanmar", "Lao PDR",
+                                                 "Thailand", "Cambodia", "Vietnam",
+                                                 "Sri Lanka"),]
+clip_poly <- terra::buffer(clip_poly, 0.145)
+
+poly_temp <- Polygon(matrix(c(68.5, 24.6,
+                              70.7, 24.6,
+                              70.72, 24.48,
+                              70.59, 24.43,
+                              69.73, 23.85,
+                              68.5, 23.85,
+                              68.5, 24.6), 
+                            ncol = 2, byrow = TRUE))
+poly_temp <- SpatialPolygons(list(Polygons(list(poly_temp), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+clip_poly <- clip_poly - poly_temp
+
+sprp_indicus <- raster::intersect(sprp, clip_poly)
+sprp_indicus@data$subgroup <- "indicus naria cruesmanni"
+
+# moreotica and ecsedensis
+poly_temp <- countries50[countries50$name %in% c("Turkey", "Greece", "Bulgaria", 
+                                                 "Albania", "Macedonia", "Romania",
+                                                 "Serbia", "Montenegro", "Bosnia and Herz.",
+                                                 "Hungary", "Croatia", "Slovenia", 
+                                                 "Italy", "Austria", "Kosovo"),]
+poly_temp <- terra::buffer(poly_temp, 0.1)
+poly_temp <- gUnion(poly_temp, terra::buffer(countries50[countries50$name == "Moldova",], 1.5))
+
+sprp_moreotica <- raster::intersect(sprp, poly_temp)
+sprp_moreotica@data$subgroup <- "moreotica ecsedensis"
+
+# aureus and syriacus
+sprp_aureus <- sprp - clip_poly - poly_temp
+sprp_aureus@data$subgroup <- "aureus syriacus"
+
+# adding it all up
+sprp_try <- raster::bind(sprp_indicus, sprp_moreotica, sprp_aureus)
+
+IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
+                                 sprp_try)
+
+# GMPD subgroup assignment
+sp.gmpd.points <- pip_test(curr.species, dat = GMPD_Spatial, range.polygon = sprp_try, 
+                           buff = data.frame(subgroup = c("aureus syriacus", "moreotica ecsedensis"), buff = c(0, 0)))
+
+GMPD_Spatial <- raster::bind(GMPD_Spatial[GMPD_Spatial$HostCorrectedName != curr.species,], sp.gmpd.points)
+
+rm(list = ls(pattern = "^sprp"))
+rm(list = ls(pattern = "_temp$"))
 
 # Following IUCN range description I'm not including the algirensis subspecies (sample in Tunisia)
 curr.species <- "Canis aureus"
@@ -536,7 +598,9 @@ clip_poly <- matrix(c(29, 40.8,
 clip_poly <- Polygon(clip_poly)
 clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
 
-poly_temp <- terra::buffer(countries50[countries50$name %in% c("Georgia", "Azerbaijan", "Iran", "Afghanistan", "Tajikistan", "Kyrgyzstan", "China", "Mongolia"),], 0.05)
+poly_temp <- terra::buffer(countries50[countries50$name %in% c("Georgia", "Azerbaijan", "Iran", 
+                                                               "Afghanistan", "Tajikistan", "Kyrgyzstan", 
+                                                               "China", "Mongolia"),], 0.09)
 clip_poly <- gUnion(clip_poly, poly_temp)
 
 poly_temp <- matrix(c(70.508, 40.961,
@@ -559,8 +623,8 @@ sprp_lupus <- sprp_lupus - sprp_pallipes
 # arabs
 clip_poly <- countries50[countries50$name %in% c("Saudi Arabia", "Bahrain", "Qatar", "United Arab Emirates", "Oman", "Yemen"),]
 clip_poly <- terra::buffer(clip_poly, 0.5)
-clip_poly <- clip_poly - countries50[countries50$name %in% c("Egypt", "Israel", "Jordan", "Iraq"),]
-clip_poly <- clip_poly - terra::buffer(countries50[countries50$name == "Kuwait",], 0.05)
+clip_poly <- clip_poly - terra::buffer(countries50[countries50$name %in% c("Egypt", "Israel", "Jordan", 
+                                                              "Iraq", "Kuwait"),], 0.05)
 sprp_arabs <- raster::intersect(sprp_pallipes, clip_poly)
 sprp_arabs@data$subgroup <- "arabs"
 sprp_pallipes <- sprp_pallipes - sprp_arabs
@@ -2853,6 +2917,7 @@ sprp_putorius <- sprp_putorius - sprp_rothschildi
 sprp_putorius <- raster::bind(sprp_putorius, sprp_rothschildi)
 
 sprp_try <- raster::bind(sprp_putorius, sprp_ukssp)
+sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
 #map# tm_shape(sprp_try) + tm_polygons("subgroup")
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
@@ -3408,11 +3473,27 @@ clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4str
 sprp_insularis <- raster::intersect(sprp, clip_poly)
 sprp_insularis@data$subgroup <- "insularis"
 
+# inesperatus
+clip_poly <- matrix(c(-80.46361,25.18777,
+                      -80.40206,25.21110,
+                      -80.36805,25.28172,
+                      -80.26471,25.37177,
+                      -80.21612,25.33873,
+                      -80.35152,25.11391,
+                      -80.58412,24.92214,
+                      -80.62105,24.96879),
+                    ncol = 2, byrow = TRUE)
+clip_poly <- Polygon(clip_poly)
+clip_poly <- SpatialPolygons(list(Polygons(list(clip_poly), ID = "a")), proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+sprp_inesperatus <- raster::intersect(sprp, clip_poly)
+sprp_inesperatus@data$subgroup <- "inesperatus"
+
 # mainland subspecies
-sprp_mainland <- sprp - sprp_grinnelli - sprp_insularis
+sprp_mainland <- sprp - sprp_grinnelli - sprp_insularis - sprp_inesperatus
 sprp_mainland@data$subgroup <- "mainland"
 
-sprp_try <- raster::bind(sprp_mainland, sprp_grinnelli, sprp_insularis)
+sprp_try <- raster::bind(sprp_mainland, sprp_grinnelli, sprp_insularis, sprp_inesperatus)
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],

@@ -567,7 +567,7 @@ GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
   filter(n() > 1) %>% 
   ungroup()
-nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 7084 and 104
+nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 7113 and 105
 
 ## Cleaning by native IUCN polygon ####
 # Method in 01.1 already cleans species and subspecies
@@ -591,27 +591,26 @@ Res_Temp <- restrict_deci(GMPD_Data_res_sub, subsp = TRUE)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_res_sub <- GMPD_Data_res_sub[GMPD_Data_res_sub$HostCorrectedName %in% Res_Temp$HostCorrectedName &
                                          GMPD_Data_res_sub$subgroup %in% Res_Temp$subgroup,]
-nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName))
+nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 6967 and 90
 
 ## IUCN restricted species ####
-# new method
 Res_Temp <- restrict_deci(GMPD_Data_res_all)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_res_all <- GMPD_Data_res_all[GMPD_Data_res_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
-nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName))
+nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7054 and 94
 
 ## IUCN cleaned subgroup ####
 Res_Temp <- restrict_deci(GMPD_Data_cln, subsp = TRUE)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_cln_sub <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName &
                                  GMPD_Data_cln$subgroup %in% Res_Temp$subgroup,]
-nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName))
+nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName)) # 8012 and 107
 
 ## IUCN cleaned species ####
 Res_Temp <- restrict_deci(GMPD_Data_cln)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_cln_all <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
-nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName))
+nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 8110 and 110
 
 rm(Res_Temp)
 
