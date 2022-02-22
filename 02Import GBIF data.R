@@ -228,7 +228,7 @@ nrow(GBIF_Data) #2491767
 # GBIF_Base_Plots_02
 # dev.off()
 
-## Awkward species ####
+## subgroups and outliers ####
 # May move prep steps to 02.1 if I don't make other sub-scripts
 GBIF_Data <- GBIF_Data %>%
   mutate(infraspecificEpithet = case_when(infraspecificEpithet == "" ~ NA_character_,
@@ -241,142 +241,9 @@ GBIF_Spatial <- SpatialPointsDataFrame(coords      = GBIF_Data[, c("decimalLongi
                                        data        = GBIF_Data[, names(GBIF_Data)[!names(GBIF_Data) %in% c("decimalLongitude", "decimalLatitude")]], 
                                        proj4string = CRS(proj4string(IUCN_Native_Data)))
 
-## Outliers ####
+source(here::here("02.1Subgrouping GBIF.R"))
+# Haven't plotted anything yet
 
-GBIF_Issues <- read.csv(here::here("GBIF cleaning/GBIF_issues.csv"), header = TRUE, stringsAsFactors = FALSE) 
+nrow(GBIF_Subgroups) #
 
-GBIF_Data_Test <- apply(GBIF_Issues, MARGIN = 1, species_cleaner, dat = GBIF_Data)
-# GBIF_Data_Test <- bind_rows(GBIF_Data_Test) # ran out of memory
-
-# back up for now
-saveRDS(GBIF_Data_Test, file = here::here("Data/Data back ups/GBIF_Data_Test"))
-
-GBIF_Data_Test <- readRDS(here::here("Data/Data back ups/GBIF_Data_Test"))
-names(GBIF_Data_Test) <- Host_Synonyms$GBIFName
-
-GBIF_Outlier_Plots <- apply(GBIF_Issues, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data_Test, data_type = "outlier", range.polygon = IUCN_Native_Data)
-names(GBIF_Outlier_Plots) <- Host_Synonyms$IUCNName
-
-# Saving all outlier plots
-pdf(file = here::here('GBIF cleaning/outliers.pdf'))
-GBIF_Outlier_Plots
-dev.off()
-
-# Saving only ones I'm unsure of
-pdf(file = here::here('GBIF cleaning/unsure_outliers.pdf'))
-GBIF_Outlier_Plots[which(GBIF_Issues$finished == "Unsure", )] 
-dev.off()
-
-GBIF_Data_Cleaned <- GBIF_Data_Test %>%
-  bind_rows() %>%
-  filter(is.na(outlier) | outlier) %>%
-  dplyr::select(-outlier)
-
-nrow(GBIF_Data_Cleaned) #2053888
-
-write.csv(GBIF_Data_Cleaned, file = here::here("Data/Data back ups/GBIF_Data.csv"), row.names = FALSE)
-
-## Temporary plotting to get outlier parameters ####
-
-# iucn test
-Species <- c("Nyctereutes procyonoides",
-             "Odocoileus hemionus",
-             "Odocoileus virginianus",
-             "Otocyon megalotis",
-             "Ovis canadensis",
-             "Panthera leo",
-             "Panthera onca",
-             "Panthera pardus",
-             "Pecari tajacu",
-             "Pelea capreolus",
-             "Philantomba monticola",
-             "Procyon lotor",
-             "Puma concolor",
-             "Rangifer tarandus",
-             "Raphicerus campestris",
-             "Redunca arundinum",
-             "Redunca fulvorufula",
-             "Rupicapra rupicapra",
-             "Spilogale gracilis",
-             "Sylvicapra grimmia",
-             "Syncerus caffer",
-             "Taxidea taxus",
-             "Tragelaphus angasii",
-             "Tragelaphus oryx",
-             "Tragelaphus scriptus",
-             "Tragelaphus spekii",
-             "Tragelaphus strepsiceros",
-             "Urocyon cinereoargenteus",
-             "Urocyon littoralis",
-             "Ursus americanus",
-             "Ursus arctos",
-             "Ursus maritimus",
-             "Vulpes lagopus",
-             "Vulpes velox",
-             "Vulpes vulpes"
-)
-
-species_dat <- GBIF_Data %>%
-  mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
-                             species == "Taurotragus oryx" ~ "Tragelaphus oryx",
-                             species == "Pekania pennanti" ~ "Martes pennanti",
-                             TRUE                          ~ species)) %>%
-  filter(species == Species[1]) 
-
-species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = species),
-                            range = IUCN_Native_Data[IUCN_Native_Data$binomial == Species[1],],
-                            lon = "decimalLongitude",
-                            lat = "decimalLatitude",
-                            species = "binomial",
-                            buffer = 1,
-                            value = "flagged")
-
-base_map +
-  geom_polypath(data = fortify(IUCN_Native_Data[IUCN_Native_Data$binomial == Species[1],]), 
-               aes(x = long, y = lat, group = group),
-               colour = "palegreen3",
-               fill = "palegreen3") +
-  
-  geom_point(data = filter(species_dat, out),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "navy") +
-  
-  geom_point(data = filter(species_dat, !out),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "orange") +
-  
-  #coord_map(xlim = c(120, 150), ylim = c(25, 45))+
-  
-  ggtitle(Species[1])
-beep(2)
-
-
-#outlier test
-Species <- "Giraffa camelopardalis"
-
-species_dat <- filter(GBIF_Data, species == Species)
-
-species_dat$out <- cc_outl(x = species_dat,
-                           lon = "decimalLongitude",
-                           lat = "decimalLatitude",
-                           method = "quantile",
-                           mltpl = 10,
-                           value = "flagged")
-
-base_map +
-  geom_polypath(data = fortify(IUCN_Native_Data[IUCN_Native_Data$binomial == "Giraffa camelopardalis",]), 
-               aes(x = long, y = lat, group = group),
-               colour = "palegreen3",
-               fill = "palegreen3") +
-  #  split points into two so I can easily switch between them and ensures outliers are plotted on top
-  geom_point(data = filter(species_dat, out),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "navy") +
-  
-  geom_point(data = filter(species_dat, !out),
-             aes(x = decimalLongitude, y = decimalLatitude),
-             colour = "orange") +
-  
-  ggtitle(Species)
-beep(2)
-
+write.csv(GBIF_Subgroups, file = here::here("Data/Data back ups/GBIF_Subgroups.csv"), row.names = FALSE)
