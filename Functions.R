@@ -387,33 +387,6 @@ gbif_plotter <- function(synonym_row, dat, data_type, range.polygon, legend.text
       
       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
     
-  } else if (data_type == "bor"){
-    dat$basisOfRecord <- as.factor(dat$basisOfRecord)
-    species_dat <- filter(dat, species == synonym_row["GBIFName"])
-    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
-    
-    # to make active levels bold in legend
-    curr <- unique(species_dat$basisOfRecord)
-    new <- c(paste0("**", curr, "**"), levels(species_dat$basisOfRecord)[!levels(species_dat$basisOfRecord) %in% curr])
-    curr <- c(as.character(curr), levels(species_dat$basisOfRecord)[!levels(species_dat$basisOfRecord) %in% curr])
-    species_dat$basisOfRecord <- dplyr::recode(species_dat$basisOfRecord, !!!deframe(data.frame(curr, new))) 
-    
-    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      
-      geom_polypath(data = sp.range.polygon, 
-                   aes(x = long, y = lat, group = group),
-                   colour = "skyblue", fill = "skyblue") +
-      
-      geom_point(data = species_dat,
-                 aes(x = decimalLongitude, y = decimalLatitude, colour = basisOfRecord),
-                 shape = 1) +
-      scale_colour_brewer(palette = "Paired", drop = FALSE) +
-      
-      theme(legend.text = element_markdown()) +
-      
-      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
-    
   } else if (data_type == "outlier"){
     species_dat <- dat[[synonym_row["GBIFName"]]] %>%
       mutate(outlier = case_when(is.na(outlier) ~ "untested",
@@ -445,7 +418,34 @@ gbif_plotter <- function(synonym_row, dat, data_type, range.polygon, legend.text
                               synonym_row["buffer"], " decimal degrees"))
       }
     
-  }
+  } else {
+    dat[,data_type] <- as.factor(dat[, data_type])
+    species_dat <- filter(dat, species == synonym_row["GBIFName"])
+    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
+    
+    # to make active levels bold in legend
+    curr <- unique(species_dat[, data_type])
+    new <- c(paste0("**", curr, "**"), levels(species_dat[, data_type])[!levels(species_dat[, data_type]) %in% curr])
+    curr <- c(as.character(curr), levels(species_dat[, data_type])[!levels(species_dat[, data_type]) %in% curr])
+    species_dat[, data_type] <- dplyr::recode(species_dat[, data_type], !!!deframe(data.frame(curr, new))) 
+    
+    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+      
+      geom_polypath(data = sp.range.polygon, 
+                    aes(x = long, y = lat, group = group),
+                    colour = "skyblue", fill = "skyblue") +
+      
+      geom_point(data = species_dat,
+                 aes(x = decimalLongitude, y = decimalLatitude, colour = data_type),
+                 shape = 1) +
+      scale_colour_brewer(palette = "Paired", drop = FALSE) +
+      
+      theme(legend.text = element_markdown()) +
+      
+      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
+    
+  } 
 }
 
 species_cleaner <- function(synonym_row, dat){

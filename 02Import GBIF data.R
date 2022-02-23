@@ -108,7 +108,7 @@ GBIF_Data <- clean_coordinates(x = GBIF_Data,
 nrow(GBIF_Data) #3068592
 gc()
 
-# GBIF_bor_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "bor", range.polygon = IUCN_Native_Data)
+# GBIF_bor_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "basisOfRecord", range.polygon = IUCN_Native_Data)
 # names(GBIF_bor_Plots_01) <- Host_Synonyms$IUCNName
 # 
 # pdf(file = here::here('GBIF Cleaning/GBIF_bor_Plots_01.pdf'), width = 10, height = 7)
@@ -121,6 +121,14 @@ gc()
 # pdf(file = here::here('GBIF Cleaning/GBIF_base_Plots_01.pdf'), width = 10, height = 7)
 # GBIF_base_Plots_01
 # dev.off()
+#
+# GBIF_epithet_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Data, data_type = "infraspecificEpithet", range.polygon = IUCN_Native_Data)
+# names(GBIF_epithet_Plots_01) <- Host_Synonyms$IUCNName
+# 
+# pdf(file = here::here('GBIF Cleaning/GBIF_epithet_Plots_01.pdf'), width = 10, height = 7)
+# GBIF_epithet_Plots_01
+# dev.off()
+
 
 ## Issues #### 
 
@@ -246,4 +254,22 @@ source(here::here("02.1Subgrouping GBIF.R"))
 
 nrow(GBIF_Subgroups) #
 
-write.csv(GBIF_Subgroups, file = here::here("Data/Data back ups/GBIF_Subgroups.csv"), row.names = FALSE)
+# GBIF_cleaned_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Subgroups, data_type = "base", range.polygon = IUCN_Native_Data)
+# names(GBIF_cleaned_Plots_01) <- Host_Synonyms$IUCNName
+# 
+# pdf(file = here::here('GBIF Cleaning/GBIF_cleaned_Plots_01.pdf'), width = 10, height = 7)
+# GBIF_cleaned_Plots_01
+# dev.off()
+#
+# GBIF_subgroup_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Subgroups, data_type = "subgroup", range.polygon = IUCN_Native_Data)
+# names(GBIF_subgroup_Plots_01) <- Host_Synonyms$IUCNName
+# 
+# pdf(file = here::here('GBIF Cleaning/GBIF_subgroup_Plots_01.pdf'), width = 10, height = 7)
+# GBIF_subgroup_Plots_01
+# dev.off()
+
+
+write.csv(GBIF_Subgroups, file = here::here("Data/Data back ups/GBIF_Subgroups_02.csv"), row.names = FALSE)
+writeOGR(GBIF_Spatial[,names(GBIF_Spatial)[!names(GBIF_Spatial) %in% "gbifID"]], 
+         here::here("Data/Data back ups"), "GBIF_Spatial_02", 
+         driver = "ESRI Shapefile", overwrite_layer = TRUE)
