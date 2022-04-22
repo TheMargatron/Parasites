@@ -16,6 +16,7 @@ library(rgeos)
 library(rnaturalearthdata)
 library(taxize)
 library(tidyverse)
+library(tmap)
 library(beepr)
 source(here::here("Functions.R"))
 
@@ -23,18 +24,14 @@ sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 tmap_mode("view")
 
 GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
-GMPD_Data_res_sub <- read.csv(here::here("Data/Data back ups/GMPD_Data_res_sub_01.csv"), header = TRUE, stringsAsFactors = FALSE)
-GMPD_Data_res_all <- read.csv(here::here("Data/Data back ups/GMPD_Data_res_all_01.csv"), header = TRUE, stringsAsFactors = FALSE)
-
-GMPD_Data_cln_sub <- read.csv(here::here("Data/Data back ups/GMPD_Data_cln_sub_01.csv"), header = TRUE, stringsAsFactors = FALSE)
-GMPD_Data_cln_all <- read.csv(here::here("Data/Data back ups/GMPD_Data_cln_all_01.csv"), header = TRUE, stringsAsFactors = FALSE)
+GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data_01.csv"), header = TRUE, stringsAsFactors = FALSE)
 
 Legend_Text <- sort(unique(read.csv(here::here("Data/Data back ups/Native_DF_01.csv"), header = TRUE)$Status))
 
 IUCN_Native_Data <- readRDS(here::here("Data/Data back ups/IUCN_Native_Data_01"))
 #IUCN_Orders <- readRDS(here::here("Data/Data back ups/IUCN_Orders_01"))
 
-Hostlist <- sort(unique(GMPD_Data_cln_all$HostCorrectedName))
+Hostlist <- sort(unique(GMPD_Data$HostCorrectedName))
 
 # Getting taxon keys ##########################################################################################
 # Adding synonymous species names not picked up by taxize
@@ -236,7 +233,7 @@ nrow(GBIF_Data) #2491767
 # GBIF_Base_Plots_02
 # dev.off()
 
-## subgroups and outliers ####
+## Subgroups and outliers ####
 # May move prep steps to 02.1 if I don't make other sub-scripts
 GBIF_Data <- GBIF_Data %>%
   mutate(infraspecificEpithet = case_when(infraspecificEpithet == "" ~ NA_character_,
@@ -250,26 +247,95 @@ GBIF_Spatial <- SpatialPointsDataFrame(coords      = GBIF_Data[, c("decimalLongi
                                        proj4string = CRS(proj4string(IUCN_Native_Data)))
 
 source(here::here("02.1Subgrouping GBIF.R"))
-# Haven't plotted anything yet
 
 nrow(GBIF_Subgroups) #
 
-# GBIF_cleaned_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Subgroups, data_type = "base", range.polygon = IUCN_Native_Data)
-# names(GBIF_cleaned_Plots_01) <- Host_Synonyms$IUCNName
-# 
-# pdf(file = here::here('GBIF Cleaning/GBIF_cleaned_Plots_01.pdf'), width = 10, height = 7)
-# GBIF_cleaned_Plots_01
-# dev.off()
-#
-# GBIF_subgroup_Plots_01 <- apply(Host_Synonyms, MARGIN = 1, FUN = gbif_plotter, dat = GBIF_Subgroups, data_type = "subgroup", range.polygon = IUCN_Native_Data)
-# names(GBIF_subgroup_Plots_01) <- Host_Synonyms$IUCNName
-# 
-# pdf(file = here::here('GBIF Cleaning/GBIF_subgroup_Plots_01.pdf'), width = 10, height = 7)
-# GBIF_subgroup_Plots_01
-# dev.off()
+# Plotting ####
+# prep
+GMPD_Spatial <- SpatialPointsDataFrame(coords      = GMPD_Data[, c("Longitude", "Latitude")],
+                                       data        = GMPD_Data[, names(GMPD_Data)[!names(GMPD_Data) %in% c("Longitude", "Latitude")]], 
+                                       proj4string = CRS(proj4string(IUCN_Native_Data)))
+
+# polygon legend groups:
+poly_fill <- data.frame(legend = unique(IUCN_Native_Data@data$legend),
+           fill_group = NA)
+poly_fill <- poly_fill %>%
+  mutate(fill_group = case_when(legend == "Extinct" ~ "Extinct",
+                                legend == "Extinct & Reintroduced" ~ "Extinct",
+                                str_detect(legend, "Extinct|Presence") ~ "Absence Likely",
+                                legend == "Extant (resident)" ~ "Extant",
+                                str_detect(legend, "Extant & R|Extant & I") ~ "Extant",
+                                str_detect(legend, "Extant") ~ "Presence Likely"))
+
+# borders and scale
+sub.colours <- c('#ea3c67', '#3cb44b', '#ffbb19', # red, green, yellow
+                 '#4388d8', '#f58231', '#42d4f4', # blue, orange, cyan
+                 '#f032e6', '#469990', # magenta, teal
+                 '#b372ff', '#c37e2e', '#f577a5') # lavendar, brown, pink
+
+Host_Synonyms_temp <- Host_Synonyms %>%
+  mutate(minlong = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
+                                                                           bbox(GBIF_Spatial[GBIF_Spatial$species == host["GBIFName"],]))["Longitude", "min"]}),
+         maxlong = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
+                                                                           bbox(GBIF_Spatial[GBIF_Spatial$species == host["GBIFName"],]))["Longitude", "max"]}),
+         minlat = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
+                                                                          bbox(GBIF_Spatial[GBIF_Spatial$species == host["GBIFName"],]))["Latitude", "min"]}),
+         maxlat = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
+                                                                          bbox(GBIF_Spatial[GBIF_Spatial$species == host["GBIFName"],]))["Latitude", "max"]})) %>%
+  mutate(scaling = case_when(IUCNName == "Vulpes vulpes" ~ "Eurasia",
+                             maxlong - minlong > 300 ~ "Global",
+                             maxlat < 38 & maxlong < 58 & minlong > -20 ~ "Africa",
+                             str_detect(IUCNName, "Herpestes ichneumon|Hyaena hyaena|Panthera leo") ~ "Africa",
+                             str_detect(IUCNName, "Puma concolor|Odocoileus virginianus") ~ "Global", 
+                             minlat > 6 & maxlong < -12  ~ "North",
+                             IUCNName == "Leopardus tigrinus" ~ "Central",
+                             maxlat < 13 & maxlong < -32  ~ "South",
+                             maxlong < -30 ~ "Central",
+                             minlong > 91 ~ "Asia",
+                             minlong > -11  & maxlong < 117 ~ "Europe",
+                             TRUE ~ "Eurasia")) %>%
+  dplyr::select(IUCNName, GBIFName, scaling)
+
+bboxes <- list("Global" = matrix(c(-180, -90, 180, 90), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "Eurasia" = matrix(c(-180, -90, 180, 90), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "Africa" = matrix(c(-60, -41, 120, 49), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "South" = matrix(c(-180, -67, 0, 23), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "North" = matrix(c(-180, -8, 0, 82), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "Central" = matrix(c(-180, -38, 0, 52), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "Asia" = matrix(c(0, -8, 180, 82), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))),
+               "Europe" = matrix(c(-37, -8, 143, 82), 
+                                 ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))))
 
 
-write.csv(GBIF_Subgroups, file = here::here("Data/Data back ups/GBIF_Subgroups_02.csv"), row.names = FALSE)
-writeOGR(GBIF_Spatial[,names(GBIF_Spatial)[!names(GBIF_Spatial) %in% "gbifID"]], 
-         here::here("Data/Data back ups"), "GBIF_Spatial_02", 
-         driver = "ESRI Shapefile", overwrite_layer = TRUE)
+BF_temp <- apply(Host_Synonyms, MARGIN = 1, function(syn.row) {
+  xy <- bboxer(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == syn.row["IUCNName"],]@bbox,
+         GBIF_Spatial[GBIF_Spatial$species == syn.row["GBIFName"],]@bbox,
+         IUCN_Native_Data[IUCN_Native_Data$binomial == syn.row["IUCNName"],]@bbox)
+
+  xy <- xy[,2] - xy[,1]
+  xy <- xy[1]/xy[2]
+})
+
+apply(Host_Synonyms[1,], MARGIN = 1, FUN = complete_plot, 
+      dat = GMPD_Spatial, range.dat = GBIF_Spatial, range.polygon = IUCN_Native_Data)
+
+# sort out buffer function
+# make legends pretty (mostly position)
+# fix legends
+## extend x/ylim in one direction
+# all daata at once, symbols differ
+# put iucn and gbif next to each other
+# send collated data
+
+
+# look for mathematica trainign courses
+# ask bram for mathematica code
+# bes, bob o hara
+
