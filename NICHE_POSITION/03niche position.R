@@ -2,7 +2,7 @@
 ##### CALCULATE POSITION OF PARASITE SAMPLE LOCATIONS IN ENVIRONMENTAL NICHE  ######################
 ##### Written by: Margaret Bolton mb804(at)exeter.ac.uk and Regan Early r.early@exeter.ac.uk #######
 ##### Written on: ... ##############################################################################
-##### Modified on: 28th Sept 2021   ################################################################
+##### Modified on: 22nd April 2022   ################################################################
 ####################################################################################################
 
 ##### Outputs #####
@@ -22,23 +22,24 @@
 ##### Libraries and data #####
 library(ade4)
 library(adehabitatMA)
+library(adehabitatHR)
 library(raster)
 library(tidyverse)
-source("E:/NON_PROJECT/BI_CLIMATE/MAMMAL_PARASITE/CODE_GITHUB/NICHE_POSITION/niche_functions.R")
+source("E:/NON_PROJECT/BI_CLIMATE/MAMMAL_PARASITE/CODE_GITHUB_REGAN/NICHE_POSITION/niche_functions.R")
 # library(here)
 
 ### Load data
-dat.wd <- "E:/NON_PROJECT/BI_CLIMATE/MAMMAL_PARASITE/DATA/27thSept2021"
-GBIF_Data <- read.csv(paste0(dat.wd, "/GBIF_Data.csv"), header = TRUE, stringsAsFactors = FALSE) ## Distribution data
-GMPD_Data <- read.csv(paste0(dat.wd, "/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE) ## Parasite load data
+dat.wd <- "E:/NON_PROJECT/BI_CLIMATE/MAMMAL_PARASITE/DATA/22ndApril2022"
+GBIF_Data <- read.csv(paste0(dat.wd, "/GBIF_Subgroups_02.csv"), header = TRUE, stringsAsFactors = FALSE) ## Distribution data
+GMPD_Data <- read.csv(paste0(dat.wd, "/GMPD_Data_01.csv"), header = TRUE, stringsAsFactors = FALSE) ## Parasite load data
 
-### Set thresholds for removing infinitessimally small densities resulting from the kernel smoother approach. Thresholds are applied in the grid.clim function.
+### Set thresholds for removing infinitesimally small densities resulting from the kernel smoother approach. Thresholds are applied in the grid.clim function.
 th.sp <- 0
 th.env <- 0
 
 ### IUCN and GBIF names do not always match so make a new column containing the names that match IUCN
 ## case_when: LHS argument determines which values match this case. RHS provides the replacement value. TRUE indicates all the other values
-## However in the version of the data on 27th Sept 2021 the name issue no longer exists.
+## However in the version of the data on 22nd April 2022 only Pekania pennanti is present.
 GBIF_Data <- GBIF_Data %>%
   mutate(sp.iucn = case_when(species == "Mustela vison"  ~ "Neovison vison",
                              species == "Taurotragus oryx" ~ "Tragelaphus oryx",
@@ -52,14 +53,19 @@ bio.dat <- getData('worldclim', var = 'bio', res = 10) ## Great function in rast
 ## Isothermality, max temp, min temp, precip wettest quarter, precip driest quarter. 
 ## See Martins in submission for rationale on isothermality
 bio1 <- subset(bio.dat, c(3, 5, 6, 13, 14)) 
+bio1$bio5 <- bio1$bio5 / 10 ## Temp variables must be divided by 10. https://worldclim.org/data/v1.4/formats.html
+bio1$bio6 <- bio1$bio6 / 10
+bio1$bio3 <- bio1$bio3 / 100 ## Isothermality is multiplied by 100 https://worldclim.org/data/bioclim.html
 
 ## max temp, min temp, total precip. As used in Estrada papers, Early & Sax....
 bio2 <- subset(bio.dat, c(5, 6, 12))
+bio2$bio5 <- bio2$bio5 / 10 ## Temp variables must be divided by 10. https://worldclim.org/data/v1.4/formats.html
+bio2$bio6 <- bio2$bio6 / 10
 
 ## Eight variables used in Petitpierre, Early & Sax 2014.
 ## Growing Degree Days above 5C
 r <- getData('worldclim', var = 'tmean', res = 10)
-r <- r/10
+r <- r/10 ## Temp variables must be divided by 10. https://worldclim.org/data/v1.4/formats.html
 gdd5 <- calc(r, fun=function(x){ifelse(x > 5, x*30, 0)})
 gdd5 <- sum(gdd5)
 
@@ -75,7 +81,9 @@ aetpet <- raster("E:/GIS_DATA/CLIMATE/1961_1990/AET_PET/aetpet")
 pet <- raster("E:/GIS_DATA/CLIMATE/1961_1990/AET_PET/pet")
 
 bio3 <- subset(bio.dat, c(1, 4, 5, 6, 12))
-bio3$bio4 <- bio3$bio4/100
+bio3$bio5 <- bio3$bio5 / 10 ## Temp variables must be divided by 10. https://worldclim.org/data/v1.4/formats.html
+bio3$bio6 <- bio3$bio6 / 10
+bio1$bio3 <- bio1$bio3 / 100 ## Isothermality is multiplied by 100 https://worldclim.org/data/bioclim.html
 bio3$gdd5 <- gdd5
 bio3$aetpet <- resample(aetpet, bio3)
 bio3$pet <- resample(pet, bio3)
@@ -98,13 +106,13 @@ gmpd.cols <- c("ParasiteCorrectedName",
                "HostsSampled", 
                "Longitude", 
                "Latitude", 
-               "Prevalence", 
-               "EquatorwardsProp",
-               "EquatorwardsDist",
-               "MedianDist",
-               "MedianProp")
+               "Prevalence")#, 
+               # "EquatorwardsProp",
+               # "EquatorwardsDist",
+               # "MedianDist",
+               # "MedianProp")
 
-i <- 2
+i <- 2 ## The name of the environmental variable set
 # for (i in 1:3) {
 raw <- get(paste0("bio",i))
 
@@ -118,7 +126,7 @@ pca <- dudi.pca(env[xVar], center = T, scale = T, scannf = F, nf = 2)
 
 ### Calculate position in env niche using kernel smoothers applied to the distribution and PCA data
 ## Example for test runs
-# species.name <- "Genetta genetta"
+# species.name <- "Martes martes"
 # spat.dat <- GBIF_Data
 # env.dat <- raw
 # par.dat <- GMPD_Data
@@ -182,6 +190,7 @@ ks.test <- function(species.name, spat.dat, env.dat, par.dat) {
 
 ### Apply the niche position function to all host species
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
+Hostlist <- Hostlist[Hostlist %in% GBIF_Data$sp.iucn] ## currently 109 species, should be 110. "Melogale subaurantiaca" missing from GBIF_Data
 options(error=recover) ## Can identify the host name where the function failed.
 niche.pos <- lapply(Hostlist, ks.test, spat.dat = GBIF_Data, env.dat = raw, par.dat = GMPD_Data)
 names(niche.pos) <- Hostlist
