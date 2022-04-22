@@ -4193,7 +4193,7 @@ sprp_try <- sprp_try - sprp_hamiltoni
 sprp_try <- raster::aggregate(sprp_try, by = names(sprp_try))
 sprp_try@data$subgroup <- "mainland"
 
-sprp_try <- raster::bind(sprp_try, sprp_haida, sprp_kenai, sprp_vancouveri)
+sprp_try <- raster::bind(sprp_try, sprp_haida, sprp_kenai, sprp_vancouveri, sprp_hamiltoni)
 #map# tm_shape(sprp_try) + tm_polygons("subgroup") + tm_shape(sp.gmpd.points) + tm_dots()
 
 IUCN_Native_Data <- raster::bind(IUCN_Native_Data[IUCN_Native_Data$binomial != curr.species,],
