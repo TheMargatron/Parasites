@@ -341,7 +341,7 @@ gbif_plotter <- function(synonym_row, dat, data_type, range.polygon, legend.text
     range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
     range.polygon$id <- rownames(range.polygon@data)
     sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
-    sp.range.polygon <-  base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
+    sp.range.polygon <- base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
     
     # to make active levels bold in legend
     curr <- unique(sp.range.polygon$legend)
@@ -544,4 +544,148 @@ pip_test_host <- function(hostlist, dat, range.polygon, buff, subsp = TRUE){
     out <- pip.test(host, dat, range.polygon, buff, subsp)
   })
   out <- do.call(raster::bind, sg.dat)
+}
+
+complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
+  # data prep
+  sp.dat <- dat[dat$HostCorrectedName == synonym.row["IUCNName"],]
+  sp.range.dat <- range.dat[range.dat$species == synonym.row["GBIFName"],]
+  sp.range.pol <- range.polygon[range.polygon$binomial == synonym.row["IUCNName"],]
+  
+  sp.bbox <- bboxes[[synonym.row["scaling"]]]
+  subgroups <- unique(sp.range.pol@data$subgroup)
+  
+  extant.group <- poly_fill[poly_fill$fill_group == "Extant", "legend"]
+  present.group <- poly_fill[poly_fill$fill_group == "Presence Likely", "legend"]
+  absent.group <- poly_fill[poly_fill$fill_group == "Absence Likely", "legend"]
+  extinct.group <- poly_fill[poly_fill$fill_group == "Extinct", "legend"]
+  
+  # border.factor <- sp.bbox[,2] - sp.bbox[,1]
+  # border.factor <- (border.factor[1]/border.factor[2])/max(BF_temp)
+  
+  border.factor <- 1
+  if(synonym.row["scaling"] %in% c("Africa", "South", "North", "Central", "Asia", "Europe")) {border.factor <- 0.5}
+  # border.factor <- sum(area(sp.range.pol))/max(BF_temp)
+  
+  # plot 1, iucn range
+  par(bg = 'powderblue')
+  terra::plot(ne_countries(scale = "medium", returnclass = "sp"), col = "beige", border = "burlywood",
+       xlim = sp.bbox[1,],
+       ylim = sp.bbox[2,])
+  
+  for(i in 1:length(subgroups)){
+    sp.range.pol.sub <- sp.range.pol[sp.range.pol$subgroup == subgroups[i],]
+    terra::plot(sp.range.pol.sub, col = sub.colours[i], border = "transparent", add = TRUE)
+    
+    temp.border <- spTransform(sp.range.pol.sub, CRS("+init=epsg:3857"))
+    temp.border <- try(terra::buffer(terra::buffer(temp.border, 10000), -400000*border.factor))
+
+    if(class(temp.border) != "try-error") {
+      temp.border <- spTransform(temp.border, CRS("+init=epsg:4326"))
+      
+      if(area(temp.border) > 100000){
+        
+        if(any(sp.range.pol.sub$legend %in% c(present.group, absent.group, extinct.group))){
+          terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% c(present.group, absent.group, extinct.group),], temp.border), 
+               col = "grey65", border = "transparent", add = TRUE)
+        }
+        
+        if(any(sp.range.pol.sub$legend %in% c(absent.group, extinct.group))){
+          terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% c(absent.group, extinct.group),], temp.border), 
+               col = "black", density = 15, angle = 45, border = "transparent", add = TRUE)
+        }
+        
+        if(any(sp.range.pol.sub$legend %in% extinct.group)){
+          terra:plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% extinct.group,], temp.border), 
+               col = "black", density = 15, angle = 135, border = "transparent", add = TRUE)
+        }
+        
+        if(any(sp.range.pol.sub$legend %in% c(extant.group))){
+          terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% extant.group,], temp.border), 
+               col = "grey", border = "transparent", add = TRUE)
+        }
+        
+      }
+      
+    }
+    
+    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$RestrAll & sp.dat$RestrSub,], 
+                pch = 24, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+
+    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$RestrAll & !sp.dat$RestrSub,], 
+                pch = 25, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+    
+  }
+  
+  mtext(paste0(synonym.row["IUCNName"], " with iucn range\n"), side = 3, cex = 1.5)
+  
+  legend("bottomleft", 
+         legend = subgroups, 
+         title = "Subgroup",
+         fill = sub.colours,
+         border = sub.colours,
+         cex = 1,
+         bg = "transparent") 
+  
+  legend("topleft", 
+         legend = c("", "", "", ""), 
+         title = "",
+         fill = c("grey", "grey65", "grey65", "grey65"),
+         cex = 1, 
+         bty = "n") 
+  legend("topleft", 
+         legend = unique(poly_fill$fill_group), 
+         title = "Status",
+         fill = c("transparent", "transparent", "black", "black"),
+         density = c(0, 0, 15, 15),
+         angle = c(0, 0, 45, 135),
+         cex = 1,
+         bty = "o",
+         bg = "transparent") 
+  
+  # plot 2, gbif range
+  par(bg = 'powderblue')
+  terra::plot(ne_countries(scale = "medium", returnclass = "sp"), col = "beige", border = "burlywood",
+              xlim = sp.bbox[1,],
+              ylim = sp.bbox[2,])
+  
+  for(i in 1:length(subgroups)){
+    terra::plot(sp.range.dat[sp.range.dat$subgroup == subgroups[i],], 
+                pch = 1, col = paste0(sub.colours[i], "FF"), add = TRUE)
+    
+    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanSub,], 
+                pch = 22, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+
+    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & !sp.dat$CleanSub,], 
+                pch = 23, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+    
+  }
+  
+  mtext(paste0(synonym.row["IUCNName"], " with gbif range\n"), side = 3, cex = 1.5)
+  
+  legend("bottomleft", 
+         legend = subgroups, 
+         title = "Subgroup",
+         fill = sub.colours,
+         border = sub.colours,
+         cex = 1,
+         bg = "transparent") 
+  
+  legend("bottomright",
+         legend = CleanSub,
+         title = "Dataset",
+         pch = c(22, 23),
+         cex = 1,
+         fill = sub.colours[1],
+         bg = "transparent")
+  
+}
+
+bboxer <- function(...){
+  x <- list(...)
+  
+  matrix(c(min(sapply(x, function(x) x[1,1])), max(sapply(x, function(x) x[1,2])),
+           min(sapply(x, function(x) x[2,1])), max(sapply(x, function(x) x[2,2]))),
+         byrow = TRUE, nrow = 2,
+         dimnames = list(c("Longitude", "Latitude"), c("min", "max")))
 }
