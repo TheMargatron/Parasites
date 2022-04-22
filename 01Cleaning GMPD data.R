@@ -591,12 +591,22 @@ Res_Temp <- restrict_deci(GMPD_Data_res_sub, subsp = TRUE)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_res_sub <- GMPD_Data_res_sub[GMPD_Data_res_sub$HostCorrectedName %in% Res_Temp$HostCorrectedName &
                                          GMPD_Data_res_sub$subgroup %in% Res_Temp$subgroup,]
-nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 6967 and 90
+GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
+  group_by(HostCorrectedName, subgroup) %>%
+  filter(n() > 1) %>%
+  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
+  filter(n() > 1) %>%
+  ungroup() 
+nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 6958 and 90
 
 ## IUCN restricted species ####
 Res_Temp <- restrict_deci(GMPD_Data_res_all)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_res_all <- GMPD_Data_res_all[GMPD_Data_res_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
+GMPD_Data_res_all <- GMPD_Data_res_all %>%
+  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
+  filter(n() > 1) %>%
+  ungroup() 
 nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7054 and 94
 
 ## IUCN cleaned subgroup ####
@@ -604,12 +614,22 @@ Res_Temp <- restrict_deci(GMPD_Data_cln, subsp = TRUE)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_cln_sub <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName &
                                  GMPD_Data_cln$subgroup %in% Res_Temp$subgroup,]
-nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName)) # 8012 and 107
+GMPD_Data_cln_sub <- GMPD_Data_cln_sub %>%
+  group_by(HostCorrectedName, subgroup) %>%
+  filter(n() > 1) %>%
+  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
+  filter(n() > 1) %>%
+  ungroup()
+nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName)) # 7995 and 107
 
 ## IUCN cleaned species ####
 Res_Temp <- restrict_deci(GMPD_Data_cln)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_cln_all <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
+GMPD_Data_cln_all <- GMPD_Data_cln_all %>%
+  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
+  filter(n() > 1) %>%
+  ungroup()
 nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 8110 and 110
 
 rm(Res_Temp)
@@ -620,13 +640,32 @@ rm(Res_Temp)
 IUCN_Orders <- IUCN_Mammals[IUCN_Mammals$order_ %in% unique(IUCN_Native_Data$order_), ]
 rm(IUCN_Mammals)
 
+# merging gmpd into one (afterthought)
+GMPD_Data_cln_all$CleanAll <- TRUE
+GMPD_Data_cln_sub$CleanSub <- TRUE
+GMPD_Data_res_all$RestrAll <- TRUE
+GMPD_Data_res_sub$RestrSub <- TRUE
+
+GMPD_Data <- merge(GMPD_Data_cln_all, GMPD_Data_cln_sub, 
+                   by = intersect(names(GMPD_Data_cln_all), names(GMPD_Data_cln_sub)),
+                   all = TRUE)
+
+GMPD_Data <- merge(GMPD_Data, GMPD_Data_res_all, 
+                   by = intersect(names(GMPD_Data), names(GMPD_Data_res_all)),
+                   all = TRUE)
+
+GMPD_Data <- merge(GMPD_Data, GMPD_Data_res_sub, 
+                   by = intersect(names(GMPD_Data), names(GMPD_Data_res_sub)),
+                   all = TRUE)
+
+GMPD_Data <- GMPD_Data %>%
+  mutate(CleanSub = case_when(is.na(CleanSub) ~  FALSE, TRUE ~ CleanSub)) %>%
+  mutate(RestrAll = case_when(is.na(RestrAll) ~  FALSE, TRUE ~ RestrAll)) %>%
+  mutate(RestrSub = case_when(is.na(RestrSub) ~  FALSE, TRUE ~ RestrSub))
+
 # Write files #################################################################################################
 
-write.csv(GMPD_Data_res_all, file = here::here("Data/Data back ups/GMPD_Data_res_all_01.csv"), row.names = FALSE)
-write.csv(GMPD_Data_res_sub, file = here::here("Data/Data back ups/GMPD_Data_res_sub_01.csv"), row.names = FALSE)
-
-write.csv(GMPD_Data_cln_all, file = here::here("Data/Data back ups/GMPD_Data_cln_all_01.csv"), row.names = FALSE)
-write.csv(GMPD_Data_cln_sub, file = here::here("Data/Data back ups/GMPD_Data_cln_sub_01.csv"), row.names = FALSE)
+write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data_01.csv"), row.names = FALSE)
 
 write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data_01.csv"), row.names = FALSE)
 write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), row.names = FALSE)
