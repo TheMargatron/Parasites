@@ -814,12 +814,12 @@ sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,]
 sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
 sp.gbif.raw <- few.raw.spatial[few.raw.spatial$species == curr.species,]
 
-# tm_shape(sprp) + tm_polygons("subgroup") + 
-#   tm_shape(sp.gbif.raw) + tm_dots() + 
-#   tm_shape(sp.gbif) + tm_dots(col = "blue") 
+# tm_shape(sprp) + tm_polygons("subgroup") +
+#   tm_shape(sp.gbif.raw) + tm_dots() +
+#   tm_shape(sp.gbif) + tm_dots(col = "blue")
 # checked samples manually on gbif or on host sites and they all seem legit apart from one in DEU
 
-sp.gbif <- sp.gbif.raw[terra::buffer(sprp, 1),]
+sp.gbif <- sp.gbif.raw[sp.gbif.raw$countryCode != "DEU",]
 sp.gbif@data$subgroup <- "not used"
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
@@ -1203,14 +1203,15 @@ GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,]
 
 rm(list = ls(pattern = "^sprp_"))
 
-# Melogale moschata/subaruantiaca ####
+# Melogale moschata/subaurantiaca ####
 curr.species <- "Melogale moschata"
 # tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == "Melogale subaurantiaca",]) + tm_polygons("subgroup") +
 #   tm_shape(GBIF_Spatial[GBIF_Spatial$species == curr.species,]) + tm_dots()
 
 sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
-sp.gbif <- sp.gbif[terra::buffer(IUCN_Native_Data[IUCN_Native_Data$binomial == curr.species,], 0.5),]
-sp.gbif@data$subgroup <- "subaurantiaca"
+sp.gbif@data$species <- "Melogale subaurantiaca"
+sp.gbif <- sp.gbif[terra::buffer(IUCN_Native_Data[IUCN_Native_Data$binomial == "Melogale subaurantiaca",], 0.5),]
+sp.gbif@data$subgroup <- "not used"
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
 
 # Mephitis mephitis ####
