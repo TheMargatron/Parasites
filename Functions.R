@@ -560,12 +560,8 @@ complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
   absent.group <- poly_fill[poly_fill$fill_group == "Absence Likely", "legend"]
   extinct.group <- poly_fill[poly_fill$fill_group == "Extinct", "legend"]
   
-  # border.factor <- sp.bbox[,2] - sp.bbox[,1]
-  # border.factor <- (border.factor[1]/border.factor[2])/max(BF_temp)
-  
   border.factor <- 1
   if(synonym.row["scaling"] %in% c("Africa", "South", "North", "Central", "Asia", "Europe")) {border.factor <- 0.5}
-  # border.factor <- sum(area(sp.range.pol))/max(BF_temp)
   
   # plot 1, iucn range
   par(bg = 'powderblue')
@@ -578,7 +574,7 @@ complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
     terra::plot(sp.range.pol.sub, col = sub.colours[i], border = "transparent", add = TRUE)
     
     temp.border <- spTransform(sp.range.pol.sub, CRS("+init=epsg:3857"))
-    temp.border <- try(terra::buffer(terra::buffer(temp.border, 10000), -400000*border.factor))
+    temp.border <- try(terra::buffer(terra::buffer(temp.border, 10000), -100000*border.factor), silent = TRUE)
 
     if(class(temp.border) != "try-error") {
       temp.border <- spTransform(temp.border, CRS("+init=epsg:4326"))
@@ -633,6 +629,7 @@ complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
          fill = c("grey", "grey65", "grey65", "grey65"),
          cex = 1, 
          bty = "n") 
+  
   legend("topleft", 
          legend = unique(poly_fill$fill_group), 
          title = "Status",
@@ -642,6 +639,15 @@ complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
          cex = 1,
          bty = "o",
          bg = "transparent") 
+  
+  legend("bottomright",
+         legend = c("All and subgrouped", "All only"),
+         title = "Restricted Datasets",
+         pch = c(24, 25),
+         cex = 1,
+         pt.bg = sub.colours[1],
+         pt.lwd = 2,
+         bg = "transparent")
   
   # plot 2, gbif range
   par(bg = 'powderblue')
@@ -653,10 +659,10 @@ complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
     terra::plot(sp.range.dat[sp.range.dat$subgroup == subgroups[i],], 
                 pch = 1, col = paste0(sub.colours[i], "FF"), add = TRUE)
     
-    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanSub,], 
+    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanAll & sp.dat$CleanSub,], 
                 pch = 22, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
 
-    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & !sp.dat$CleanSub,], 
+    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanAll & !sp.dat$CleanSub,], 
                 pch = 23, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
     
   }
@@ -670,13 +676,14 @@ complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
          border = sub.colours,
          cex = 1,
          bg = "transparent") 
-  
+
   legend("bottomright",
-         legend = CleanSub,
-         title = "Dataset",
+         legend = c("All and subgrouped", "All only"),
+         title = "Cleaned Datasets",
          pch = c(22, 23),
          cex = 1,
-         fill = sub.colours[1],
+         pt.bg = sub.colours[1],
+         pt.lwd = 2,
          bg = "transparent")
   
 }
