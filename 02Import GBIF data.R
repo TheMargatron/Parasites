@@ -33,7 +33,8 @@ IUCN_Native_Data <- readRDS(here::here("Data/Data back ups/IUCN_Native_Data_01")
 
 Hostlist <- sort(unique(GMPD_Data$HostCorrectedName))
 
-# Getting taxon keys ##########################################################################################
+Already_Prepped <- TRUE
+
 # Adding synonymous species names not picked up by taxize
 Host_Synonyms <- data.frame("IUCNName" = Hostlist, "GBIFName" = Hostlist, stringsAsFactors = FALSE)
 Host_Synonyms <- Host_Synonyms %>%
@@ -42,6 +43,9 @@ Host_Synonyms <- Host_Synonyms %>%
                               GBIFName == "Neovison vison"   ~ "Mustela vison",
                               GBIFName == "Tragelaphus oryx" ~ "Taurotragus oryx",
                               TRUE                       ~ GBIFName))
+
+if(!Already_Prepped) {
+# Getting taxon keys ##########################################################################################
 
 Taxon_Keys <- taxize::get_gbifid_(Host_Synonyms$GBIFName, method = "backbone")
 Taxon_Keys <- lapply(Host_Synonyms$GBIFName, function(name) {
@@ -248,7 +252,17 @@ GBIF_Spatial <- SpatialPointsDataFrame(coords      = GBIF_Data[, c("decimalLongi
 
 source(here::here("02.1Subgrouping GBIF.R"))
 
-nrow(GBIF_Subgroups) #
+nrow(GBIF_Subgroups) #2285035
+
+}
+
+if(Already_Prepped) {
+  GBIF_Subgroups <- read.csv(here::here("Data/Data back ups/GBIF_Subgroups_02.csv"), header = TRUE, stringsAsFactors = FALSE)
+  
+  GBIF_Spatial <- SpatialPointsDataFrame(coords      = GBIF_Subgroups[, c("decimalLongitude", "decimalLatitude")],
+                                         data        = GBIF_Subgroups[, names(GBIF_Subgroups)[!names(GBIF_Subgroups) %in% c("decimalLongitude", "decimalLatitude")]], 
+                                         proj4string = CRS(proj4string(IUCN_Native_Data)))
+}
 
 # Plotting ####
 # prep
@@ -273,7 +287,7 @@ sub.colours <- c('#ea3c67', '#3cb44b', '#ffbb19', # red, green, yellow
                  '#f032e6', '#469990', # magenta, teal
                  '#b372ff', '#c37e2e', '#f577a5') # lavendar, brown, pink
 
-Host_Synonyms_temp <- Host_Synonyms %>%
+Host_Synonyms <- Host_Synonyms %>%
   mutate(minlong = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
                                                                            bbox(GBIF_Spatial[GBIF_Spatial$species == host["GBIFName"],]))["Longitude", "min"]}),
          maxlong = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
@@ -313,26 +327,16 @@ bboxes <- list("Global" = matrix(c(-180, -90, 180, 90),
                "Europe" = matrix(c(-37, -8, 143, 82), 
                                  ncol = 2, dimnames = list(c("x", "y"), c("min", "max"))))
 
-
-BF_temp <- apply(Host_Synonyms, MARGIN = 1, function(syn.row) {
-  xy <- bboxer(GMPD_Spatial[GMPD_Spatial$HostCorrectedName == syn.row["IUCNName"],]@bbox,
-         GBIF_Spatial[GBIF_Spatial$species == syn.row["GBIFName"],]@bbox,
-         IUCN_Native_Data[IUCN_Native_Data$binomial == syn.row["IUCNName"],]@bbox)
-
-  xy <- xy[,2] - xy[,1]
-  xy <- xy[1]/xy[2]
-})
-
-apply(Host_Synonyms[1,], MARGIN = 1, FUN = complete_plot, 
+apply(Host_Synonyms[3,], MARGIN = 1, FUN = complete_plot, 
       dat = GMPD_Spatial, range.dat = GBIF_Spatial, range.polygon = IUCN_Native_Data)
 
-# sort out buffer function
-# make legends pretty (mostly position)
-# fix legends
+# try plotting in pdf/document
+# position legends
+# check if hatching shows on small polygons
+
 ## extend x/ylim in one direction
-# all daata at once, symbols differ
+# all data at once, symbols differ
 # put iucn and gbif next to each other
-# send collated data
 
 
 # look for mathematica trainign courses
