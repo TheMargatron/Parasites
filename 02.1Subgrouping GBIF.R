@@ -1180,6 +1180,7 @@ curr.species <- "Pekania pennanti"
 # tm_shape(IUCN_Native_Data[IUCN_Native_Data$binomial == "Martes pennanti",]) + tm_polygons("subgroup") +
 #   tm_shape(GBIF_Spatial[GBIF_Spatial$species == curr.species,]) + tm_dots()
 GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "subgroup"] <- "not used"
+GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "species"] <- "Martes pennanti"
 
 # Meles meles ####
 curr.species <- "Meles meles"
@@ -1349,6 +1350,7 @@ sp.gbif <- GBIF_Spatial[GBIF_Spatial$species == curr.species,]
 sp.gbif <- sp.gbif[terra::buffer(IUCN_Native_Data[IUCN_Native_Data$binomial == "Neovison vison",], 1),]
 sp.gbif@data$subgroup <- "not used"
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
+GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "species"] <- "Neovison vison"
 
 # Nyctereutes procyonoides ####
 curr.species <- "Nyctereutes procyonoides"
@@ -1874,6 +1876,7 @@ sp.gbif <- sp.gbif[terra::buffer(IUCN_Native_Data[IUCN_Native_Data$binomial == "
 sp.gbif@data$subgroup <- "not used"
 
 GBIF_Spatial <- raster::bind(GBIF_Spatial[GBIF_Spatial$species != curr.species,], sp.gbif)
+GBIF_Spatial@data[GBIF_Spatial$species == curr.species, "species"] <- "Tragelaphus oryx"
 
 # Tragelaphus scriptus ####
 curr.species <- "Tragelaphus scriptus"
