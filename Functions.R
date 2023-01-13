@@ -58,71 +58,185 @@ restrict_deci <- function(dat, subsp = FALSE){
 }
 
 
-range_distances <- function(dat, range.pol, range.dat, method){
+range_distances <- function(dat, range.pol, range.dat, method, subsp){
+  
+  # host.groups <- dat %>%
+  #   select(HostCorrectedName, subgroup) %>%
+  #   mutate(fullname = paste0(HostCorrectedName, subgroup)) %>%
+  #   distinct()
+  
   if(method == "iucn"){
-    range.pol <- range.pol[range.pol@data$binomial %in% unique(dat$HostCorrectedName), ] # restrict range.pol to match hosts in dat
     
-    dat.sets <- split(dat, f = dat$HostCorrectedName)
-    
-    dat.out <- lapply(dat.sets, function(k){
-      range.pol.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName), ] # subset range.pol to current host 
-      range.abs.vals <- abs(raster::geom(range.pol.sub)[, "y"]) # extract latitudes from range.pol.sub and convert to absolute values
+    # restrict range.pol to match hosts or subgroups in dat
+    # split dat into list of datasets to be operated on 
+
+    if(subsp){
+      range.pol <- range.pol[range.pol@data$binomial %in% dat$HostCorrectedName &
+                               range.pol@data$subgroup %in% dat$subgroup, ]
       
+      dat.sets <- split(dat, f = list(dat$HostCorrectedName, dat$subgroup), drop = TRUE)
+      
+    } else {
+      range.pol <- range.pol[range.pol@data$binomial %in% dat$HostCorrectedName, ]
+      
+      dat.sets <- split(dat, f = dat$HostCorrectedName)
+      
+    }
+    
+    # do the stuff
+    dat.out <- lapply(dat.sets, function(k){
+      
+      # subset range.pol to current host or subgroup
+      if(subsp){
+        range.pol.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName) &
+                                     range.pol@data$subgroup == unique(k$subgroup), ]
+        
+      } else {
+        range.pol.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName), ] 
+        
+      }
+      
+      # extract latitudes from range.pol.sub and convert to absolute values
+      range.exact.vals <- raster::geom(range.pol.sub)[,"y"]
+      range.abs.vals <- abs(range.exact.vals) 
+      
+      # absolute values (latitude)
       range.max <- max(range.abs.vals)
       range.min <- min(range.abs.vals)
       range.span <- geosphere::distGeo(c(0, range.max), c(0, range.min))
       range.area <- sum(geosphere::areaPolygon(range.pol.sub))
-      range.median <- median(range.max, range.min)
       
+      # exact values (median)
+      range.max.exact <- max(range.exact.vals)
+      range.min.exact <- min(range.exact.vals)
+      range.span.exact <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
+      range.median <- median(c(range.max.exact, range.min.exact))
+      
+      # range traits, distances, proportions
       range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
-                                 "RangeMax" = range.max,
-                                 "RangeMin" = range.min,
-                                 "RangeSpan" = range.span,
+                                 
+                                 "RangeMaxAbs" = range.max,
+                                 "RangeMaxExact" = range.max.exact,
+                                 
+                                 "RangeMinAbs" = range.min,
+                                 "RangeMinExact" = range.min.exact,
+                                 
+                                 "RangeSpanAbs" = range.span,
+                                 "RangeSpanExact" = range.span.exact,
+                                 
                                  "RangeArea" = range.area,
                                  "RangeMedian" = range.median)
       
+      if(subsp){
+        range.traits <- cbind(range.traits, "subgroup" = unique(k$subgroup))
+      }
+      
+      # use absolute and exact values to calculate metrics
+      
       k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
       
-      k$EquatorwardsDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.min))
+      k$EquatorwardsDist <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min))
       k$EquatorwardsProp <- k$EquatorwardsDist/range.span
       k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median))
-      k$MedianProp <- k$MedianDist/(range.span/2)
+      k$MedianProp <- k$MedianDist/(range.span.exact/2)
+      k$AboveMedn <- abs(k$Latitude) > abs(range.median) # "above" median really means polewards from median
       
       k$zeros <- NULL
       
       return(list(k, range.traits))
     })
     
-    out <- do.call(rbind, lapply(dat.out, function(dat) dat[[1]]))
-    range.traits <- do.call(rbind, lapply(dat.out, function(dat) dat[[2]]))
-    
   } else if(method == "gbif"){
-    range.dat <- filter(range.dat, species %in% unique(dat$HostCorrectedName)) # restrict range.dat to match hosts in dat
     
-    dat.sets <- split(dat, f = dat$HostCorrectedName) # split input data by host
+    # restrict range.dat to match hosts or subgroups in dat, and vice versa
+    if(subsp){
+      range.dat <- range.dat[range.dat$species %in% dat$HostCorrectedName & 
+                                range.dat$subgroup %in% dat$subgroup, ]
+      
+      dat.tmp <- unique(dat[,c("HostCorrectedName", "subgroup")])
+      names(dat.tmp) <- c("species", "subgroup")
+      range.dat.tmp <- unique(range.dat[,c("species", "subgroup")])
+      
+      if(nrow(dat.tmp) != nrow(range.dat.tmp)){
+        diff.tmp <- setdiff(range.dat.tmp, dat.tmp)
+        writeLines(paste("The following species subgroups have been dropped because they are lacking range data: ", 
+                  paste(paste(diff.tmp$species, diff.tmp$subgroup, sep = " "), collapse = "\n"),
+                  sep = "\n"))
+      }
+      
+      dat <- dat[dat$HostCorrectedName %in% range.dat$species &
+                   dat$subgroup %in% range.dat$subgroup, ]
+
+      dat.sets <- split(dat, f = list(dat$HostCorrectedName, dat$subgroup), drop = TRUE)
+      
+    } else {
+      range.dat <- range.dat[range.dat$species %in% dat$HostCorrectedName, ]
+
+      dat.sets <- split(dat, f = dat$HostCorrectedName)
+      
+    } # ifelse restrict range data
     
     dat.out <- lapply(dat.sets, function(k){
-      range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName), ] # subset range.dat to current host
-      range.abs.vals <- abs(range.dat.sub@coords[,"Latitude"]) # vector of absolute latitudes in gbif
       
+      # subset range.dat to current host or subgroup
+      if(subsp){
+        range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName) & 
+                                     range.dat$subgroup == unique(k$subgroup), ]
+      } else {
+        range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName), ]
+      } # ifelse subset range to host
+      
+      # extract latitudes from range.dat.sub and convert to absolute values
+      if(class(range.dat.sub) == "data.frame"){
+        range.exact.vals <- range.dat.sub[, "decimalLatitude"]
+        range.abs.vals <- abs(range.exact.vals)
+        
+      } else if(class(range.dat.sub) == "SpatialPointsDataFrame"){
+        range.exact.vals <- range.dat.sub@coords[, "Latitude"]
+        range.abs.vals <- abs(range.exact.vals) 
+        
+      } # ifelse extract latitudes
+      
+      # absolute values (latitude)
       range.max <- max(range.abs.vals)
       range.min <- min(range.abs.vals)
       range.span <- geosphere::distGeo(c(0, range.max), c(0, range.min))
       # range.area <- ## Currently no method for range area from gbif, but could use convex hull
-      range.median <- median(range.max, range.min)
+      
+      # exact values (median)
+      range.max.exact <- max(range.exact.vals)
+      range.min.exact <- min(range.exact.vals)
+      range.span.exact <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
+      range.median <- median(range.max.exact, range.min.exact)
+      
+      # range traits, distances, proportions
       range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
-                                 "RangeMax" = range.max,
-                                 "RangeMin" = range.min,
-                                 "RangeSpan" = range.span,
+                                 
+                                 "RangeMaxAbs" = range.max,
+                                 "RangeMaxExact" = range.max.exact,
+                                 
+                                 "RangeMinAbs" = range.min,
+                                 "RangeMinExact" = range.min.exact,
+                                 
+                                 "RangeSpanAbs" = range.span,
+                                 "RangeSpanExact" = range.span.exact,
+                                 
                                  #"RangeArea" = range.area,
                                  "RangeMedian" = range.median)
+      
+      if(subsp){
+        range.traits <- cbind(range.traits, "subgroup" = unique(k$subgroup))
+      }
+      
+      # use absolute and exact values to calculate metrics
       
       k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
       
       k$EquatorwardsDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.min)) # vertical distances to lowest latitude from input data sample locations
       k$EquatorwardsProp <- k$EquatorwardsDist/range.span # as a proportion of range span
       k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median)) # vertical distances to range median
-      k$MedianProp <- k$MedianDist/(range.span/2) # as proportion of half range span
+      k$MedianProp <- k$MedianDist/(range.span.exact/2) # as proportion of half range span
+      k$AboveMedn <- abs(k$Latitude) > abs(range.median) # "above" median really means polewards from median
       
       k$zeros <- NULL
       
@@ -130,9 +244,28 @@ range_distances <- function(dat, range.pol, range.dat, method){
       
     })
     
-    out <- do.call(rbind, lapply(dat.out, function(dat) dat[[1]]))
-    range.traits <- do.call(rbind, lapply(dat.out, function(dat) dat[[2]]))
+  }
+  
+  out <- do.call(rbind, lapply(dat.out, function(dat) dat[[1]]))
+  range.traits <- do.call(rbind, lapply(dat.out, function(dat) dat[[2]]))
+  
+  if(method == "iucn"){
+    out$RangeMethod <- "iucn"
+    range.traits$RangeMethod <- "iucn"
     
+  } else if(method == "gbif"){
+    out$RangeMethod <- "gbif"
+    range.traits$RangeMethod <- "gbif"
+    
+  }
+  
+  if(subsp){
+    out$RangeTaxonLvl <- "subgroup"
+    range.traits$RangeTaxonLvl <- "subgroup"
+    
+  } else {
+    out$RangeTaxonLvl <- "species"
+    range.traits$RangeTaxonLvl <- "species"
   }
   
   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
@@ -696,3 +829,6 @@ bboxer <- function(...){
          byrow = TRUE, nrow = 2,
          dimnames = list(c("Longitude", "Latitude"), c("min", "max")))
 }
+
+
+# switch over to terra not raster
