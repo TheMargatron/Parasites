@@ -60,11 +60,6 @@ restrict_deci <- function(dat, subsp = FALSE){
 
 range_distances <- function(dat, range.pol, range.dat, method, subsp){
   
-  # host.groups <- dat %>%
-  #   select(HostCorrectedName, subgroup) %>%
-  #   mutate(fullname = paste0(HostCorrectedName, subgroup)) %>%
-  #   distinct()
-  
   if(method == "iucn"){
     
     # restrict range.pol to match hosts or subgroups in dat
@@ -97,20 +92,22 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
       }
       
       # extract latitudes from range.pol.sub and convert to absolute values
-      range.exact.vals <- raster::geom(range.pol.sub)[,"y"]
-      range.abs.vals <- abs(range.exact.vals) 
+      range.exact.vals  <- raster::geom(range.pol.sub)[,"y"]
+      range.abs.vals    <- abs(range.exact.vals) 
       
       # absolute values (latitude)
-      range.max <- max(range.abs.vals)
-      range.min <- min(range.abs.vals)
-      range.span <- geosphere::distGeo(c(0, range.max), c(0, range.min))
-      range.area <- sum(geosphere::areaPolygon(range.pol.sub))
+      range.max         <- max(range.abs.vals)
+      range.min         <- min(range.abs.vals)
+      # using the absolute minimum rather than zero because there may be some which span the equator but do not cross it
+      # only really matters when it comes to error in analysis but this is avoided because we're now using median instead of span
+      range.span        <- geosphere::distGeo(c(0, range.max), c(0, range.min))
+      range.area        <- sum(geosphere::areaPolygon(range.pol.sub))
       
       # exact values (median)
-      range.max.exact <- max(range.exact.vals)
-      range.min.exact <- min(range.exact.vals)
-      range.span.exact <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
-      range.median <- median(c(range.max.exact, range.min.exact))
+      range.max.exact   <- max(range.exact.vals)
+      range.min.exact   <- min(range.exact.vals)
+      range.span.exact  <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
+      range.median      <- median(c(range.max.exact, range.min.exact))
       
       # range traits, distances, proportions
       range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
@@ -135,11 +132,12 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
       
       k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
       
-      k$EquatorwardsDist <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min))
-      k$EquatorwardsProp <- k$EquatorwardsDist/range.span
-      k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median))
-      k$MedianProp <- k$MedianDist/(range.span.exact/2)
-      k$AboveMedn <- abs(k$Latitude) > abs(range.median) # "above" median really means polewards from median
+      k$EquatorwardsDist  <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min))
+      k$EquatorwardsProp  <- k$EquatorwardsDist/range.span
+      
+      k$MedianDist        <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median))
+      k$MedianProp        <- k$MedianDist/(range.span.exact/2)
+      k$AboveMedn         <- (k$Latitude > range.median & range.median > 0) | (k$Latitude < range.median & range.median < 0) # "above" median really means polewards from median
       
       k$zeros <- NULL
       
@@ -148,30 +146,76 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
     
   } else if(method == "gbif"){
     
-    # restrict range.dat to match hosts or subgroups in dat, and vice versa
     if(subsp){
+      # restrict range.dat to match hosts and subgroups in dat, and vice versa
       range.dat <- range.dat[range.dat$species %in% dat$HostCorrectedName & 
                                 range.dat$subgroup %in% dat$subgroup, ]
       
-      dat.tmp <- unique(dat[,c("HostCorrectedName", "subgroup")])
-      names(dat.tmp) <- c("species", "subgroup")
-      range.dat.tmp <- unique(range.dat[,c("species", "subgroup")])
-      
-      if(nrow(dat.tmp) != nrow(range.dat.tmp)){
-        diff.tmp <- setdiff(range.dat.tmp, dat.tmp)
-        writeLines(paste("The following species subgroups have been dropped because they are lacking range data: ", 
-                  paste(paste(diff.tmp$species, diff.tmp$subgroup, sep = " "), collapse = "\n"),
-                  sep = "\n"))
+      # drop hosts with insufficient data
+      if(class(range.dat) == "SpatialPointsDataFrame"){
+        range.dat.tmp <- range.dat@data
+      } else {
+        range.dat.tmp <- range.dat
       }
       
-      dat <- dat[dat$HostCorrectedName %in% range.dat$species &
-                   dat$subgroup %in% range.dat$subgroup, ]
-
+      range.dat.tmp <- range.dat.tmp %>%
+        group_by(species, subgroup) %>%
+        summarise(samples = n())
+      
+      dat.tmp <- dat %>%
+        dplyr::select(HostCorrectedName, subgroup) %>%
+        distinct() %>%
+        rename(species = HostCorrectedName) %>%
+        full_join(range.dat.tmp) %>%
+        mutate(samples = case_when(is.na(samples) ~ 0L,
+                                   TRUE           ~ samples)) %>%
+        filter(samples < 2)
+      
+      if(nrow(dat.tmp) > 0){
+        writeLines(paste("The following species subgroups have been dropped because they have insufficient range data: ",
+                         paste(paste(dat.tmp$species, dat.tmp$subgroup, sep = " "), collapse = "\n"),
+                         sep = "\n"))
+      }
+      
+      dat <- dat[!dat$HostCorrectedName %in% dat.tmp$species |
+                   !dat$subgroup %in% dat.tmp$subgroup, ]
+      
+      # split into datasets to use in function so that method is largely consistent between species and subgroups
       dat.sets <- split(dat, f = list(dat$HostCorrectedName, dat$subgroup), drop = TRUE)
       
     } else {
+      # restrict range.dat to match hosts in dat, and vice versa
       range.dat <- range.dat[range.dat$species %in% dat$HostCorrectedName, ]
 
+      if(class(range.dat) == "SpatialPointsDataFrame"){
+        range.dat.tmp <- range.dat@data
+      } else {
+        range.dat.tmp <- range.dat
+      }
+      
+      range.dat.tmp <- range.dat.tmp %>% 
+        group_by(species) %>%
+        summarise(samples = n()) 
+      
+      dat.tmp <- dat %>%
+        dplyr::select(HostCorrectedName) %>%
+        distinct() %>%
+        rename(species = HostCorrectedName) %>%
+        full_join(range.dat.tmp) %>% 
+        mutate(samples = case_when(is.na(samples) ~ 0L,
+                                   TRUE           ~ samples)) %>% 
+        filter(samples < 2)
+      
+      # drop hosts with insufficient data
+      if(nrow(dat.tmp) > 0){
+        writeLines(paste("The following species have been dropped because they have insufficient range data: ",
+                         paste(dat.tmp$species, collapse = "\n"),
+                         sep = "\n"))
+      }
+      
+      dat <- dat[!dat$HostCorrectedName %in% dat.tmp$species,]
+      
+      
       dat.sets <- split(dat, f = dat$HostCorrectedName)
       
     } # ifelse restrict range data
@@ -184,13 +228,14 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
                                      range.dat$subgroup == unique(k$subgroup), ]
       } else {
         range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName), ]
+        
       } # ifelse subset range to host
       
       # extract latitudes from range.dat.sub and convert to absolute values
       if(class(range.dat.sub) == "data.frame"){
         range.exact.vals <- range.dat.sub[, "decimalLatitude"]
         range.abs.vals <- abs(range.exact.vals)
-        
+
       } else if(class(range.dat.sub) == "SpatialPointsDataFrame"){
         range.exact.vals <- range.dat.sub@coords[, "Latitude"]
         range.abs.vals <- abs(range.exact.vals) 
@@ -198,17 +243,17 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
       } # ifelse extract latitudes
       
       # absolute values (latitude)
-      range.max <- max(range.abs.vals)
-      range.min <- min(range.abs.vals)
-      range.span <- geosphere::distGeo(c(0, range.max), c(0, range.min))
+      range.max         <- max(range.abs.vals)
+      range.min         <- min(range.abs.vals)
+      range.span        <- geosphere::distGeo(c(0, range.max), c(0, range.min))
       # range.area <- ## Currently no method for range area from gbif, but could use convex hull
       
       # exact values (median)
-      range.max.exact <- max(range.exact.vals)
-      range.min.exact <- min(range.exact.vals)
-      range.span.exact <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
-      range.median <- median(range.max.exact, range.min.exact)
-      
+      range.max.exact   <- max(range.exact.vals)
+      range.min.exact   <- min(range.exact.vals)
+      range.span.exact  <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
+      range.median      <- median(c(range.max.exact, range.min.exact))
+
       # range traits, distances, proportions
       range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
                                  
@@ -228,17 +273,25 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
         range.traits <- cbind(range.traits, "subgroup" = unique(k$subgroup))
       }
       
-      # use absolute and exact values to calculate metrics
+      # drop samples outside range limits
+      k <- k[!(k$Latitude > range.max.exact | k$Latitude < range.min.exact),]
       
-      k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
+      if(nrow(k) > 0){
       
-      k$EquatorwardsDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.min)) # vertical distances to lowest latitude from input data sample locations
-      k$EquatorwardsProp <- k$EquatorwardsDist/range.span # as a proportion of range span
-      k$MedianDist <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median)) # vertical distances to range median
-      k$MedianProp <- k$MedianDist/(range.span.exact/2) # as proportion of half range span
-      k$AboveMedn <- abs(k$Latitude) > abs(range.median) # "above" median really means polewards from median
+        # use absolute and exact values to calculate metrics
       
-      k$zeros <- NULL
+        k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
+        
+        k$EquatorwardsDist <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min)) # vertical distances to lowest latitude from sample locations
+        k$EquatorwardsProp <- k$EquatorwardsDist/range.span # as a proportion of range span
+
+        k$MedianDist       <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median)) # vertical distances to range median
+        k$MedianProp       <- k$MedianDist/(range.span.exact/2) # as proportion of half range span
+        k$AboveMedn        <- (k$Latitude > range.median & range.median > 0) | (k$Latitude < range.median & range.median < 0) # "above" median really means polewards from median
+        
+        k$zeros <- NULL
+        
+      }
       
       return(list(k, range.traits))
       
@@ -267,6 +320,8 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
     out$RangeTaxonLvl <- "species"
     range.traits$RangeTaxonLvl <- "species"
   }
+  
+  writeLines(paste(nrow(dat) - nrow(out), "points outside range margins"))
   
   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
   
