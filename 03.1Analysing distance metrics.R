@@ -20,14 +20,16 @@ GMPD_Distances_Data <- read.csv(here::here("Data/Data back ups/GMPD_Distances_Da
 ## Prepping data ####
 GMPD_IUCN_Species <- GMPD_Distances_Data %>%
   dplyr::filter(RestrAll, 
-                RangeMethod == "iucn",
+                RangeMethod   == "iucn",
                 RangeTaxonLvl == "species") %>%
   mutate(LatitudeScaled         = base::scale(abs(Latitude)),
          EquatorwardsPropScaled = base::scale(EquatorwardsProp),
          MedianPropScaled       = base::scale(MedianProp),
          MedianPropSquared      = case_when(!AboveMedn ~ MedianProp * -1,
                                             TRUE       ~ MedianProp),
-         MedianPropSquScaled    = base::scale(MedianPropSquared))
+         MedianPropSquScaled    = base::scale(MedianPropSquared),
+         ParasiteDetected       = as.integer(round(HostsSampled * Prevalence, 0)),
+         ParasiteUndetected     = HostsSampled - ParasiteDetected)
 
 ## lme4 models ####
 # TODO: summary of models in this section
@@ -38,7 +40,7 @@ GMPD_IUCN_Species <- GMPD_Distances_Data %>%
 Md_IUCN_Species_1 <- glmer(formula = Prevalence ~ LatitudeScaled + MedianPropScaled + 
                              (1|HostCorrectedName) + 
                              (0+LatitudeScaled + MedianPropScaled|HostCorrectedName),
-                  data = GMPD_IUCN_Species, family = binomial)
+                           data = GMPD_IUCN_Species, family = binomial)
 
 summary(Md_IUCN_Species_1)
 
@@ -49,6 +51,19 @@ summary(Md_IUCN_Species_1)
 
 #### visualisation model 1
 # TODO: model 1 visualisation
+
+### 1a: Lat Med ####
+Md_IUCN_Species_1a <- glmer(formula = Prevalence ~ LatitudeScaled + MedianPropScaled + 
+                              (1|HostCorrectedName:subgroup) + 
+                              (0+LatitudeScaled + MedianPropScaled|HostCorrectedName:subgroup),
+                            data = GMPD_IUCN_Species, family = binomial)
+
+summary(Md_IUCN_Species_1a)
+
+# notes:
+# accounting for subgroups accounts for genetic variation and makes the slope stronger with a lower p value
+# slope of model 1 is damped by local adaptation
+# parasitism rate is Not driven by subgroups and genetic variation
 
 ### 2: + AboveMedn ####
 # Latitude and proportional distance to range median modelled as in 1,
@@ -82,7 +97,7 @@ Md_IUCN_Species_3 <- glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPr
 summary(Md_IUCN_Species_3)
 
 # notes:
-# AIC is 8781.6 so definitely no improvement again, and the quadractic term is non-significant
+# AIC is 8774.7 so definitely no improvement again, and the quadractic term is non-significant
 # Should stick with the simplest, model 1
 # I previously tried the same with only poly 1 in the random effects but AIC was comparable to m2
 
@@ -114,6 +129,61 @@ summary(Md_IUCN_Species_5)
 # notes:
 # model fails to converge but gives basically the same output as model 3
 
+## MCMC models ####
+
+Mc_IUCN_Species_L <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled,
+                              data   = GMPD_IUCN_Species,
+                              family = "multinomial2")
+# DIC:        561302.3
+# Intercept:  -0.5790 
+# Latitude:   -0.4827
+
+Mc_IUCN_Species_LH <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled,
+                               random = ~ HostCorrectedName,
+                               data   = GMPD_IUCN_Species,
+                               family = "multinomial2")
+## DIC:        561142.9
+# Intercept:  -0.1414
+# Latitude:   -0.2094
+
+Mc_IUCN_Species_L_H <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled,
+                                random = ~ us(LatitudeScaled):HostCorrectedName,
+                                data   = GMPD_IUCN_Species,
+                                family = "multinomial2")
+# DIC:        561171.7
+# Intercept:  -0.6629
+# Latitude:   -0.7308
+
+Mc_IUCN_Species_LM <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled + MedianPropScaled,
+                              data = GMPD_IUCN_Species,
+                              family = "multinomial2")
+# DIC:        561268.3
+# Intercept:  -0.5747
+# Latitude:   -0.4492
+# MedianProp: 0.3850
+
+Mc_IUCN_Species_LMH <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled + MedianPropScaled,
+                               random = ~ HostCorrectedName,
+                               data = GMPD_IUCN_Species,
+                               family = "multinomial2")
+# DIC:        561146.4
+# Intercept:  -0.22402
+# Latitude:   -0.28840
+# MedianProp: 0.12705
+
+#########
+
+Mc_IUCN_Species_0 <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled + MedianPropScaled,
+                              data = GMPD_IUCN_Species,
+                              family = "multinomial2",
+                              verbose = FALSE)
+
+Mc_IUCN_Species_1 <- MCMCglmm(cbind(ParasiteDetected, ParasiteUndetected) ~ LatitudeScaled + MedianPropScaled,
+                              random = ~ HostCorrectedName,
+                              data = GMPD_IUCN_Species,
+                              family = "multinomial2",
+                              verbose = FALSE)
+
 # IUCN subgroups ###############################################################
 
 ## Prepping data ####
@@ -126,7 +196,9 @@ GMPD_IUCN_Subgroup <- GMPD_Distances_Data %>%
          MedianPropScaled       = base::scale(MedianProp),
          MedianPropSquared      = case_when(!AboveMedn ~ MedianProp * -1,
                                             TRUE       ~ MedianProp),
-         MedianPropSquScaled    = base::scale(MedianPropSquared))
+         MedianPropSquScaled    = base::scale(MedianPropSquared),
+         ParasiteDetected       = as.integer(round(HostsSampled * Prevalence, 0)),
+         ParasiteUndetected     = HostsSampled - ParasiteDetected)
 
 ## lme4 models ####
 # TODO: summary of models in this section
@@ -145,8 +217,13 @@ summary(Md_IUCN_Subgroup_1)
 # In comparison to the species level analysis, quite different results
 # Basic conclusion is that subgroup level analysis is irrelevant overall
 # Though there may be some species for which subspecies is relevant
+# This is backed up by the gbif verison of this model 
 # May still be worth investigating a little further:
 # TODO: Look at sample size and range size effects for subspecies
+
+# subspecies groups absorb variation from median position (genetic? coincidental?)
+# variance used up by random or fixed (posthoc)
+# what would it mean to add
 
 #### visualisation model 1
 # TODO: model 1 visualisation
@@ -157,13 +234,16 @@ summary(Md_IUCN_Subgroup_1)
 GMPD_GBIF_Species <- GMPD_Distances_Data %>%
   dplyr::filter(CleanAll, 
                 RangeMethod == "gbif",
-                RangeTaxonLvl == "species") %>%
+                RangeTaxonLvl == "species",
+                MedianProp <= 1) %>% # temporary fix # TODO: tidy
   mutate(LatitudeScaled         = base::scale(abs(Latitude)),
          EquatorwardsPropScaled = base::scale(EquatorwardsProp),
          MedianPropScaled       = base::scale(MedianProp),
          MedianPropSquared      = case_when(!AboveMedn ~ MedianProp * -1,
                                             TRUE       ~ MedianProp),
-         MedianPropSquScaled    = base::scale(MedianPropSquared))
+         MedianPropSquScaled    = base::scale(MedianPropSquared),
+         ParasiteDetected       = as.integer(round(HostsSampled * Prevalence, 0)),
+         ParasiteUndetected     = HostsSampled - ParasiteDetected)
 
 ## lme4 models ####
 # TODO: summary of models in this section
@@ -179,90 +259,41 @@ Md_GBIF_Species_1 <- glmer(formula = Prevalence ~ LatitudeScaled + MedianPropSca
 summary(Md_GBIF_Species_1)
 
 # notes:
-# Both latitude and proportional distance to range median are significant.
-# Could model proportional distance to range median better as it's a bit simplistic here
-# There are likely differences between range hemispheres and potentially a quadratic pattern
+# Latitude is significant with a similar estimate
+# but proportional distance to median is not significant. 
+# Maybe because of sample sizes of gbif species
+# TODO: redo with limited sample sizes
 
 #### visualisation model 1
 # TODO: model 1 visualisation
 
-### 2: + AboveMedn ####
-# Latitude and proportional distance to range median modelled as in 1,
-# This time including above or below median as a random effect for proportional distance to median
-# (It's not relevant to include it for latitude)
-Md_GBIF_Species_2 <- glmer(formula = Prevalence ~ LatitudeScaled + MedianPropScaled + 
-                             (1|HostCorrectedName) + 
-                             (0+LatitudeScaled + MedianPropScaled|HostCorrectedName) + 
-                             (0+MedianPropScaled|AboveMedn),
+### 1: Latitude + MedianProp #### 
+# Latitude and proportional distance to range median modelled as simply as possible 
+# with host species as a random effect
+Md_GBIF_Species_1a <- glmer(formula = Prevalence ~ LatitudeScaled + MedianPropScaled + 
+                             (1|HostCorrectedName:subgroup) + 
+                             (0+LatitudeScaled + MedianPropScaled|HostCorrectedName:subgroup),
                            data = GMPD_GBIF_Species, family = binomial)
 
-summary(Md_GBIF_Species_2)
+summary(Md_GBIF_Species_1a)
 
 # notes:
-# AIC increased from 8802.7 to 8804.7 so no improvement from adding abovemedn
-# Differences from being above or below the median are likely best explained by latitude
-# Still good to test out a quadratic model
-# Above or below median is in relation to nearest pole rather than just north pole
-# I.e. in southern hemisphere, "above median" refers to the (southern) polewards half of the range
-
-#### visualisation model 2
-# TODO: model 2 visualisation
-
-### 3: quadratic ####
-# Latitude with a quadratic term for proportional distance to range median
-Md_GBIF_Species_3 <- glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + 
-                             (1|HostCorrectedName) + 
-                             (0+LatitudeScaled + poly(MedianPropSquared, 2)|HostCorrectedName),
-                           data = GMPD_GBIF_Species, family = binomial)
-
-summary(Md_GBIF_Species_3)
-
-# notes:
-# AIC is 8781.6 so definitely no improvement again, and the quadractic term is non-significant
-# Should stick with the simplest, model 1
-# I previously tried the same with only poly 1 in the random effects but AIC was comparable to m2
-
-#### visualisation model 3
-# TODO: model 3 visualisation
-
-### 4: raw quadratic ####
-# The same as model 3 but with raw rather than the orthogonal polynomial
-Md_GBIF_Species_4 <- glmer(formula  = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2, raw = TRUE) + 
-                             (1|HostCorrectedName) + 
-                             (0+LatitudeScaled + poly(MedianPropSquared, 2, raw = TRUE)|HostCorrectedName),
-                           data = GMPD_GBIF_Species, family = binomial)
-
-summary(Md_GBIF_Species_4)
-
-# notes:
-# this one was just for fun so I could see the difference in estimates between poly and raw 
-# Model fails to converge
-
-### 5: scaled and squared ####
-# Essentially the same as model 3 except proportional distance to median has been scaled
-Md_GBIF_Species_5 <- glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquScaled, 2) +
-                             (1|HostCorrectedName) +
-                             (0+LatitudeScaled + poly(MedianPropSquScaled, 2)|HostCorrectedName),
-                           data = GMPD_GBIF_Species, family = binomial)
-
-summary(Md_GBIF_Species_5)
-
-# notes:
-# model fails to converge but gives basically the same output as model 3
-
 # GBIF subgroups ###############################################################
 
 ## Prepping data ####
 GMPD_GBIF_Subgroup <- GMPD_Distances_Data %>%
   dplyr::filter(CleanSub, 
                 RangeMethod == "gbif",
-                RangeTaxonLvl == "subgroup") %>%
+                RangeTaxonLvl == "subgroup",
+                MedianProp <= 1) %>% # temporary fix # TODO: tidy
   mutate(LatitudeScaled         = base::scale(abs(Latitude)),
          EquatorwardsPropScaled = base::scale(EquatorwardsProp),
          MedianPropScaled       = base::scale(MedianProp),
          MedianPropSquared      = case_when(!AboveMedn ~ MedianProp * -1,
                                             TRUE       ~ MedianProp),
-         MedianPropSquScaled    = base::scale(MedianPropSquared))
+         MedianPropSquScaled    = base::scale(MedianPropSquared),
+         ParasiteDetected       = as.integer(round(HostsSampled * Prevalence, 0)),
+         ParasiteUndetected     = HostsSampled - ParasiteDetected)
 
 ## lme4 models ####
 # TODO: summary of models in this section
@@ -275,6 +306,20 @@ Md_GBIF_Subgroup_1 <- glmer(formula = Prevalence ~ LatitudeScaled + MedianPropSc
                            data = GMPD_GBIF_Subgroup, family = binomial)
 
 summary(Md_GBIF_Subgroup_1)
+
+# notes:
+# singular fit
+# Median prop is closer to being significant than in the iucn equivalent
+# Talked about relevance of subgrouping in this context
+## Could be because of data coverage among subgroups being quite variable
+## But that correlates witht the availability of data in gmpd so likely not this because it wouldn't hold much sway in the model
+
+## Could be because of positioning of subgroups: those that are latitudinally aligned will not differ from species much in their estimates of medianprop
+## e.g. Alces alces or Canis aureus
+## in comparison to ones that are latitudinally scattered
+## e.g. Cervus nippon
+
+## Or could be something else that we haven't thought of
 
 # notes:
 # Both latitude and proportional distance to range median are significant.
