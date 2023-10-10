@@ -1,31 +1,55 @@
-# Climate niche functions and analysis
-# Written by Margaret Bolton mb804(at)exeter.ac.uk (some isn't mine, check what)
+# Calculate pca, kernel density, distances from samples to peak density, and angle of vector between sample points and peak
+# Written by Margaret Bolton mb804(at)exeter.ac.uk 
 
 # Libraries and data ##########################################################################################
 library(ade4)
-library(adehabitatMA)
+# library(adehabitatMA)
 library(here)
-library(raster)
+# library(raster)
+library(geodata) # To replace raster getData
+library(terra)
 library(tidyverse)
-source(here::here("Climate niche functions.R"))
+source(here::here("Functions.R"))
 
-GBIF_Data <- read.csv(here::here("Data/Data back ups/GBIF_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
-GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
+GBIF_Data <- read.csv(here::here("Data/Data back ups/GBIF_Subgroups_02.csv"), header = TRUE, stringsAsFactors = FALSE)
+GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Distances_Data_03.csv"), header = TRUE, stringsAsFactors = FALSE)
 
 # IUCN and GBIF names are not always matching
+# TODO: This will be fixed in 01.1
 GBIF_Data <- GBIF_Data %>%
-  mutate(species = case_when(GBIFName == "Neovison vison"  ~ "Mustela vison",
-                            GBIFName == "Tragelaphus oryx" ~ "Taurotragus oryx",
-                            GBIFName == "Martes pennanti"  ~ "Pekania pennanti",
-                            TRUE                           ~ species))
+  dplyr::mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
+                                    species == "Taurotragus oryx" ~ "Tragelaphus oryx",
+                                    species == "Pekania pennanti" ~ "Martes pennanti",
+                                    TRUE                          ~ species))
 
-bio.dat <- getData('worldclim', var = 'bio', res = 10)
+# Prepping climate data:
+## load all climate data, subset variables I'm interested in:
+### 5: Max Temperature of Warmest Month
+### 6: Min Temperature of Coldest Month
+### 12: Annual Precipitation
+## extract climate data into dataframe for use in functions
 
-BIO_050612 <- subset(bio.dat, c(5, 6, 12))
+# old:
+## bio.dat_old <- raster::getData('worldclim', var = 'bio', res = 10)
+## BIO_050612_old <- raster::subset(bio.dat_old, c(5, 6, 12))
+## clim_old <- as.data.frame(na.omit(cbind(clim.xy, raster::extract(BIO_050612, clim.xy)))) 
+
+BIO_050612 <- geodata::worldclim_global(var = "bio", res = 10, path = here::here("Data/WorldClim")) %>% 
+  terra::subset(c(5, 6, 12))
+
+Bioclim_DF <- terra::extract(x = BIO_050612,
+                             y = terra::cells(BIO_050612),
+                             xy = TRUE)
+
+Clim_Variables <- c("wc2.1_10m_bio_5", "wc2.1_10m_bio_6", "wc2.1_10m_bio_12")
 
 # PCA and climatic niche ##########################################################################################
 
-gmpd.cols <- c("ParasiteCorrectedName", 
+PCA_Full <- ade4::dudi.pca(Bioclim_DF[, Clim_Variables], center = T, scale = T, scannf = F, nf = 2)
+
+# columns to keep during analysis
+gmpd.cols <- c("HostCorrectedName",
+               "ParasiteCorrectedName", 
                "HostsSampled", 
                "Longitude", 
                "Latitude", 
@@ -33,64 +57,25 @@ gmpd.cols <- c("ParasiteCorrectedName",
                "EquatorwardsProp",
                "EquatorwardsDist",
                "MedianDist",
-               "MedianProp")
+               "MedianProp",
+               "AboveMedn",
+               "subgroup",
+               "CleanAll",
+               "CleanSub",
+               "RestrAll",
+               "RestrSub",
+               "RangeMethod",
+               "RangeTaxonLvl")
 
-# extract all bio data
-clim.xy <- xyFromCell(BIO_050612, 1:ncell(BIO_050612))
-clim <- as.data.frame(na.omit(cbind(clim.xy, raster::extract(BIO_050612, clim.xy)))) 
-xVar <- c(3:5)
-rm(clim.xy)
+GMPD_Kernel_Data <- kd_prep(clim.raw = BIO_050612,
+                            spat.dat = GBIF_Data,
+                            samp.dat = GMPD_Data[, gmpd.cols],
+                            pca.full = PCA_Full,
+                            bioclim.full.df = Bioclim_DF)
 
-pca.cal <- dudi.pca(clim[xVar], center = T, scale = T, scannf = F, nf = 2)
+GMPD_Kernel_Data <- clim_density(climate.pca.scores = GMPD_Kernel_Data$pca.climate,
+                                 species.pca.scores = GMPD_Kernel_Data$pca.species,
+                                 samples.pca.scores = GMPD_Kernel_Data$pca.samples)
 
-# species.name <- "Genetta genetta" #example for test runs
-# spat.dat <- GBIF_Data
-# clim.dat <- BIO_050612
-# par.dat <- GMPD_Data
-
-ks.test <- function(species.name, spat.dat, clim.dat, par.dat){
-  
-  spat.dat <- spat.dat %>%
-    filter(species == species.name) %>%
-    dplyr::select(c("decimalLongitude", "decimalLatitude"))
-  
-  # (partially) account for sampling bias by gridding species occurence data and extracting filled cells
-  rastr10 <- raster(resolution = 10/60)
-  rast.sp <- rasterize(spat.dat, rastr10, fun = 'count')
-  rast.filled <- Which(rast.sp, cells = TRUE)
-  
-  # extract bioclim variables for points where species occurs
-  occ.xy <- xyFromCell(rast.sp, rast.filled)
-  occ.xy <- as.data.frame(na.omit(cbind(occ.xy, raster::extract(x = clim.dat, y = occ.xy))))
-  
-  nvar <- length(xVar)     
-  R = 100     
-  
-  #rbind occ data to glob data and add binary weighting column/vector
-  #row.w.env <- c(rep(1, 1:nrow(clim)), rep(0, (nrow(clim) + 1):(nrow(clim) + nrow(occ.sp))))   #1 for background clim, zero for occ clim
-  #Is this necessary? 
-  
-  scores.clim <- suprow(pca.cal, clim[, xVar])$lisup     #The pca scores for all climate
-  scores.occ <- suprow(pca.cal, occ.xy[, xVar])$lisup    #The pca scores for current species
-  
-  gmpd.sp <- par.dat %>%
-    filter(HostCorrectedName == species.name) %>%
-    dplyr::select(gmpd.cols)
-  
-  gmpd.xy <- as.data.frame(na.omit(cbind(gmpd.sp, raster::extract(clim.dat, gmpd.sp[, c("Longitude", "Latitude")]))))
-  scores.gmpd <- cbind(suprow(pca.cal, gmpd.xy[, c("bio5", "bio6", "bio12")])$lisup, gmpd.xy)      # pca scores for current species from gmpd
-  
-  z2 <- grid.clim(scores.clim, scores.occ, scores.gmpd, R)    #Niche_dyn_funcs_myversion
-  #z2$sp.scores <- scores.gmpd
-  return(z2)
-}
-
-Hostlist <- unique(GMPD_Data$HostCorrectedName)
-
-ks.out <- lapply(Hostlist, ks.test, spat.dat = GBIF_Data, clim.dat = BIO_050612, par.dat = GMPD_Data)
-names(ks.out) <- Hostlist
-
-saveRDS(ks.out, file = "KS_data")
-saveRDS(ks.out2, file = "KS_data2")
-
-ks.out <- ks.out2
+# Save output
+saveRDS(KS_Output, here::here("Data/Data back ups/GMPD_Kernel_Data_04.rds"))

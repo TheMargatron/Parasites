@@ -287,7 +287,7 @@ sub.colours <- c('#ea3c67', '#3cb44b', '#ffbb19', # red, green, yellow
                  '#f032e6', '#469990', # magenta, teal
                  '#b372ff', '#c37e2e', '#f577a5') # lavendar, brown, pink
 
-Host_Synonyms <- Host_Synonyms %>%
+Host_Synonyms <- Host_Synonyms %>% # TODO: is this still relevant?
   mutate(minlong = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),
                                                                            bbox(GBIF_Spatial[GBIF_Spatial$species == host["GBIFName"],]))["Longitude", "min"]}),
          maxlong = apply(Host_Synonyms, MARGIN = 1, function(host) {bboxer(bbox(IUCN_Native_Data[IUCN_Native_Data$binomial == host["IUCNName"],]),

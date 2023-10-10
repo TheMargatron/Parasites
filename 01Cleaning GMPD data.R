@@ -15,33 +15,39 @@
 # Libraries and data ##########################################################################################
 
 library(beepr)
-library(CoordinateCleaner)  # cleaning geographic data
-library(geosphere)          # calculating distances
+# library(CoordinateCleaner)  # cleaning geographic data  TODO: uses sp
+# library(geosphere)          # calculating distances     TODO: uses sp
 library(here)               #
-library(maps)               # iso 3166 country codes and mapnames
-library(maptools)
-library(rnaturalearth)      # river data
-library(rnaturalearthdata)  # countries data
-library(raster)             # 
-library(rgdal)              # read shapefiles
-library(rgeos)              # Just for gBuffer
+library(maps)               # iso 3166 country codes and mapnames ## suggests sp but does not import
+# library(maptools)             # TODO: depends sp
+library(rnaturalearth)      # river data 
+# library(rnaturalearthdata)  # countries data # TODO: depends sp
+# library(raster)             # Use terra instead
+# library(rgdal)              # read shapefiles
+# library(rgeos)              # Just for gBuffer # TODO: retired
+library(sf)
 library(stringr)            #
 library(tidyverse)          # beware of conflicts (mainly with raster)
 library(tmap)
+library(xlsx)
 
 source(here::here("Functions.R"))
 
-GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), header = TRUE, stringsAsFactors = FALSE) 
+GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), 
+                          header = TRUE, 
+                          stringsAsFactors = FALSE) 
 nrow(GMPD_Raw_Data); length(unique(GMPD_Raw_Data$HostCorrectedName)) #Beginning with 24323 rows and 462 hosts
 
-IUCN_Mammals <- readOGR(here::here("Data/IUCN"), "MAMMALS") # plenty time to make a cup of tea
+IUCN_Mammals <- sf::read_sf(dsn = here::here("Data/IUCN"), layer = "MAMMALS")
+Projection_String <- sf::st_crs(IUCN_Mammals)
 
-River_Data50 <- ne_load(scale = 50,
-                        type = "rivers_lake_centerlines",
-                        category = "physical",
-                        destdir = here::here("Data/Extras/ne_rivers"))
+River_Data50 <- rnaturalearth::ne_load(scale = 50,
+                                       type = "rivers_lake_centerlines",
+                                       category = "physical",
+                                       destdir = here::here("Data/Extras/ne_rivers"),
+                                       returnclass = "sf")
 
-sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
+# sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 tmap_mode("view")
 
 # Basic data cleaning #########################################################################################
@@ -57,94 +63,127 @@ tmap_mode("view")
 ## unique host-parasite pairs - uninformative in models
 
 GMPD_Data <- GMPD_Raw_Data %>%
-  filter(HostCorrectedName != "Ovis aries" &
-           HostCorrectedName != "Bos frontalis" &
-           HostCorrectedName != "no binomial name" &
-           HostCorrectedName != "Dama dama" &
-           HostCorrectedName != "Diceros bicornis" &
-           HostCorrectedName != "Ceratotherium simum") %>%
-  filter(!str_detect(HostReportedName, " and ")) %>%
-  filter(!is.na(Prevalence)) %>%
-  filter(HostEnvironment != "marine") %>%
-  filter(NativeRange != "No" &
-           !is.na(NativeRange)) %>%
-  filter(!is.na(Latitude) & !is.na(Longitude)) %>%
-  filter(!is.na(NumSamples) | !is.na(HostsSampled))
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 12061 rows of 201 hosts
+  dplyr::filter(HostCorrectedName != "Ovis aries" &
+                  HostCorrectedName != "Bos frontalis" &
+                  HostCorrectedName != "Bos grunniens" &
+                  HostCorrectedName != "no binomial name" &
+                  HostCorrectedName != "Dama dama" &
+                  HostCorrectedName != "Diceros bicornis" &
+                  HostCorrectedName != "Ceratotherium simum") %>%
+  dplyr::filter(!str_detect(HostReportedName, " and ")) %>%
+  dplyr::filter(!is.na(Prevalence)) %>%
+  dplyr::filter(HostEnvironment != "marine") %>%
+  dplyr::filter(NativeRange != "No" &
+                  !is.na(NativeRange)) %>%
+  dplyr::filter(!is.na(Latitude) & !is.na(Longitude)) %>%
+  dplyr::filter(!is.na(NumSamples) | !is.na(HostsSampled))
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 12060 rows of 200 hosts
 
 GMPD_Data <- GMPD_Data %>%
-  separate(HostReportedName, c("HostReportedGenus", "HostReportedSpecies", "HostReportedSubspecies"), remove = FALSE) 
-GMPD_Data[1045, "HostReportedName"]
+  tidyr::separate_wider_delim(HostReportedName, 
+                              delim = " ",
+                              names = c("HostReportedGenus", 
+                                        "HostReportedSpecies", 
+                                        "HostReportedSubspecies"), 
+                              cols_remove = FALSE,
+                              too_few = "align_start",
+                              too_many = "drop") 
 
-subsp_info <- unique(GMPD_Data[GMPD_Data$HostReportedName != GMPD_Data$HostCorrectedName, c("HostReportedName", 
-                                                                                          "HostReportedGenus", 
-                                                                                          "HostReportedSpecies",
-                                                                                          "HostReportedSubspecies",
-                                                                                          "HostCorrectedName")])
+# For recording information on subspecies decisions
+# subsp_info <- GMPD_Data %>% 
+#   select(HostReportedName, 
+#          HostReportedGenus, 
+#          HostReportedSpecies, 
+#          HostReportedSubspecies, 
+#          HostCorrectedName) %>% 
+#   distinct()
+
+# xlsx::write.xlsx(subsp_info, here::here("Data/Extras/Name Check.xlsx), row.names = FALSE, showNA = FALSE)
 
 # Adding subspecies info and correcting HostCorrectedName according to IUCN
-# Taxonomic justifications in Subspecies Info excel
+# Taxonomic justifications and citations in "Name Check.xlsx"
+# Most recent update 05/07/2023
 GMPD_Data <- GMPD_Data %>%
-  mutate(HostReportedSubspecies = case_when(HostReportedName == "Alcelaphus cokii"           ~ "cokii", 
-                                            HostCorrectedName == "Alcelaphus lichtensteinii" ~ "lichtensteinii", 
-                                            HostReportedName == "Canis latrans Say"          ~ NA_character_, 
-                                            HostReportedName == "Black-back Jackal"          ~ NA_character_, 
-                                            HostReportedName == "Capra ibex ibex"            ~ NA_character_, 
-                                            HostReportedName == "Capra i. ibex"              ~ NA_character_, 
-                                            HostReportedName == "Cervus elaphus nelsoni"     ~ "canadensis", 
-                                            HostReportedName == "Cervus nippon centralis"    ~ "nippon", 
-                                            HostReportedName == "Damaliscus korrigum"        ~ "korrigum", 
-                                            HostReportedName == "Damaliscus dorcas dorcas"   ~ NA_character_, 
-                                            HostReportedName == "Damaliscus pygargus dorcas" ~ NA_character_, 
-                                            HostCorrectedName == "Equus burchellii"          ~ "burchellii", 
-                                            str_detect(HostReportedName, "Felis libyca")     ~ "libyca", 
-                                            HostReportedName == "Felis silvestris gordoni"   ~ "libyca", 
-                                            HostReportedName == "Giraffa reticulata"         ~ "reticulata", 
-                                            HostReportedName == "Hyaena hyaena dubbah"       ~ NA_character_, 
-                                            HostReportedName == "Kobus defassa"              ~ "defassa", 
-                                            HostReportedName == "Lynx rufus floridanus"      ~ "rufus", 
-                                            HostReportedName == "Martes caurina"             ~ "caurina", 
-                                            HostReportedName == "Meles meles anakuma"        ~ NA_character_, 
-                                            HostReportedName == "Melogale moschata subauantiaca" ~ "subaurantiaca", 
-                                            HostReportedName == "Mustela itatsi sho"         ~ NA_character_, 
-                                            HostReportedName == "Neovison vison mink"        ~ NA_character_, 
-                                            HostReportedName == "Oryx gazella gazella"       ~ NA_character_, 
-                                            HostReportedName == "Ourebia ourebi cottoni"     ~ NA_character_, 
-                                            HostReportedName == "Ovis canadensis cremnobates" ~ "nelsoni", 
-                                            HostReportedName == "Ovis canadensis mexicana"   ~ "nelsoni", 
-                                            HostReportedName == "Felis leo senegalensis"     ~ "leo", 
-                                            HostReportedName == "Panthera pardus saxicolor"  ~ "tulliana", 
-                                            HostReportedName == "Puma concolor coryi"        ~ "couguar", 
-                                            HostReportedName == "Puma concolor stanleyana"   ~ "couguar", 
-                                            HostReportedName == "Felis concolor coryi"       ~ "couguar", 
-                                            HostReportedName == "Felis concolor vancouverensis" ~ "couguar", 
-                                            HostReportedName == "Spilogale gracilis amphiala" ~ "amphialus", 
-                                            HostReportedName == "Urocyon cinereoargenteus texensis" ~ "scottii", 
-                                            HostReportedName == "Ursus americanus pallas"    ~ NA_character_, 
-                                            HostReportedName == "Ursus arctos marsicanus"    ~ "arctos", 
-                                            HostReportedName == "Viverra civetta schwartzi"  ~ "schwarzi", 
-                                            HostReportedName == "Vulpes vulpes schrencki"    ~ "schrenckii",
-                                            TRUE ~ HostReportedSubspecies)) %>%
-  mutate(HostCorrectedName = case_when(HostCorrectedName == "Alcelaphus lichtensteinii" ~ "Alcelaphus buselaphus", 
-                                       HostCorrectedName == "Alces americanus"          ~ "Alces alces", 
-                                       HostReportedName == "Canis rufus"                ~ "Canis rufus", 
-                                       HostReportedName == "Cervus elaphus nannodes"    ~ "Cervus canadensis", 
-                                       HostReportedName == "Cervus elaphus nelsoni"     ~ "Cervus canadensis", 
-                                       HostReportedName == "Cervus elaphus roosevelti"  ~ "Cervus canadensis", 
-                                       HostReportedName == "Cervus elaphus canadensis"  ~ "Cervus canadensis", 
-                                       HostCorrectedName == "Equus burchellii"          ~ "Equus quagga", 
-                                       HostCorrectedName == "Felis manul"               ~ "Otocolobus manul", 
-                                       HostCorrectedName == "Lama glama"                ~ HostReportedName, 
-                                       HostCorrectedName == "Leopardus pajeros"         ~ "Leopardus colocolo", 
-                                       HostReportedName == "Meles meles anakuma"        ~ "Meles anakuma", 
-                                       HostCorrectedName == "Neotragus moschatus"       ~ "Nesotragus moschatus",     # IUCN name differs
-                                       HostReportedName == "Putorius eversmanni"        ~ "Mustela eversmanni", 
-                                       HostCorrectedName == "Puma yagouaroundi"         ~ "Herpailurus yagouaroundi", 
-                                       HostCorrectedName == "Taurotragus oryx"          ~ "Tragelaphus oryx",         # IUCN name differs
-                                       str_detect(HostReportedName, "Viverra civetta")  ~ "Civettictis civetta", 
-                                       TRUE ~ HostCorrectedName)) %>%
-  filter(HostReportedName != "Ovis ammon musimon") 
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 12034 and 202
+  dplyr::mutate(HostReportedSubspecies = case_when(HostReportedName  == "Alcelaphus cokii"           ~ "cokii", 
+                                                   HostCorrectedName == "Alcelaphus lichtensteinii"  ~ "lichtensteinii", 
+                                                   HostCorrectedName == "Axis axis"                  ~ "axis", 
+                                                   
+                                                   HostReportedName  == "Canis latrans Say"          ~ NA_character_, 
+                                                   HostReportedName  == "Black-back Jackal"          ~ NA_character_, 
+                                                   HostReportedName  == "Capra ibex ibex"            ~ NA_character_, 
+                                                   HostReportedName  == "Capra i. ibex"              ~ NA_character_, 
+                                                   HostReportedName  == "Cervus elaphus nelsoni"     ~ "canadensis", 
+                                                   HostReportedName  == "Cervus elaphus hispanicus"  ~ "elaphus", 
+                                                   HostReportedName  == "Cervus elaphus hippelaphus" ~ "elaphus", 
+                                                   HostReportedName  == "Cervus nippon centralis"    ~ "nippon", 
+                                                   
+                                                   HostReportedName  == "Damaliscus korrigum"        ~ "korrigum", 
+                                                   HostReportedName  == "Damaliscus dorcas dorcas"   ~ "pygargus", 
+                                                   HostReportedName  == "Damaliscus pygargus dorcas" ~ "pygargus", 
+                                                   HostCorrectedName == "Equus burchellii"           ~ "burchellii", 
+                                                   str_detect(HostReportedName, "Felis libyca")      ~ "libyca", 
+                                                   HostReportedName  == "Felis silvestris gordoni"   ~ "libyca", 
+                                                   
+                                                   HostReportedName  == "Giraffa reticulata"         ~ "reticulata", 
+                                                   HostReportedName  == "Hyaena hyaena dubbah"       ~ NA_character_, 
+                                                   HostReportedName  == "Kobus defassa"              ~ "defassa", 
+                                                   HostReportedName  == "Lynx rufus floridanus"      ~ "rufus", 
+                                                   
+                                                   HostReportedName  == "Martes caurina"             ~ "caurina", 
+                                                   HostReportedName  == "Meles meles anakuma"        ~ NA_character_, 
+                                                   HostReportedName  == "Melogale moschata subauantiaca" ~ "subaurantiaca", 
+                                                   HostReportedName  == "Mustela itatsi sho"         ~ NA_character_, 
+                                                   HostReportedName  == "Neovison vison mink"        ~ NA_character_, 
+                                                   
+                                                   HostReportedName  == "Oryx gazella gazella"       ~ NA_character_, 
+                                                   HostReportedName  == "Ourebia ourebi cottoni"     ~ NA_character_, 
+                                                   HostReportedName  == "Ovibos moschatus moschatus" ~ NA_character_, 
+                                                   HostReportedName  == "Ovibos moschatus wardi"     ~ NA_character_, 
+                                                   HostReportedName  == "Ovis canadensis cremnobates" ~ "nelsoni", 
+                                                   HostReportedName  == "Ovis canadensis mexicana"   ~ "nelsoni", 
+                                                   
+                                                   HostReportedName  == "Felis leo senegalensis"     ~ "leo", 
+                                                   HostReportedName  == "Puma concolor coryi"        ~ "couguar", 
+                                                   HostReportedName  == "Puma concolor stanleyana"   ~ "couguar", 
+                                                   HostReportedName  == "Felis concolor coryi"       ~ "couguar", 
+                                                   HostReportedName  == "Felis concolor vancouverensis" ~ "couguar", 
+                                                   
+                                                   HostReportedName  == "Spilogale gracilis amphiala" ~ "amphialus", 
+                                                   HostReportedName  == "Urocyon cinereoargenteus texensis" ~ "scottii", 
+                                                   HostReportedName  == "Ursus americanus pallas"    ~ NA_character_, 
+                                                   HostReportedName  == "Ursus arctos marsicanus"    ~ "arctos", 
+                                                   HostReportedName  == "Viverra civetta schwartzi"  ~ "schwarzi", 
+                                                   HostReportedName  == "Vulpes fulva"               ~ "fulvus", 
+                                                   HostReportedName  == "Vulpes vulpes schrencki"    ~ "schrenckii", 
+                                                   
+                                                   TRUE ~ HostReportedSubspecies)) %>%
+  dplyr::mutate(HostCorrectedName = case_when(HostCorrectedName == "Alcelaphus lichtensteinii" ~ "Alcelaphus buselaphus", 
+                                              HostCorrectedName == "Alces americanus"          ~ "Alces alces", 
+                                              
+                                              HostReportedName  == "Canis rufus"               ~ "Canis rufus", 
+                                              HostReportedName  == "Cervus elaphus nannodes"   ~ "Cervus canadensis", 
+                                              HostReportedName  == "Cervus elaphus nelsoni"    ~ "Cervus canadensis", 
+                                              HostReportedName  == "Cervus elaphus roosevelti" ~ "Cervus canadensis", 
+                                              HostReportedName  == "Cervus elaphus canadensis" ~ "Cervus canadensis", 
+                                              
+                                              HostCorrectedName == "Equus burchellii"          ~ "Equus quagga", 
+                                              HostCorrectedName == "Felis manul"               ~ "Otocolobus manul", 
+                                              str_detect(HostReportedName, "Felis libyca")     ~ "Felis libyca", 
+                                              HostReportedName  == "Felis silvestris gordoni"  ~ "Felis libyca", 
+                                              
+                                              HostCorrectedName == "Lama glama"                ~ "Lama guanicoe", 
+                                              HostCorrectedName == "Leopardus pajeros"         ~ "Leopardus colocolo", 
+                                              HostReportedName  == "Meles meles anakuma"       ~ "Meles anakuma", 
+                                              HostReportedName  == "Martes sibirica"           ~ "Msutela itatsi", 
+                                              HostCorrectedName == "Neotragus moschatus"       ~ "Nesotragus moschatus", 
+                                              
+                                              HostReportedName  == "Putorius eversmanni"       ~ "Mustela eversmanni", 
+                                              HostCorrectedName == "Puma yagouaroundi"         ~ "Herpailurus yagouaroundi", 
+                                              HostCorrectedName == "Taurotragus oryx"          ~ "Tragelaphus oryx", 
+                                              str_detect(HostReportedName, "Viverra civetta")  ~ "Civettictis civetta", 
+                                              TRUE ~ HostCorrectedName)) %>%
+  dplyr::filter(HostReportedName != "Ovis ammon musimon") 
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 12033 and 202
 
 GMPD_Data <- GMPD_Data %>%
   dplyr::select(-ParasiteReportedName,
@@ -155,21 +194,21 @@ GMPD_Data <- GMPD_Data %>%
                 -NativeRange, 
                 -Intensity, 
                 -IntensityMeasure, 
-                -SampleNotes) %>%   #not used
-  distinct()                                                                                                            #remove duplicated rows
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 11976 and 202
+                -SampleNotes) %>%   # no longer used
+  dplyr::distinct()                                                                                                            #remove duplicated rows
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 11975 and 202
 
 GMPD_Data <- GMPD_Data %>%
-  group_by(ParasiteCorrectedName, HostCorrectedName) %>%
-  filter(n()>1) %>% 
-  ungroup()
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 10125 and 137
+  dplyr::group_by(ParasiteCorrectedName, HostCorrectedName) %>%
+  dplyr::filter(n()>1) %>% 
+  dplyr::ungroup()
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 10124 and 138
 
 ## adjust prevalence data that has been reported as a percentage
 
 GMPD_Data <- GMPD_Data %>%
-  mutate(Prevalence = case_when(Prevalence >1 ~ Prevalence/100,
-                                TRUE          ~ Prevalence))
+  dplyr::mutate(Prevalence = case_when(Prevalence >1 ~ Prevalence/100,
+                                       TRUE          ~ Prevalence))
 
 Hostlist <- unique(GMPD_Data$HostCorrectedName)
 # GMPD_base_plots_00 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, plot_type = "base")
@@ -194,47 +233,47 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 
 # SamplingBasis and HostsSampled 
 GMPD_Data <- GMPD_Data %>%
-  filter(!is.na(HostsSampled) | SamplingBasis != "Samples" | is.na(SamplingBasis))
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9971 and 137
+  dplyr::filter(!is.na(HostsSampled) | SamplingBasis != "Samples" | is.na(SamplingBasis))
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9970 and 138
 
 # host age and sex NA duplications
 GMPD_Data <- GMPD_Data %>%
-  group_by_at(vars(-HostAge)) %>%
-  fill(HostAge, .direction = "updown") %>% 
+  dplyr::group_by(pick(-HostAge)) %>% 
+  tidyr::fill(HostAge, .direction = "updown") %>% 
   
-  group_by_at(vars(-HostSex)) %>%
-  fill(HostSex, .direction  = "updown") %>% 
+  dplyr::group_by(pick(-HostSex)) %>% 
+  tidyr::fill(HostSex, .direction  = "updown") %>% 
   
-  group_by_at(vars(-HostAge, -HostSex)) %>%
-  fill(c(HostSex, HostAge), .direction = "updown") %>% 
-  distinct() %>%
-  ungroup()
+  dplyr::group_by(pick(-HostAge, -HostSex)) %>%
+  tidyr::fill(c(HostSex, HostAge), .direction = "updown") %>% 
+  dplyr::distinct() %>%
+  dplyr::ungroup()
 
 # HostsSampled vs NumSamples
 GMPD_Data <- GMPD_Data %>%
-  mutate(HostsSampled = case_when(is.na(HostsSampled) ~ NumSamples,
-                                  TRUE                ~ HostsSampled)) %>%
-  mutate(NumSamples = case_when(is.na(NumSamples) ~ HostsSampled,
-                                TRUE              ~ NumSamples)) %>%
+  dplyr::mutate(HostsSampled = case_when(is.na(HostsSampled) ~ NumSamples,
+                                         TRUE                ~ HostsSampled)) %>%
+  dplyr::mutate(NumSamples = case_when(is.na(NumSamples) ~ HostsSampled,
+                                       TRUE              ~ NumSamples)) %>%
   dplyr::select(-NumSamples)
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9562 and 137
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9561 and 138
 
 # differing sample method on the same sample group
 
 GMPD_Data <- GMPD_Data %>% 
-  group_by_at(vars(-SamplingType, -Prevalence)) %>%
-  mutate(sample_temp = case_when(n() == 1 ~ "fine",
-                                 length(unique(SamplingType)) == 1 ~ "fine",
-                                 length(unique(Prevalence)) == 1 & !duplicated(Prevalence) ~ "fine",
-                                 length(unique(Prevalence)) == 1 ~ "not fine",
-                                 n() == length(unique(SamplingType)) & Prevalence == max(Prevalence) ~ "fine",
-                                 n() == length(unique(SamplingType)) ~ "not fine",
-                                 length(unique(Prevalence)) > 1 & length(unique(SamplingType)) > 1 & Prevalence == max(Prevalence) ~ "fine",
-                                 length(unique(Prevalence)) > 1 & length(unique(SamplingType)) > 1 ~ "not fine")) %>%
-  filter(sample_temp == "fine") %>%
+  dplyr::group_by(pick(-SamplingType, -Prevalence)) %>%
+  dplyr::mutate(sample_temp = case_when(n() == 1 ~ "fine",
+                                        length(unique(SamplingType)) == 1 ~ "fine",
+                                        length(unique(Prevalence))   == 1 & !duplicated(Prevalence) ~ "fine",
+                                        length(unique(Prevalence))   == 1 ~ "not fine",
+                                        n() == length(unique(SamplingType)) & Prevalence == max(Prevalence) ~ "fine",
+                                        n() == length(unique(SamplingType)) ~ "not fine",
+                                        length(unique(Prevalence)) > 1 & length(unique(SamplingType)) > 1 & Prevalence == max(Prevalence) ~ "fine",
+                                        length(unique(Prevalence)) > 1 & length(unique(SamplingType)) > 1 ~ "not fine")) %>%
+  dplyr::filter(sample_temp == "fine") %>%
   dplyr::select(-sample_temp) %>%
-  ungroup()
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9515 137
+  dplyr::ungroup()
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9514 138
 
 # Cleaning by location ########################################################################################
 
@@ -260,131 +299,131 @@ Country_Match[which(Country_Match == "Jordan")]   <- "(?<![:alpha:])Jordan"
 Country_Match[which(Country_Match == "Oman")]     <- "(?<![:alpha:])Oman"
 
 
-Country_Match <- str_c(Country_Match, collapse = "|")
-State_Match <- str_c(state.name, collapse = "|")
+Country_Match <- stringr::str_c(Country_Match, collapse = "|")
+State_Match <- stringr::str_c(state.name, collapse = "|")
 
 # All GMPD location descriptions needing matched to a country, 1972 unique descriptions
 GMPD_Location_Data <- GMPD_Data %>%
   dplyr::select(LocationName) %>%
-  distinct()
+  dplyr::distinct()
 
 # extracting any country names in descriptions
-Country_Data_Temp <- full_join(GMPD_Location_Data %>%
-                         rownames_to_column(),
-                        GMPD_Location_Data$LocationName %>%
-                         str_to_lower() %>%
-                         str_extract_all(str_to_lower(Country_Match), simplify=TRUE) %>%
-                         as.data.frame() %>%
-                         rownames_to_column(),
-                       by = "rowname")
+Country_Data_Temp <- dplyr::full_join(GMPD_Location_Data %>%
+                                        tibble::rownames_to_column(),
+                                      GMPD_Location_Data$LocationName %>%
+                                        stringr::str_to_lower() %>%
+                                        stringr::str_extract_all(stringr::str_to_lower(Country_Match), simplify = TRUE) %>%
+                                        as.data.frame() %>%
+                                        tibble::rownames_to_column(),
+                                      by = "rowname")
 
 # joining multiple countries into single strings
 Country_Data_Temp <- Country_Data_Temp %>%
-  mutate_if(is.factor, as.character) %>%
-  mutate_at(vars(-rowname, -LocationName), list(~ na_if(., ""))) %>%
-  unite("countries", names(Country_Data_Temp)[-c(1,2)], sep = "|", remove = TRUE, na.rm = TRUE)
+  dplyr::mutate(across(where(is.factor), as.character)) %>% 
+  mutate_at(vars(-rowname, -LocationName), list(~ na_if(., ""))) %>% ## TODO: mutate_at -> mutate
+  tidyr::unite("countries", names(Country_Data_Temp)[-c(1,2)], sep = "|", remove = TRUE, na.rm = TRUE)
 
 # lacking country name in description or misspelled country name (while already having one correct country or state)
 Country_Data_Temp <- Country_Data_Temp %>%
-  mutate(countries = case_when(LocationName == "Masai Mara National Park, Nairobi National Park, Ngorongoro crater,  Serengeti National Park and Namibia" ~ "namibia|kenya|tanzania",
-                               LocationName == "Czech Republic and Slovatkia"                   ~ "czech republic|slovakia",
-                               LocationName == "East and West Azarbaijan, Ardebil, Markazi, Isfahan, and Khorassan, IRAN" ~ "azerbaijan|iran",
-                               LocationName == "Macedonia, Thrace, Epirus, Peloponnesus, Thessaly, Sterea Hellas, Lesbos, and Lefka" ~ "greece",
-                               LocationName == "La Canada-Flintridge"                           ~ "usa",
-                               LocationName == "Lebanon, Pennsylvania"                          ~ "usa",
-                               LocationName == "San Marino, Los Angeles County, California"     ~ "usa",
-                               LocationName == "Slovak/Hungary border region (Dunajska Streda)" ~ "slovakia|hungary",
-                               LocationName == "Saint Martin-sous-Vigouroux, FRANCE"            ~ "france",
-                               LocationName == "Amama and Trinidad, Department of Moreno, Santiago del Estero" ~ "argentina",
-                               
-                               LocationName == "Glacier National Park, Montana and British Columbia" ~ "usa|canada",
-                               
-                               countries == "japan|japan"     ~ "japan",
-                               countries == "namibia|namibia" ~ "namibia",
-                               countries == "spain|spain"     ~ "spain", 
-                               countries == "bolivia|bolivia" ~ "bolivia",
-                               TRUE                           ~ countries))
+  dplyr::mutate(countries = case_when(LocationName == "Masai Mara National Park, Nairobi National Park, Ngorongoro crater,  Serengeti National Park and Namibia" ~ "namibia|kenya|tanzania",
+                                      LocationName == "Czech Republic and Slovatkia"                   ~ "czech republic|slovakia",
+                                      LocationName == "East and West Azarbaijan, Ardebil, Markazi, Isfahan, and Khorassan, IRAN" ~ "azerbaijan|iran",
+                                      LocationName == "Macedonia, Thrace, Epirus, Peloponnesus, Thessaly, Sterea Hellas, Lesbos, and Lefka" ~ "greece",
+                                      LocationName == "La Canada-Flintridge"                           ~ "usa",
+                                      LocationName == "Lebanon, Pennsylvania"                          ~ "usa",
+                                      LocationName == "San Marino, Los Angeles County, California"     ~ "usa",
+                                      LocationName == "Slovak/Hungary border region (Dunajska Streda)" ~ "slovakia|hungary",
+                                      LocationName == "Saint Martin-sous-Vigouroux, FRANCE"            ~ "france",
+                                      LocationName == "Amama and Trinidad, Department of Moreno, Santiago del Estero" ~ "argentina",
+                                      
+                                      LocationName == "Glacier National Park, Montana and British Columbia" ~ "usa|canada",
+                                      
+                                      countries == "japan|japan"     ~ "japan",
+                                      countries == "namibia|namibia" ~ "namibia",
+                                      countries == "spain|spain"     ~ "spain", 
+                                      countries == "bolivia|bolivia" ~ "bolivia",
+                                      TRUE                           ~ countries))
 
 # extracting US state names from descriptions
-State_Data_Temp <- full_join(GMPD_Location_Data %>%
-                        rownames_to_column(),
-                      GMPD_Location_Data$LocationName %>%
-                        str_to_lower() %>%
-                        str_extract_all(str_to_lower(State_Match),simplify = TRUE) %>%
-                        as.data.frame() %>%
-                        rownames_to_column(),
-                      by = "rowname")
+State_Data_Temp <- dplyr::full_join(GMPD_Location_Data %>%
+                                      tibble::rownames_to_column(),
+                                    GMPD_Location_Data$LocationName %>%
+                                      stringr::str_to_lower() %>%
+                                      stringr::str_extract_all(stringr::str_to_lower(State_Match),simplify = TRUE) %>%
+                                      as.data.frame() %>%
+                                      tibble::rownames_to_column(),
+                                    by = "rowname")
 
 # joining states into single string
 State_Data_Temp <- State_Data_Temp %>%
-  mutate_if(is.factor, as.character) %>%
-  mutate_at(vars(-rowname, -LocationName), list(~ na_if(., ""))) %>%
-  unite("states", names(State_Data_Temp)[-c(1,2)], sep = "|", remove = TRUE, na.rm = TRUE)
+  dplyr::mutate(across(where(is.factor), as.character)) %>% 
+  mutate_at(vars(-rowname, -LocationName), list(~ na_if(., ""))) %>% ## TODO: mutate_at -> mutate
+  tidyr::unite("states", names(State_Data_Temp)[-c(1,2)], sep = "|", remove = TRUE, na.rm = TRUE)
 
 # merge country and state data, then correct missing names (grouped roughly by continent)
-GMPD_Location_Data <- full_join(State_Data_Temp, Country_Data_Temp, by = c("rowname", "LocationName")) %>%
-  mutate(countries = case_when(countries != "" ~ countries,
-                               states    != "" ~ "usa",
-                               str_detect(LocationName, regex("yellowstone|channel islands|eastern us| CA(?!.)|yosemite|nebrask|califonia|orange|purdue|marion|susitna|orgeon|tallahal", ignore_case = TRUE)) ~ "usa",
-                               str_detect(LocationName, regex("ontario|saskatchewan|quebec|yukon|nova scotia|alberta|prince edward|british columbia|northwest territories|baffin|vancou|newfoundland|brunswick|hudson bay", ignore_case = TRUE)) ~ "canada",
-                               str_detect(LocationName, regex("orkendalen",                       ignore_case = TRUE)) ~ "greenland",
-                               str_detect(LocationName, "Arctic")                                                      ~ "usa|canada",
-                               
-                               str_detect(LocationName, regex("parana|leones|marajo|jequitinhonha|pantanal", ignore_case = TRUE)) ~ "brazil",
-                               str_detect(LocationName, regex("mexican",                          ignore_case = TRUE)) ~ "mexico",
-                               str_detect(LocationName, regex("kaa",                              ignore_case = TRUE)) ~ "bolivia",
-                               
-                               str_detect(LocationName, regex("scotland|england|wales|united kingdom|great britain|shire|hebrides", ignore_case = TRUE)) ~ "uk",
-                               str_detect(LocationName, regex("brandenburg|berlin",               ignore_case = TRUE)) ~ "germany",
-                               str_detect(LocationName, regex("reykjavik",                        ignore_case = TRUE)) ~ "iceland",
-                               str_detect(LocationName, regex("noway|svalbard|barents",           ignore_case = TRUE)) ~ "norway",
-                               str_detect(LocationName, regex("bialowie|polish|Puszcza",          ignore_case = TRUE)) ~ "poland",
-                               str_detect(LocationName, regex("swiss",                            ignore_case = TRUE)) ~ "switzerland",
-                               str_detect(LocationName, regex("copenhagen",                       ignore_case = TRUE)) ~ "denmark",
-                               str_detect(LocationName, regex("zilina|slova",                     ignore_case = TRUE)) ~ "slovakia",
-                               str_detect(LocationName, regex("budakeszi",                        ignore_case = TRUE)) ~ "hungary",
-                               str_detect(LocationName, regex("moravia|mim",                      ignore_case = TRUE)) ~ "czech republic",
-                               str_detect(LocationName, regex("italia|sondrio|brembana|belviso",  ignore_case = TRUE)) ~ "italy",
-                               str_detect(LocationName, regex("meurthe|french|bauges|savoy",      ignore_case = TRUE)) ~ "france",
-                               str_detect(LocationName, regex("sorbe|zaragoza|malaga|catalonia|sierras|madrid|jaen|pallars|aller", ignore_case = TRUE)) ~ "spain", #assumed spain for jaen (as opposed to peru) because of species
-                               str_detect(LocationName, regex("dalmatia",                         ignore_case = TRUE)) ~ "croatia",
-                               str_detect(LocationName, regex("vojvodina",                        ignore_case = TRUE)) ~ "serbia",
-                               str_detect(LocationName, regex("danubian",                         ignore_case = TRUE)) ~ "romania",
-                              
-                               str_detect(LocationName, regex("alpine areas",                     ignore_case = TRUE)) ~ "italy|switzerland|france",
-                               str_detect(LocationName, regex("pyrenees",                         ignore_case = TRUE)) ~ "spain|france",
-                               
-                               str_detect(LocationName, regex("cameroun|ngaoun",                  ignore_case = TRUE)) ~ "cameroon",
-                               str_detect(LocationName, regex("kenia|masai|nairobi|jogi|bungoma", ignore_case = TRUE)) ~ "kenya",
-                               str_detect(LocationName, regex("kruger|natal|skukuza|queenstown|eastern shores|karroid|KNP|rooiwal|rietvlei|potchefstroom|benfontein|pieter|transvaa|sabi|hluhluwe|kuruman|mbiyamiti|ntomeni|west coast national park|transkei", ignore_case = TRUE)) ~ "south africa",
-                               str_detect(LocationName, regex("serengeti|ngorongoro|selous|temi|ruaha|kaisho", ignore_case = TRUE)) ~ "tanzania",
-                               str_detect(LocationName, regex("bale|sidamo|urso",                 ignore_case = TRUE)) ~ "ethiopia",
-                               str_detect(LocationName, regex("zimbawe|hippo|mana pools|buffalo range", ignore_case = TRUE)) ~ "zimbabwe",
-                               str_detect(LocationName, regex("zaire",                            ignore_case = TRUE)) ~ "democratic republic of the congo",
-                               str_detect(LocationName, regex("adiopodoume",                      ignore_case = TRUE)) ~ "ivory coast",
-                               str_detect(LocationName, regex("etosha",                           ignore_case = TRUE)) ~ "namibia",
-                               str_detect(LocationName, regex("ankole|koja|jie",                  ignore_case = TRUE)) ~ "uganda",
-                               str_detect(LocationName, regex("umsalala",                         ignore_case = TRUE)) ~ "sudan",
-                               str_detect(LocationName, regex("bandia|saboya",                    ignore_case = TRUE)) ~ "senegal",
-                               str_detect(LocationName, regex("batie",                            ignore_case = TRUE)) ~ "burkina faso",
-                               str_detect(LocationName, regex("ndoki|republic of the congo",      ignore_case = TRUE)) ~ "republic of congo",
-                               
-                               str_detect(LocationName, regex("kerguelen",                        ignore_case = TRUE)) ~ "french southern and antarctic lands",
-                               
-                               str_detect(LocationName, regex("new zeland|flagstaff",             ignore_case = TRUE)) ~ "new zealand",
-                               str_detect(LocationName, regex("tokyo|kkaido|sobo|shimane|akita",  ignore_case = TRUE)) ~ "japan",
-                               str_detect(LocationName, regex("rahasthan",                        ignore_case = TRUE)) ~ "india",
-                               str_detect(LocationName, regex("karak",                            ignore_case = TRUE)) ~ "jordan",
-                               TRUE ~ countries))
+GMPD_Location_Data <- dplyr::full_join(State_Data_Temp, Country_Data_Temp, by = c("rowname", "LocationName")) %>%
+  dplyr::mutate(countries = case_when(countries != "" ~ countries,
+                                      states    != "" ~ "usa",
+                                      stringr::str_detect(LocationName, regex("yellowstone|channel islands|eastern us| CA(?!.)|yosemite|nebrask|califonia|orange|purdue|marion|susitna|orgeon|tallahal", ignore_case = TRUE)) ~ "usa",
+                                      stringr::str_detect(LocationName, regex("ontario|saskatchewan|quebec|yukon|nova scotia|alberta|prince edward|british columbia|northwest territories|baffin|vancou|newfoundland|brunswick|hudson bay", ignore_case = TRUE)) ~ "canada",
+                                      stringr::str_detect(LocationName, regex("orkendalen",                       ignore_case = TRUE)) ~ "greenland",
+                                      stringr::str_detect(LocationName, "Arctic")                                                      ~ "usa|canada",
+                                      
+                                      stringr::str_detect(LocationName, regex("parana|leones|marajo|jequitinhonha|pantanal", ignore_case = TRUE)) ~ "brazil",
+                                      stringr::str_detect(LocationName, regex("mexican",                          ignore_case = TRUE)) ~ "mexico",
+                                      stringr::str_detect(LocationName, regex("kaa",                              ignore_case = TRUE)) ~ "bolivia",
+                                      
+                                      stringr::str_detect(LocationName, regex("scotland|england|wales|united kingdom|great britain|shire|hebrides", ignore_case = TRUE)) ~ "uk",
+                                      stringr::str_detect(LocationName, regex("brandenburg|berlin",               ignore_case = TRUE)) ~ "germany",
+                                      stringr::str_detect(LocationName, regex("reykjavik",                        ignore_case = TRUE)) ~ "iceland",
+                                      stringr::str_detect(LocationName, regex("noway|svalbard|barents",           ignore_case = TRUE)) ~ "norway",
+                                      stringr::str_detect(LocationName, regex("bialowie|polish|Puszcza",          ignore_case = TRUE)) ~ "poland",
+                                      stringr::str_detect(LocationName, regex("swiss",                            ignore_case = TRUE)) ~ "switzerland",
+                                      stringr::str_detect(LocationName, regex("copenhagen",                       ignore_case = TRUE)) ~ "denmark",
+                                      stringr::str_detect(LocationName, regex("zilina|slova",                     ignore_case = TRUE)) ~ "slovakia",
+                                      stringr::str_detect(LocationName, regex("budakeszi",                        ignore_case = TRUE)) ~ "hungary",
+                                      stringr::str_detect(LocationName, regex("moravia|mim",                      ignore_case = TRUE)) ~ "czech republic",
+                                      stringr::str_detect(LocationName, regex("italia|sondrio|brembana|belviso",  ignore_case = TRUE)) ~ "italy",
+                                      stringr::str_detect(LocationName, regex("meurthe|french|bauges|savoy",      ignore_case = TRUE)) ~ "france",
+                                      stringr::str_detect(LocationName, regex("sorbe|zaragoza|malaga|catalonia|sierras|madrid|jaen|pallars|aller", ignore_case = TRUE)) ~ "spain", #assumed spain for jaen (as opposed to peru) because of species
+                                      stringr::str_detect(LocationName, regex("dalmatia",                         ignore_case = TRUE)) ~ "croatia",
+                                      stringr::str_detect(LocationName, regex("vojvodina",                        ignore_case = TRUE)) ~ "serbia",
+                                      stringr::str_detect(LocationName, regex("danubian",                         ignore_case = TRUE)) ~ "romania",
+                                      
+                                      stringr::str_detect(LocationName, regex("alpine areas",                     ignore_case = TRUE)) ~ "italy|switzerland|france",
+                                      stringr::str_detect(LocationName, regex("pyrenees",                         ignore_case = TRUE)) ~ "spain|france",
+                                      
+                                      stringr::str_detect(LocationName, regex("cameroun|ngaoun",                  ignore_case = TRUE)) ~ "cameroon",
+                                      stringr::str_detect(LocationName, regex("kenia|masai|nairobi|jogi|bungoma", ignore_case = TRUE)) ~ "kenya",
+                                      stringr::str_detect(LocationName, regex("kruger|natal|skukuza|queenstown|eastern shores|karroid|KNP|rooiwal|rietvlei|potchefstroom|benfontein|pieter|transvaa|sabi|hluhluwe|kuruman|mbiyamiti|ntomeni|west coast national park|transkei", ignore_case = TRUE)) ~ "south africa",
+                                      stringr::str_detect(LocationName, regex("serengeti|ngorongoro|selous|temi|ruaha|kaisho", ignore_case = TRUE)) ~ "tanzania",
+                                      stringr::str_detect(LocationName, regex("bale|sidamo|urso",                 ignore_case = TRUE)) ~ "ethiopia",
+                                      stringr::str_detect(LocationName, regex("zimbawe|hippo|mana pools|buffalo range", ignore_case = TRUE)) ~ "zimbabwe",
+                                      stringr::str_detect(LocationName, regex("zaire",                            ignore_case = TRUE)) ~ "democratic republic of the congo",
+                                      stringr::str_detect(LocationName, regex("adiopodoume",                      ignore_case = TRUE)) ~ "ivory coast",
+                                      stringr::str_detect(LocationName, regex("etosha",                           ignore_case = TRUE)) ~ "namibia",
+                                      stringr::str_detect(LocationName, regex("ankole|koja|jie",                  ignore_case = TRUE)) ~ "uganda",
+                                      stringr::str_detect(LocationName, regex("umsalala",                         ignore_case = TRUE)) ~ "sudan",
+                                      stringr::str_detect(LocationName, regex("bandia|saboya",                    ignore_case = TRUE)) ~ "senegal",
+                                      stringr::str_detect(LocationName, regex("batie",                            ignore_case = TRUE)) ~ "burkina faso",
+                                      stringr::str_detect(LocationName, regex("ndoki|republic of the congo",      ignore_case = TRUE)) ~ "republic of congo",
+                                      
+                                      stringr::str_detect(LocationName, regex("kerguelen",                        ignore_case = TRUE)) ~ "french southern and antarctic lands",
+                                      
+                                      stringr::str_detect(LocationName, regex("new zeland|flagstaff",             ignore_case = TRUE)) ~ "new zealand",
+                                      stringr::str_detect(LocationName, regex("tokyo|kkaido|sobo|shimane|akita",  ignore_case = TRUE)) ~ "japan",
+                                      stringr::str_detect(LocationName, regex("rahasthan",                        ignore_case = TRUE)) ~ "india",
+                                      stringr::str_detect(LocationName, regex("karak",                            ignore_case = TRUE)) ~ "jordan",
+                                      TRUE ~ countries))
 
 # split countries at "|" then pivot into single column 
 # Number of rows will increase slightly because of location descriptions for which there are multiple countries. 
 # They'll be removed again by coordinate cleaner
 GMPD_Location_Data <- GMPD_Location_Data %>%
-  separate(countries, into = c("A","B","C"), sep = "\\|") %>%
-  pivot_longer(cols = c("A","B","C"), values_to = "mapname", values_drop_na = TRUE) %>%
+  tidyr::separate(countries, into = c("A","B","C"), sep = "\\|") %>% ## TODO: separate -> separate_woder_delim
+  tidyr::pivot_longer(cols = c("A","B","C"), values_to = "mapname", values_drop_na = TRUE) %>%
   dplyr::select(-name, -states) %>%
-  mutate(mapname = case_when(mapname == "uk"      ~ "uk(?!r)",
+  dplyr::mutate(mapname = case_when(mapname == "uk"      ~ "uk(?!r)",
                              mapname == "norway"  ~ "norway(?!:bouvet|:svalbard|:jan mayen)",
                              mapname == "finland" ~ "finland(?!:aland)",
                              mapname == "china"   ~ "china(?!:hong kong|:macao)",
@@ -392,100 +431,119 @@ GMPD_Location_Data <- GMPD_Location_Data %>%
 
 GMPD_Location_Data <- iso3166 %>%
   dplyr::select(a3, mapname) %>%
-  mutate(mapname = tolower(mapname)) %>%
-  right_join(GMPD_Location_Data, by = "mapname") %>%
-  rename(countrycode = a3)
+  dplyr::mutate(mapname = tolower(mapname)) %>%
+  dplyr::right_join(GMPD_Location_Data, by = "mapname") %>%
+  dplyr::rename(countrycode = a3)
 
-GMPD_Data <- full_join(GMPD_Location_Data, GMPD_Data, by = "LocationName")
+GMPD_Data <- dplyr::full_join(GMPD_Location_Data, GMPD_Data, by = "LocationName", relationship = "many-to-many")
 
 rm(State_Match, Country_Match)
 rm(list = ls(pattern = "_Temp$"))
 
 ## CoordinateCleaner tests ####################################################################################
 
+# https://peerj.com/articles/9916.pdf
 GMPD_Data <- GMPD_Data %>%
-  clean_coordinates(lon = "Longitude",
-                    lat = "Latitude",
-                    species = "HostCorrectedName",
-                    countries = "countrycode",
-                    tests = c("capitals","centroids","institutions", "countries"),
-                    value = "clean")
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 8840 and 132
+  CoordinateCleaner::clean_coordinates(lon = "Longitude",
+                                       lat = "Latitude",
+                                       species = "HostCorrectedName",
+                                       countries = "countrycode",
+                                       tests = c("capitals","centroids","institutions", "countries"),
+                                       value = "clean")
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 8832 and 132
 
 # Native and non-native ####
 ## Removing non-native polygons ####
 
 # reducing to relevant subsets of IUCN data to save time and space 
-
+# TODO: Maybe move hostlist to here??
 IUCN_Data <- IUCN_Mammals[IUCN_Mammals$binomial %in% Hostlist, ]
 
-# Correcting legend for two species and Rupicapra rupicapra to retain Aubrac polygon
+# Correcting legend for Oreamnos americanus
 
-# Oreamnos americanus
+### Oreamnos americanus
 O_americanus_temp <- IUCN_Data[IUCN_Data$binomial == "Oreamnos americanus",]
-# tm_shape(O_americanus_temp) + tm_polygons("legend")
-# tm_shape(O_americanus_temp) + tm_polygons("dist_comm") # aggregated with Chichagof Island
 
-clip_points <- matrix(c(-153.38, 57.41),
-                      ncol = 2, byrow = TRUE)
-clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
+# According to iucn red list, O. americanus was introduced to Chicagof Island
+"Festa-Bianchet, M. 2022. Oreamnos americanus (errata version published in 2022). The IUCN Red List of Threatened Species 2022: e.T42680A211860282. Accessed on 27 September 2023."
+# It is recorded in their spatial data as Extant (resident)
+# Correcting to Extant & Introduced (resident)
+# The same applies to Kodiak island
+tm_shape(O_americanus_temp) + tm_polygons("legend") 
 
-O_americanus_temp <- raster::disaggregate(O_americanus_temp)
-O_americanus_temp <- O_americanus_temp[clip_points,]
-O_americanus_temp@data$legend <- "Extant & Introduced (resident)"
+# Chicagof and Kodiak are missing data in dist_comm
+tm_shape(O_americanus_temp) + tm_polygons("dist_comm") 
 
-O_americanus_temp <- raster::bind((IUCN_Data[IUCN_Data$binomial == "Oreamnos americanus",] - O_americanus_temp),
-                                  O_americanus_temp)
+O_americanus_temp <- O_americanus_temp %>% 
+  dplyr::mutate(legend = case_when(is.na(dist_comm) ~ "Extant & Introduced (resident)",
+                                   TRUE ~ legend))
 
+# Corrected map
 tm_shape(O_americanus_temp) + tm_polygons("legend")
 
-IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Oreamnos americanus",]
-IUCN_Data <- raster::bind(IUCN_Data, O_americanus_temp)
+IUCN_Data <- IUCN_Data %>% 
+  dplyr::filter(binomial != "Oreamnos americanus") %>% 
+  rbind(O_americanus_temp)
 
-# Ovibos moschatus
-O_moschatus_temp <- IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",]
-# tm_shape(O_moschatus_temp) + tm_polygons("legend")
-# tm_shape(O_moschatus_temp) + tm_polygons("SHAPE_Area") # aggregated across Greenland 
+### Ovibos moschatus
+# O_moschatus_temp <- IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",]
 
-clip_points <- matrix(c(-54.86, 71.54, 
-                        -49.98, 66.64,
-                        -47.69, 61.36),
-                      ncol = 2, byrow = TRUE)
-clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
-
-O_moschatus_temp <- raster::disaggregate(O_moschatus_temp)
-O_moschatus_temp <- O_moschatus_temp[clip_points,]
-O_moschatus_temp@data$legend <- "Extant & Introduced (resident)"
-
-O_moschatus_temp <- raster::bind((IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",] - O_moschatus_temp),
-                                 O_moschatus_temp)
+# IUCN red list states:
+# This has been corrected, I need to update my data
+# Can state in reference that this one has a more recent download date because 
+# the polygons were updataed by IUCN in a way that changed the legend
+# "Muskoxen were introduced and are well established in West Greenland"
 
 # tm_shape(O_moschatus_temp) + tm_polygons("legend")
-
-IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Ovibos moschatus",]
-IUCN_Data <- raster::bind(IUCN_Data, O_moschatus_temp)
+# tm_shape(O_moschatus_temp) + tm_polygons("SHAPE_Area") # aggregated across Greenland
+# 
+# clip_points_temp <- as.data.frame(matrix(c(-54.86, 71.54,
+#                                            -49.98, 66.64,
+#                                            -47.69, 61.36),
+#                                          ncol = 2, byrow = TRUE))
+# clip_points_temp <- st_as_sf(clip_points_temp,
+#                              crs = Projection_String,
+#                              coords = c(1,2))
+# 
+# O_moschatus_temp <- st_cast(O_moschatus_temp)
+# O_moschatus_temp <- O_moschatus_temp[clip_points_temp,]
+# O_moschatus_temp$legend <- "Extant & Introduced (resident)"
+# 
+# O_moschatus_temp <- rbind(st_difference(IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",], O_moschatus_temp$geometry),
+#                           O_moschatus_temp)
+# 
+# tm_shape(O_moschatus_temp) + tm_polygons("legend") + tm_shape(clip_points_temp) + tm_dots()
+# 
+# IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Ovibos moschatus",]
+# IUCN_Data <- rbind(IUCN_Data, O_moschatus_temp)
 
 # Rupicapra rupicapra
-R_rupicapra_temp <- IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",]
+# IUCN red list:
+# "The subspecies cartusiana is endemic to France, where it is restricted to a 350 km2 area of the Chartreuse limestone massif, centred around Grenoble, at the western edge of the French Alps."
+
+# R_rupicapra_temp <- IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",]
 # tm_shape(R_rupicapra_temp) + tm_polygons("legend")
-
-clip_points <- matrix(c(2.935324, 45.199909),
-                      ncol = 2, byrow = TRUE)
-clip_points <- SpatialPoints(clip_points, proj4string = CRS(proj4string(IUCN_Data)))
-
-R_rupicapra_temp <- raster::disaggregate(R_rupicapra_temp)
-R_rupicapra_temp <- R_rupicapra_temp[clip_points,]
-R_rupicapra_temp@data$legend <- "Extant & Reintroduced (Extant)"
-
-R_rupicapra_temp <- raster::bind((IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",] - R_rupicapra_temp), 
-                                 R_rupicapra_temp)
-
+# 
+# clip_points_temp <- as.data.frame(matrix(c(2.935324, 45.199909),
+#                                          ncol = 2, byrow = TRUE))
+# clip_points_temp <- st_as_sf(clip_points_temp, 
+#                              crs = Projection_String,
+#                              coords = c(1,2))
+# 
+# R_rupicapra_temp <- sf::st_cast(R_rupicapra_temp)
+# R_rupicapra_temp <- R_rupicapra_temp[clip_points_temp,]
+# R_rupicapra_temp$legend <- "Extant & Reintroduced (Extant)"
+# 
+# R_rupicapra_temp <- rbind(sf::st_difference(IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",], 
+#                                             R_rupicapra_temp$geometry), 
+#                           R_rupicapra_temp)
+# 
 # tm_shape(R_rupicapra_temp) + tm_polygons("legend")
-
-IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Rupicapra rupicapra",]
-IUCN_Data <- raster::bind(IUCN_Data, R_rupicapra_temp)
-
-rm(list = ls(pattern = "_temp$"))
+# 
+# IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Rupicapra rupicapra",]
+# IUCN_Data <- rbind(IUCN_Data, R_rupicapra_temp)
+# 
+# rm(list = ls(pattern = "_temp$"))
 
 # Plotting with full polygons before restricting
 
@@ -498,20 +556,44 @@ Legend_Text <- sort(unique(IUCN_Data$legend))
 # dev.off()
 
 # removing unwanted polygons
+# Justifications for exceptions based on IUCN Geographic Range descriptions
+# Cervus elaphus
+"In Greece, the small isolated subpopulations are the result of reintroductions 
+into areas where it previously occurred. The last native population of Greek Red 
+Deer is supposed to have survived in the Sithonia peninsula (Chalkidiki, 
+north-eastern Greece) where it became extinct in the 1980s (Masseti 2012 and 
+references therein)."
+# Lovari, S., Lorenzini, R., Masseti, M., Pereladova, O., Carden, R.F., Brook, S.M. & Mattioli, S. 2018. Cervus elaphus (errata version published in 2019). The IUCN Red List of Threatened Species 2018: e.T55997072A142404453. https://dx.doi.org/10.2305/IUCN.UK.2018-2.RLTS.T55997072A142404453.en. Accessed on 06 July 2023.
 
-Native_DF <- lapply(Hostlist, function(host) {
-  host.levels <- unique(IUCN_Data[IUCN_Data$binomial == host, ]$legend)
-  data.frame(HostCorrectedName = rep(host, length(host.levels)), 
-             Status = host.levels)
-}) %>%
-  bind_rows() %>%
-  mutate(keep = case_when(str_detect(HostCorrectedName, "Cervus") & Status == "Extant & Introduced (resident)"  	    ~ TRUE,
-                          HostCorrectedName == "Lynx canadensis" & Status == "Presence Uncertain & Origin Uncertain" 	~ TRUE,
-                          str_detect(Status, "Introduced") 								                                            ~ FALSE,
-                          Status == "Extant & Origin Uncertain (resident)"						                                ~ FALSE,
-                          TRUE												                                                                ~ TRUE))
+# Cervus nippon
+"Specifically, it was originally found in China (formerly from Manchuria south 
+to Guangxi, and Sichuan to Anhui), North and South Korea (including Cheju 
+Island) (but now probably extinct in both countries), Japan, Russia (a few 
+places in Primorsky in the Far East), Taiwan (extinct in 1969, but subsequently 
+re-introduced), and Viet Nam (probably now extinct)."
+# Harris, R.B. 2015. Cervus nippon. The IUCN Red List of Threatened Species 2015: e.T41788A22155877. https://dx.doi.org/10.2305/IUCN.UK.2015-2.RLTS.T41788A22155877.en. Accessed on 06 July 2023.
 
-IUCN_Native_Data <- raster::bind(lapply(Hostlist, drop_introduced, range.polygon = IUCN_Data, native.df = Native_DF))
+# Lynx canadensis
+# Area with legend "Presence Uncertain & Origin Uncertain" is adjacent to "Extant (resident)" and "Extant & Vagrant (seasonality uncertain)"
+# Latitudinal span of this area is also within the bounds of the "Extant (resident)" range
+
+# Vashon, J. 2016. Lynx canadensis. The IUCN Red List of Threatened Species 2016: e.T12518A101138963. https://dx.doi.org/10.2305/IUCN.UK.2016-2.RLTS.T12518A101138963.en. Accessed on 06 July 2023.
+
+Native_DF <- IUCN_Data %>% 
+  dplyr::select(binomial, legend) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::distinct() %>% 
+  dplyr::mutate(keep = case_when(str_detect(binomial, "Cervus") & legend == "Extant & Introduced (resident)"  	    ~ TRUE,
+                          binomial == "Lynx canadensis" & legend == "Presence Uncertain & Origin Uncertain" ~ TRUE,
+                          str_detect(legend, "Introduced") 								                                  ~ FALSE,
+                          legend == "Extant & Origin Uncertain (resident)"						                      ~ FALSE,
+                          TRUE												                                                      ~ TRUE)) 
+
+IUCN_Native_Data <- Native_DF %>% 
+  dplyr::filter(keep) %>% 
+  dplyr::select(-keep) %>% 
+  {dplyr::right_join(IUCN_Data, ., by = c("binomial", "legend"), relationship = "many-to-one")}
+
 
 # GMPD_plots_native_base_02 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 # names(GMPD_plots_native_base_02) <- sort(Hostlist)
@@ -521,7 +603,7 @@ IUCN_Native_Data <- raster::bind(lapply(Hostlist, drop_introduced, range.polygon
 # dev.off()
 
 ## Adjusting subspecies ####
-
+# https://github.com/r-spatial/sf/wiki/Migrating
 source(here::here("01.1Subspecies polygons.R"))
 
 ## Restricting by native IUCN polygon by species ####

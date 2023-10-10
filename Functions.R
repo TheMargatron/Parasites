@@ -19,9 +19,9 @@ library(ggplot2)
 library(ggspatial)
 library(ggtext)
 library(RColorBrewer)
-library(raster)
-library(rnaturalearth)
-library(sp)
+# library(raster) # TODO: use terra instead
+# library(rnaturalearth) # TODO: depends on sp
+# library(sp)
 library(tidyverse)
 library(tmap)
 
@@ -325,18 +325,6 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
   
   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
   
-}
-
-drop_introduced <- function(host, range.polygon, native.df){
-  #keep <- filter(native.df, HostCorrectedName == host & keep)$Status
-  throw <- filter(native.df, HostCorrectedName == host & !keep)$Status
-  range.polygon <- range.polygon[range.polygon$binomial == host, ]
-  
-  if(length(throw) > 0){
-    range.polygon <- range.polygon - range.polygon[range.polygon$legend %in% throw, ]
-  }
-  
-  return(range.polygon)
 }
 
 gmpd_plotter <- function(host, dat, range.polygon, legend.text = Legend_Text, plot_type){
@@ -886,4 +874,307 @@ bboxer <- function(...){
 }
 
 
-# switch over to terra not raster
+
+# Climate niche functions ####
+## Written by Olivier Broennimann and Blaise Petitpierre. Departement of Ecology and Evolution (DEE). 
+## University of Lausanne. Switzerland. April 2012.
+
+### Modified by Regan Early
+### Adapted by Margaret Bolton, July 2023
+
+# Functions to calculate environmental niche position
+
+# TODO: rewrite descriptions
+## grid.clim(climate.pca.scores, species.pca.scores, R, threshold.species, threshold.env) 
+## use the scores of an ordination (or SDM predictions) and create a grid species.density of RxR pixels 
+## (or a vector of R pixels when using scores of dimension 1 or SDM predictions) with occurrence densities
+## Only scores of one, or two dimensions can be used 
+
+## climate.pca.scores = scores for the whole study area, 
+## species.pca.scores = scores for occurrences of the species in the ordination
+## samples.pca.scores = subset of scores for occurrences of the species in the ordination 
+## R                  = resolution of the grid to be outputted
+## threshold.species  = quantile of species density at species occurences used as a threshold to exclude low species density values
+## threshold.env      = quantile of environmental density at all study sites used as a threshold to exclude low environmental density values
+
+kd_prep <- function(clim.raw = BIO_050612, 
+                    spat.dat, 
+                    samp.dat, 
+                    pca.full = PCA_Full,
+                    bioclim.full.df = Bioclim_DF){
+  list.out <- list()
+  
+  # species prep
+  hostlist <- unique(samp.dat$HostCorrectedName)
+  species.out <- lapply(hostlist, species_kd_prep, 
+                        spat.dat = spat.dat,
+                        samp.dat  = samp.dat,
+                        clim.raw = clim.raw,
+                        pca.full = pca.full)
+  names(species.out) <- hostlist
+  species.out <- purrr::list_transpose(species.out, simplify = FALSE)
+  
+  list.out$pca.species <- species.out$pca.species
+  list.out$pca.samples <- species.out$pca.samples
+  
+  # climate prep
+  # output for gridclim
+  list.out$pca.climate <- ade4::suprow(pca.full, bioclim.full.df[, Clim_Variables])$lisup     #The pca scores for all climate
+  
+  return(list.out)
+}
+
+species_kd_prep <- function(species.name,
+                            spat.dat = spat.dat,
+                            samp.dat = samp.dat,
+                            clim.raw = clim.raw, 
+                            pca.full = pca.full){
+  list.out <- list()
+  
+  # Narrow down data to selected species
+  spat.dat <- spat.dat %>%
+    dplyr::filter(species == species.name) %>%
+    dplyr::select("decimalLongitude", "decimalLatitude")
+  
+  samp.dat <- samp.dat %>%
+    filter(HostCorrectedName == species.name)
+  
+  # (partially) account for sampling bias by gridding species occurence data and extracting filled cells
+  raster.count <- terra::rast(extent = terra::ext(c(-180,180,-90,90)),
+                              resolution = 10/60) # to match resolution of worldclim data
+  # TODO: decide on a better resolution 
+  
+  raster.count <- samp.dat %>% 
+    dplyr::select(matches("Longitude|Latitude")) %>% 
+    dplyr::rename(decimalLongitude = Longitude,
+                  decimalLatitude = Latitude) %>% # TODO: use str_detect
+    rbind(spat.dat) %>% 
+    as.matrix() %>% 
+    terra::rasterize(y = raster.count,
+                     fun = sum)
+  
+  # extract bioclim variables for points where species occurs
+  bioclim.occurrences.df <- terra::extract(x = clim.raw,
+                                           y = terra::cells(raster.count),
+                                           xy = TRUE)
+  
+  # extract bioclim variables for points where parasites are sampled
+  bioclim.parasites.df <- terra::extract(x = clim.raw,
+                                         y = samp.dat[c("Longitude", "Latitude")]) %>% 
+    cbind(samp.dat)
+  
+  # output for grid.clim
+  list.out$pca.species <- drop_na(ade4::suprow(pca.full, bioclim.occurrences.df[, Clim_Variables])$lisup)    #The pca scores for current species
+  list.out$pca.samples   <-   cbind(ade4::suprow(pca.full, bioclim.parasites.df[, Clim_Variables])$lisup, bioclim.parasites.df)   # pca scores for current species from gmpd
+  
+  return(list.out)
+}
+
+clim_density <- function(climate.pca.scores,
+                         species.pca.scores,
+                         samples.pca.scores,
+                         R = 100,
+                         threshold.species = 0,
+                         threshold.env = 0){
+  
+  list.out <- list()
+  mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
+  
+  # normalise pca values
+  xmin <- min(climate.pca.scores["Axis1"])
+  xmax <- max(climate.pca.scores["Axis1"])
+  ymin <- min(climate.pca.scores["Axis2"])
+  ymax <- max(climate.pca.scores["Axis2"])
+  
+  climate.pca.normalised <- data.frame(cbind((climate.pca.scores["Axis1"] - xmin)/abs(xmax - xmin), 
+                                            (climate.pca.scores["Axis2"] - ymin)/abs(ymax - ymin)))
+  
+  # calculate values of H to match adehabitatHR::kernelUD use of the ad hoc method
+  climate.H <- (sqrt(0.5*(var(climate.pca.normalised["Axis1"]) + var(climate.pca.normalised["Axis2"]))))*(nrow(climate.pca.normalised)^-(1/6))
+  
+  # calculate the density of occurrences in a grid of RxR pixels along the score gradients
+  # using a gaussian kernel density function, with RxR bins.
+  
+  climate.density <- MASS::kde2d(x = climate.pca.normalised[,"Axis1"],
+                                y = climate.pca.normalised[,"Axis2"],
+                                n = R,
+                                h = c(climate.H*4, climate.H*4),
+                                lims = c(range(mask.xy$x), range(mask.xy$y)))
+  
+  # rescale density to the number of sites in climate.pca.scores
+  # or the number of occurrences in species.pca.scores
+  climate.density$uncorrected  <- climate.density$z*nrow(climate.pca.scores)/sum(climate.density$z)
+
+  # Fill grid using pca scores 
+  pca.breaks <- data.frame(Axis1 = seq(from = min(climate.pca.scores["Axis1"]), # breaks on score gradient 1
+                                       to   = max(climate.pca.scores["Axis1"]), 
+                                       length.out = R),
+                           Axis2 = seq(from = min(climate.pca.scores["Axis2"]), # breaks on score gradient 2
+                                       to   = max(climate.pca.scores["Axis2"]), 
+                                       length.out = R))
+  
+  climate.pca.image <- points_to_image(climate.pca.scores, pca.breaks)
+  
+  # calculate threshold density
+  climate.density.threshold <- quantile(as.vector(climate.density$uncorrected[which(climate.pca.image == 1)]), threshold.env)  
+  
+  # remove tiny values generated by kernel density
+  climate.density$uncorrected[climate.density$uncorrected < climate.density.threshold] <- 0
+  
+  # climate density needed by species_clim_density
+  hostlist <- names(species.pca.scores)
+  species.out <- lapply(hostlist, 
+                        species_clim_density,
+                        climate.pca.scores = climate.pca.scores,
+                        species.pca.scores = species.pca.scores,
+                        samples.pca.scores = samples.pca.scores,
+                        climate.density = climate.density)
+  names(species.out) <- hostlist
+  species.out <- purrr::list_transpose(species.out, simplify = FALSE)
+  
+  list.out <- species.out
+  list.out$climate.density <- climate.density
+   
+  return(list.out)
+}
+
+species_clim_density <- function(species.name,
+                                 climate.pca.scores = climate.pca.scores,
+                                 species.pca.scores = species.pca.scores,
+                                 samples.pca.scores = samples.pca.scores,
+                                 R = 100,
+                                 threshold.species = 0,
+                                 climate.density = climate.density){
+  list.out <- list()
+  mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
+  
+  # subset species inputs
+  species.pca.scores <- species.pca.scores[[species.name]]
+  samples.pca.scores <- samples.pca.scores[[species.name]]
+  
+  # normalise pca values
+  xmin <- min(climate.pca.scores["Axis1"])
+  xmax <- max(climate.pca.scores["Axis1"])
+  ymin <- min(climate.pca.scores["Axis2"])
+  ymax <- max(climate.pca.scores["Axis2"])
+  
+  species.pca.normalised <- data.frame(cbind((species.pca.scores["Axis1"] - xmin)/abs(xmax - xmin), 
+                                             (species.pca.scores["Axis2"] - ymin)/abs(ymax - ymin))) 
+  
+  # calculate values of H to match adehabitatHR::kernelUD use of the ad hoc method
+  species.H <- (sqrt(0.5*(var(species.pca.normalised["Axis1"]) + var(species.pca.normalised["Axis2"]))))*(nrow(species.pca.normalised)^-(1/6))
+  
+  # calculate the density of occurrences in a grid of RxR pixels along the score gradients
+  # using a gaussian kernel density function, with RxR bins.
+  
+  species.density <- MASS::kde2d(x = species.pca.normalised[,"Axis1"],
+                                 y = species.pca.normalised[,"Axis2"],
+                                 n = R,
+                                 h = c(species.H*4, species.H*4),
+                                 lims = c(range(mask.xy$x), range(mask.xy$y)))
+  
+  # rescale density to the number of sites in climate.pca.scores
+  # or the number of occurrences in species.pca.scores
+  species.density$uncorrected <- species.density$z*nrow(species.pca.scores)/sum(species.density$z)
+  
+  # Fill grid using pca scores 
+  pca.breaks <- data.frame(Axis1 = seq(from = min(climate.pca.scores["Axis1"]), # breaks on score gradient 1
+                                       to   = max(climate.pca.scores["Axis1"]), 
+                                       length.out = R),
+                           Axis2 = seq(from = min(climate.pca.scores["Axis2"]), # breaks on score gradient 2
+                                       to   = max(climate.pca.scores["Axis2"]), 
+                                       length.out = R))
+  
+  species.pca.image <- points_to_image(species.pca.scores, pca.breaks)
+  
+  # calculate threshold density
+  species.density.threshold <- quantile(as.vector(species.density$uncorrected[which(species.pca.image == 1)]), threshold.species)
+  
+  # remove tiny values generated by kernel density
+  species.density$uncorrected[species.density$uncorrected < species.density.threshold] <- 0 
+  
+  # scale between 0:1 for comparison with other species
+  species.density$uncorrected <- species.density$uncorrected/max(species.density$uncorrected)	
+  
+  # record density as presence absence
+  species.density$presence <- species.density$uncorrected
+  species.density$presence[species.density$presence > 0] <- 1
+  
+  # correct for environment prevalence
+  species.density$corrected <- species.density$uncorrected/climate.density$uncorrected
+  
+  # remove n/0 situations
+  species.density$corrected[is.na(species.density$corrected)] <- 0
+  species.density$corrected[species.density$corrected == "Inf"] <- 0
+  
+  # rescale between [0:1] for comparison with other species (again)
+  species.density$corrected <- species.density$corrected/max(species.density$corrected)	
+  
+  # parasite data time
+  # get positions within climate pca from values for parasite data
+  samples.pca.loci <- points_to_indices(samples.pca.scores, pca.breaks)
+  
+  # calculate distances and angle, and extract density for each parasite sample 
+  samples.out <- distangles(loci = samples.pca.loci, 
+                            origin = which(species.density$uncorrected == 1, arr.ind = T)) %>% 
+    dplyr::bind_cols(UncorrectedDensity = species.density$uncorrected[samples.pca.loci], 
+                     samples.pca.scores) %>% 
+    dplyr::rename(UncorrectedDistance = distance,
+                  UncorrectedAngle = angle)
+  
+  samples.out <- distangles(loci = samples.pca.loci, 
+                            origin = which(species.density$corrected == 1, arr.ind = T)) %>% 
+    dplyr::bind_cols(CorrectedDensity = species.density$corrected[samples.pca.loci], 
+                     samples.out, 
+                     samples.pca.loci) %>% 
+    dplyr::rename(CorrectedDistance = distance,
+                  CorrectedAngle = angle)
+  
+  # output
+  list.out$samples.out <- samples.out
+  list.out$species.density <- species.density
+  
+  return(list.out)
+}
+
+# rotate_matrix <- function(mat) t(mat[nrow(mat):1,,drop = FALSE])
+
+
+points_to_image <- function(pts, extent){
+  img <- matrix(0, nrow = nrow(extent), ncol = nrow(extent))
+  interval1 <- findInterval(pts$Axis1, extent$Axis1)
+  interval2 <- findInterval(pts$Axis2, extent$Axis2)
+  xy <- cbind(interval1, interval2)
+  img[xy] <- 1
+  return(img)
+}
+
+
+points_to_indices <- function(pts, extent){
+  interval1 <- findInterval(pts$Axis1, extent$Axis1)
+  interval2 <- findInterval(pts$Axis2, extent$Axis2)
+  img.vals <- cbind(interval1, interval2)
+  return(img.vals)
+}
+
+
+dists <- function(loci, origin){
+  D <- sqrt((loci[, 1] - origin[, 1])^2+(loci[, 2] - origin[, 2])^2)
+  return(D)
+}
+
+distangles <- function(loci, origin){
+  D <- dists(loci, origin)
+  
+  loci[,1] <- loci[,1] - origin[,1]
+  loci[,2] <- loci[,2] - origin[,2]
+  
+  radians <- atan2(loci[,1], loci[,2])
+  
+  degrees <- radians * (180/pi)
+  
+  DA <- cbind(D, degrees)
+  colnames(DA) <- c("distance", "angle")
+  return(DA)
+}
+
