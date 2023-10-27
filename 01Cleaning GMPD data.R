@@ -231,8 +231,9 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 
 ## Different sampling method on the same sample group
 
+# TODO: reassess
 # SamplingBasis and HostsSampled 
-GMPD_Data <- GMPD_Data %>%
+GMPD_Data_Test <- GMPD_Data %>%
   dplyr::filter(!is.na(HostsSampled) | SamplingBasis != "Samples" | is.na(SamplingBasis))
 nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9970 and 138
 
@@ -716,13 +717,8 @@ nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 8
 
 rm(Res_Temp)
 
-# Misc ########################################################################################################
-
-# narrowing down IUCN_Mammals to a more manageable size
-IUCN_Orders <- IUCN_Mammals[IUCN_Mammals$order_ %in% unique(IUCN_Native_Data$order_), ]
-rm(IUCN_Mammals)
-
-# merging gmpd into one (afterthought)
+# TODO: sort out afterthought
+# merging gmpd into one (afterthought) ####
 GMPD_Data_cln_all$CleanAll <- TRUE
 GMPD_Data_cln_sub$CleanSub <- TRUE
 GMPD_Data_res_all$RestrAll <- TRUE
@@ -746,6 +742,9 @@ GMPD_Data <- GMPD_Data %>%
   mutate(RestrSub = case_when(is.na(RestrSub) ~  FALSE, TRUE ~ RestrSub))
 
 # Write files #################################################################################################
+# narrowing down IUCN_Mammals to a more manageable size
+IUCN_Orders <- IUCN_Mammals[IUCN_Mammals$order_ %in% unique(IUCN_Native_Data$order_), ]
+rm(IUCN_Mammals)
 
 write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data_01.csv"), row.names = FALSE)
 

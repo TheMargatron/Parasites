@@ -1,10 +1,10 @@
-# Calculating distance metrics (two methods) and extracting range traits
+# Calculating distance metrics (two methods), extracting range traits
 # Written by Margaret Bolton mb804(at)exeter.ac.uk 
 
 # Libraries and data ####
 
 library(here)               #
-library(tidyverse)          # beware of conflicts (mainly with raster)
+library(tidyverse)          #
 
 source(here::here("Functions.R"))
 
@@ -20,23 +20,33 @@ IUCN_Native_Data <- readRDS(here::here("Data/Data back ups/IUCN_Native_Data_01")
 # simplifying data to essentials
 
 GMPD_Data_Temp <- GMPD_Data %>%
-  dplyr::select(HostCorrectedName, ParasiteCorrectedName, 
-                Citation, LocationName, Longitude, Latitude, 
-                PopulationType, SamplingBasis, Prevalence, 
-                HostsSampled, HostSex, HostAge, SamplingType, 
-                subgroup, CleanAll, CleanSub,
+  dplyr::select(HostCorrectedName, Group,
+                HostOrder, HostFamily,
+                
+                ParasiteCorrectedName, ParType, 
+                ParPhylum, ParClass,
+                
+                Citation, 
+                LocationName, PopulationType,
+                Longitude, Latitude, 
+                 
+                SamplingBasis, SamplingType, HostsSampled, 
+                Prevalence, 
+                HostSex, HostAge, 
+                subgroup, 
+                
+                CleanAll, CleanSub,
                 RestrAll, RestrSub)
 
 GBIF_Data_Temp <- GBIF_Subgroups %>%
   dplyr::select(species, taxonRank, scientificName,
                 subgroup, decimalLongitude, decimalLatitude) %>%
-  mutate(species = case_when(species == "Pekania pennanti" ~ "Martes pennanti", # TODO: remove after rerunning 02.1
-                             species == "Mustela vison" ~ "Neovison vison",
-                             species == "Taurotragus oryx" ~ "Tragelaphus oryx",
-                             TRUE ~ species))
+  dplyr::mutate(species = case_when(species == "Pekania pennanti" ~ "Martes pennanti", # TODO: remove after rerunning 02.1
+                                    species == "Mustela vison" ~ "Neovison vison",
+                                    species == "Taurotragus oryx" ~ "Tragelaphus oryx",
+                                    TRUE ~ species))
 
 # Distance metrics and range traits ####
-
 Distances_Data_res_all <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$RestrAll,], range.pol = IUCN_Native_Data, method = "iucn", subsp = FALSE)
 
 Distances_Data_res_sub <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$RestrSub,], range.pol = IUCN_Native_Data, method = "iucn", subsp = TRUE) 
@@ -46,15 +56,15 @@ Distances_Data_cln_all <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$Cl
 Distances_Data_cln_sub <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$CleanSub,], range.dat = GBIF_Data_Temp, method = "gbif", subsp = TRUE) 
 
 # Merge into one df
-GMPD_Distances_Data <- bind_rows(Distances_Data_res_all$DistanceMetrics,
-                                 Distances_Data_res_sub$DistanceMetrics,
-                                 Distances_Data_cln_all$DistanceMetrics,
-                                 Distances_Data_cln_sub$DistanceMetrics)
+GMPD_Distances_Data <- dplyr::bind_rows(Distances_Data_res_all$DistanceMetrics,
+                                        Distances_Data_res_sub$DistanceMetrics,
+                                        Distances_Data_cln_all$DistanceMetrics,
+                                        Distances_Data_cln_sub$DistanceMetrics)
 
-Range_Traits <- bind_rows(Distances_Data_res_all$RangeTraits,
-                          Distances_Data_res_sub$RangeTraits,
-                          Distances_Data_cln_all$RangeTraits,
-                          Distances_Data_cln_sub$RangeTraits)
+Range_Traits <- dplyr::bind_rows(Distances_Data_res_all$RangeTraits,
+                                 Distances_Data_res_sub$RangeTraits,
+                                 Distances_Data_cln_all$RangeTraits,
+                                 Distances_Data_cln_sub$RangeTraits)
 
 
 write.csv(GMPD_Distances_Data, file = here::here("Data/Data back ups/GMPD_Distances_Data_03.csv"), row.names = FALSE)

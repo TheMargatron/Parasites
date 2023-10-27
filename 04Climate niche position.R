@@ -3,9 +3,7 @@
 
 # Libraries and data ##########################################################################################
 library(ade4)
-# library(adehabitatMA)
 library(here)
-# library(raster)
 library(geodata) # To replace raster getData
 library(terra)
 library(tidyverse)
@@ -15,7 +13,7 @@ GBIF_Data <- read.csv(here::here("Data/Data back ups/GBIF_Subgroups_02.csv"), he
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Distances_Data_03.csv"), header = TRUE, stringsAsFactors = FALSE)
 
 # IUCN and GBIF names are not always matching
-# TODO: This will be fixed in 01.1
+# TODO: This will be fixed in 02.1
 GBIF_Data <- GBIF_Data %>%
   dplyr::mutate(species = case_when(species == "Mustela vison"    ~ "Neovison vison",
                                     species == "Taurotragus oryx" ~ "Tragelaphus oryx",
@@ -79,3 +77,8 @@ GMPD_Kernel_Data <- clim_density(climate.pca.scores = GMPD_Kernel_Data$pca.clima
 
 # Save output
 saveRDS(KS_Output, here::here("Data/Data back ups/GMPD_Kernel_Data_04.rds"))
+
+GMPD_Climate_Data <- GMPD_Kernel_Data$samples.out %>% 
+  dplyr::bind_rows()
+write.csv(GMPD_Climate_Data, here::here("Data/Data back ups/GMPD_Climate_Data_04.csv"), row.names = FALSE)
+

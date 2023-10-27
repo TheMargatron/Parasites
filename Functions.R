@@ -25,8 +25,80 @@ library(RColorBrewer)
 library(tidyverse)
 library(tmap)
 
+# TODO: sort functions
+# used in script 05 ############################################################
+basic_barplot <- function(dat = GMPD_Parasite_Data, xvar = ParClass, yvar = Prevalence){
+  
+  dat <- dat %>% 
+    dplyr::mutate(AbsLatitude = abs(Latitude))
+  
+  # summarise for error bars
+  plot_data <- dat %>% 
+    dplyr::group_by({{xvar}}) %>% 
+    dplyr::summarise(
+      HostsSampledMax = mean(HostsSampled) + sd(HostsSampled),
+      LatitudeMax     = mean(Latitude) + sd(Latitude),
+      AbsLatitudeMax  = mean(AbsLatitude) + sd(AbsLatitude),
+      PrevalenceMax   = mean(Prevalence) + sd(Prevalence),
+      
+      HostsSampledMin = mean(HostsSampled) - sd(HostsSampled),
+      LatitudeMin     = mean(Latitude) - sd(Latitude),
+      AbsLatitudeMin  = mean(AbsLatitude) - sd(AbsLatitude),
+      PrevalenceMin   = mean(Prevalence) - sd(Prevalence),
+      
+      HostsSampled    = mean(HostsSampled),
+      Latitude        = mean(Latitude),
+      AbsLatitude     = mean(AbsLatitude),
+      Prevalence      = mean(Prevalence),
+      
+      TotalHostsSampled = sum(HostsSampled), 
+      n = n()
+    ) %>% 
+    dplyr::mutate(xvar2 = paste0({{xvar}}, " (", n, ")"),
+                  xvar3 = paste0({{xvar}}, " (", TotalHostsSampled, ")"))
+  
+  # data for points
+  jitter_data <- plot_data %>% 
+    dplyr::select({{xvar}}, xvar2) %>% 
+    right_join(dat, by = join_by({{xvar}}))
+  
+  # Trying to get around "glue-tunelling"
+  yvarmin <- paste0(as_label(enquo(yvar)), "Min")
+  yvarmax <- paste0(as_label(enquo(yvar)), "Max")
+  
+  # shit plot  
+  plot_out <- ggplot(plot_data, aes(x = xvar2, y = {{yvar}})) +
+    geom_bar(stat = "identity", fill =  "#3C6E71") +
+    
+    geom_jitter(data = jitter_data,
+                col = "#B7CECE",
+                width = 0.25) +
+    
+    geom_errorbar(aes(ymin = !! sym(yvarmin),
+                      ymax = !! sym(yvarmax)),
+                  width = .2,
+                  col = "#1C0F13") +
+    
+    xlab(as_label(enquo(xvar))) +
+    
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  return(plot_out)
+}
+
+relative_likelihood <- function(model1, model2){
+  aics <- c(AIC(model1), AIC(model2))
+  
+  return(exp((min(aics)-max(aics))/2))
+}
+
+# used in script 0? ############################################################
+
 restrict_grid <- function(location.data, rastr){
-  c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
+  # c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
+  c.rast <- terra::rasterize(y = location.data[[1]],
+                   fun = length)
+  
   return(length(Which(c.rast, cells = TRUE))>1) 
 }
 
@@ -92,7 +164,7 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
       }
       
       # extract latitudes from range.pol.sub and convert to absolute values
-      range.exact.vals  <- raster::geom(range.pol.sub)[,"y"]
+      range.exact.vals  <- terra::geom(range.pol.sub)[,"y"]
       range.abs.vals    <- abs(range.exact.vals) 
       
       # absolute values (latitude)
@@ -132,6 +204,7 @@ range_distances <- function(dat, range.pol, range.dat, method, subsp){
       
       k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
       
+      # TODO: phase out sp
       k$EquatorwardsDist  <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min))
       k$EquatorwardsProp  <- k$EquatorwardsDist/range.span
       
@@ -872,6 +945,7 @@ bboxer <- function(...){
          byrow = TRUE, nrow = 2,
          dimnames = list(c("Longitude", "Latitude"), c("min", "max")))
 }
+
 
 
 

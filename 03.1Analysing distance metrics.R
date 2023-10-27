@@ -157,8 +157,6 @@ summary(Md_IUCN_Species_1a)
 # but need to clean sample sizes first because some seem a bit off
 # Also need to find out more about weighting and whether I need to scale sample sizes in some way
 
-##### TODO: model 1 visualisation ####
-
 ### 2: Interaction ####
 #### fixed effects only (2) ####
 # just for comparison as a basic model
@@ -282,19 +280,19 @@ summary(Md_IUCN_Species_3e)
 # this is easier to illustrate on paper, but it's also visible in model outputs
 # Compare the following models (3c is same as above)
 Md_IUCN_Species_3c <- glm(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2),
-data = GMPD_IUCN_Species, family = binomial)
+                          data = GMPD_IUCN_Species, family = binomial)
 
 summary(Md_IUCN_Species_3c)
 
 Md_IUCN_Species_3c_1 <- glm(formula = Prevalence ~ LatitudeScaled + poly(MedianPropScaled, 2),
-                          data = GMPD_IUCN_Species, family = binomial)
+                            data = GMPD_IUCN_Species, family = binomial)
 
 summary(Md_IUCN_Species_3c_1)
 
 # The AIC jumps up between 3c and 3c_1 because the two sides of the quadratic are not aligned
 
 Md_IUCN_Species_3c_3 <- glm(formula = Prevalence ~ LatitudeScaled + poly(MedianPropScaled, 2):AboveMedn,
-                          data = GMPD_IUCN_Species, family = binomial)
+                            data = GMPD_IUCN_Species, family = binomial)
 
 summary(Md_IUCN_Species_3c_3)
 
@@ -305,7 +303,7 @@ summary(Md_IUCN_Species_3c_3)
 # it can now do what we really want it to which is test is there are differences in slope between the two sides
 
 Md_IUCN_Species_3c_2 <- glm(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2):AboveMedn,
-                          data = GMPD_IUCN_Species, family = binomial)
+                            data = GMPD_IUCN_Species, family = binomial)
 
 summary(Md_IUCN_Species_3c_2)
 
