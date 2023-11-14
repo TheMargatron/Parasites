@@ -46,8 +46,12 @@ Clim_Variables <- c("wc2.1_10m_bio_5", "wc2.1_10m_bio_6", "wc2.1_10m_bio_12")
 PCA_Full <- ade4::dudi.pca(Bioclim_DF[, Clim_Variables], center = T, scale = T, scannf = F, nf = 2)
 
 # columns to keep during analysis
+# TODO: update this list
 gmpd.cols <- c("HostCorrectedName",
                "ParasiteCorrectedName", 
+               # "ParType",
+               # "ParPhylum",
+               # "Group", 
                "HostsSampled", 
                "Longitude", 
                "Latitude", 
@@ -69,14 +73,15 @@ GMPD_Kernel_Data <- kd_prep(clim.raw = BIO_050612,
                             spat.dat = GBIF_Data,
                             samp.dat = GMPD_Data[, gmpd.cols],
                             pca.full = PCA_Full,
-                            bioclim.full.df = Bioclim_DF)
+                            bioclim.full.df = Bioclim_DF,
+                            density.resolution = 10/60) # to match resolution of worldclim data
 
 GMPD_Kernel_Data <- clim_density(climate.pca.scores = GMPD_Kernel_Data$pca.climate,
                                  species.pca.scores = GMPD_Kernel_Data$pca.species,
                                  samples.pca.scores = GMPD_Kernel_Data$pca.samples)
 
 # Save output
-saveRDS(KS_Output, here::here("Data/Data back ups/GMPD_Kernel_Data_04.rds"))
+saveRDS(GMPD_Kernel_Data, here::here("Data/Data back ups/GMPD_Kernel_Data_04.rds"))
 
 GMPD_Climate_Data <- GMPD_Kernel_Data$samples.out %>% 
   dplyr::bind_rows()

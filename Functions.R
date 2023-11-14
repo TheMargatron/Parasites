@@ -975,16 +975,18 @@ kd_prep <- function(clim.raw = BIO_050612,
                     spat.dat, 
                     samp.dat, 
                     pca.full = PCA_Full,
-                    bioclim.full.df = Bioclim_DF){
+                    bioclim.full.df = Bioclim_DF,
+                    density.resolution = 10/60){
   list.out <- list()
   
   # species prep
   hostlist <- unique(samp.dat$HostCorrectedName)
   species.out <- lapply(hostlist, species_kd_prep, 
                         spat.dat = spat.dat,
-                        samp.dat  = samp.dat,
+                        samp.dat = samp.dat,
                         clim.raw = clim.raw,
-                        pca.full = pca.full)
+                        pca.full = pca.full,
+                        density.resolution = density.resolution)
   names(species.out) <- hostlist
   species.out <- purrr::list_transpose(species.out, simplify = FALSE)
   
@@ -1002,7 +1004,8 @@ species_kd_prep <- function(species.name,
                             spat.dat = spat.dat,
                             samp.dat = samp.dat,
                             clim.raw = clim.raw, 
-                            pca.full = pca.full){
+                            pca.full = pca.full,
+                            density.resolution){
   list.out <- list()
   
   # Narrow down data to selected species
@@ -1015,8 +1018,7 @@ species_kd_prep <- function(species.name,
   
   # (partially) account for sampling bias by gridding species occurence data and extracting filled cells
   raster.count <- terra::rast(extent = terra::ext(c(-180,180,-90,90)),
-                              resolution = 10/60) # to match resolution of worldclim data
-  # TODO: decide on a better resolution 
+                              resolution = density.resolution) 
   
   raster.count <- samp.dat %>% 
     dplyr::select(matches("Longitude|Latitude")) %>% 
@@ -1039,7 +1041,7 @@ species_kd_prep <- function(species.name,
   
   # output for grid.clim
   list.out$pca.species <- drop_na(ade4::suprow(pca.full, bioclim.occurrences.df[, Clim_Variables])$lisup)    #The pca scores for current species
-  list.out$pca.samples   <-   cbind(ade4::suprow(pca.full, bioclim.parasites.df[, Clim_Variables])$lisup, bioclim.parasites.df)   # pca scores for current species from gmpd
+  list.out$pca.samples   <- cbind(ade4::suprow(pca.full, bioclim.parasites.df[, Clim_Variables])$lisup, bioclim.parasites.df)   # pca scores for current species from gmpd
   
   return(list.out)
 }
@@ -1184,25 +1186,29 @@ species_clim_density <- function(species.name,
   # rescale between [0:1] for comparison with other species (again)
   species.density$corrected <- species.density$corrected/max(species.density$corrected)	
   
+  # get peak of kernel density
+  species.density$peak_uncorrected <- which(species.density$uncorrected == 1, arr.ind = T)
+  species.density$peak_corrected <- which(species.density$corrected == 1, arr.ind = T)
+  
   # parasite data time
   # get positions within climate pca from values for parasite data
   samples.pca.loci <- points_to_indices(samples.pca.scores, pca.breaks)
   
   # calculate distances and angle, and extract density for each parasite sample 
   samples.out <- distangles(loci = samples.pca.loci, 
-                            origin = which(species.density$uncorrected == 1, arr.ind = T)) %>% 
+                            origin = species.density$peak_uncorrected) %>% 
     dplyr::bind_cols(UncorrectedDensity = species.density$uncorrected[samples.pca.loci], 
                      samples.pca.scores) %>% 
     dplyr::rename(UncorrectedDistance = distance,
                   UncorrectedAngle = angle)
   
   samples.out <- distangles(loci = samples.pca.loci, 
-                            origin = which(species.density$corrected == 1, arr.ind = T)) %>% 
+                            origin = species.density$peak_corrected) %>% 
     dplyr::bind_cols(CorrectedDensity = species.density$corrected[samples.pca.loci], 
                      samples.out, 
                      samples.pca.loci) %>% 
     dplyr::rename(CorrectedDistance = distance,
-                  CorrectedAngle = angle)
+                  CorrectedAngle = angle) 
   
   # output
   list.out$samples.out <- samples.out
