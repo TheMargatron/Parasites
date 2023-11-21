@@ -221,9 +221,10 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 ## Sample cleaning ############################################################################################
 
 # pseudo-sampling and duplicates
+## Throw samples which have nothing to use for sample size
 ## rows where SamplingBasis was "samples" AND HostsSampled was NA are excluded
 
-## rows which are missing either HostsSampled or NumSamples: get data from the other one
+## rows which are missing HostsSampled: get data from the other one
 
 ## Filling in HostAge and HostSex reduces duplicated data
 ### e.g. data inputted once with NA for HostSex and again identically except HostSex is reported accurately
@@ -233,9 +234,209 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 
 # TODO: reassess
 # SamplingBasis and HostsSampled 
-GMPD_Data_Test <- GMPD_Data %>%
-  dplyr::filter(!is.na(HostsSampled) | SamplingBasis != "Samples" | is.na(SamplingBasis))
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 9970 and 138
+# Some samples had pseudoreplication when subdivided by HostAge, or HostSex, or both
+# Before tackling those I assumed all with a single sample for each Host, Parasite and Location within a Citation was distinct
+GMPD_Data_Test <- GMPD_Data %>% 
+  dplyr::mutate(NewSamp = case_when(is.na(HostsSampled) & 
+                                      SamplingBasis == "Animals" ~ NumSamples,
+                                    TRUE ~ NA),
+                NewPrev = case_when(is.na(HostsSampled) & 
+                                      SamplingBasis == "Animals" ~ Prevalence,
+                                    TRUE ~ NA)) %>% 
+  dplyr::group_by(Citation, HostCorrectedName, ParasiteCorrectedName, LocationName) %>% 
+  dplyr::mutate(NewSamp = case_when(n() == 1 & !is.na(HostsSampled) ~ HostsSampled,
+                                    n() == 1 & is.na(HostsSampled) ~ NaN,
+                                    TRUE ~ NewSamp),
+                NewPrev = case_when(n() == 1 ~ Prevalence,
+                                    TRUE ~ NewPrev))
+
+# Some samples which lacked HostsSampled had valid sample sizes in NumSamples
+# I could not distinguish which were valid just based on the available data so resorted to filtering through papers
+# E.g. Some which recorded SamplingType as "DirectFecal" were sampled from individual hosts, while others were from faeces in the environment
+# I only kept those which could be associated directly with the specified number of hosts
+Citations_temp <- GMPD_Data_Test %>% filter(is.nan(NewSamp)) %>% pull(Citation) %>% unique()
+GMPD_Data_Test %>% 
+  filter(Citation %in% Citations_temp) %>% 
+  View()
+
+GMPD_Data_Test2 <- GMPD_Data_Test %>% 
+  dplyr::group_by(Citation, HostCorrectedName, ParasiteCorrectedName, LocationName) %>% 
+  mutate(NewSamp = case_when(Citation == "Alexander et al. 2010" ~ NumSamples,
+                             
+                             Citation == "Almberg et al. 2009" &
+                               is.na(HostAge) ~ NumSamples,
+                             Citation == "Almberg et al. 2009" &
+                               NumSamples == max(NumSamples) ~ max(NumSamples),
+                             Citation == "Almberg et al. 2009" ~ 99999,
+                             
+                             Citation == "Archer et al. 1986" ~ 99999,
+                             
+                             Citation == "Biek et al. 2006" ~ NumSamples, 
+                             
+                             Citation == "Calderini et al. 2009" ~ 129,
+                             
+                             Citation == "de Lisle et al. 2008" ~ NumSamples,
+                             
+                             Citation == "Evans 2002" ~ NumSamples,
+                             
+                             Citation == "Fuglei et al. 2008" ~ 99999,
+                             
+                             Citation == "Gompper et al. 2003" ~ NumSamples,
+                             
+                             Citation == "Gudmundsdottir and Skirnisson 2005" ~ 99999,
+                             
+                             Citation == "Hill et al. 1998" &
+                               is.na(HostsSampled) ~ 99999,
+                             
+                             Citation == "Jenkins et al 2006" ~ 99999,
+                             
+                             Citation == "Magnarelli et al. 1995" ~ 99999,
+                             
+                             Citation == "Pedersen et al. 2008" &
+                               is.na(HostsSampled) ~ 99999,
+                             
+                             Citation == "Popiolek et al. 2007" ~ 99999,
+                             
+                             Citation == "Rosalino et al. 2006" ~ 99999,
+                             
+                             Citation == "Szczesna and Popiolek 2007" ~ 99999,
+                             
+                             Citation == "Szczesna et al. 2008" ~ 99999,
+                             
+                             Citation == "Truyen et al. 1998" ~ NumSamples,
+                             
+                             Citation == "Tsukada et al. 2000" ~ 99999,
+                             
+                             Citation == "Whitlaw and Lankester 1994" ~ 99999, 
+                             
+                             all(is.na(HostAge)) & all(is.na(HostSex)) &
+                               !is.na(HostsSampled) ~ HostsSampled,
+                             all(is.na(HostAge)) & all(is.na(HostSex)) &
+                               is.na(HostsSampled) ~ NaN,
+                             
+                             TRUE ~ NewSamp),
+         NewPrev = case_when(Citation == "Almberg et al. 2009" &
+                               is.na(HostAge) ~ Prevalence,
+                             Citation == "Almberg et al. 2009" &
+                               NumSamples == max(NumSamples) ~ Prevalence,
+                             Citation == "Almberg et al. 2009" ~ NaN,
+                             
+                             Citation == "Archer et al. 1986" ~ NaN,
+                             
+                             Citation == "Biek et al. 2006" ~ Prevalence, 
+                            
+                             Citation == "Fuglei et al. 2008" ~ NaN, 
+                             
+                             Citation == "Gudmundsdottir and Skirnisson 2005" ~ NaN,
+                             
+                             Citation == "Hill et al. 1998" &
+                               is.na(HostsSampled) ~ NaN,
+                             
+                             Citation == "Jenkins et al 2006" ~ NaN,
+                             
+                             Citation == "Magnarelli et al. 1995" ~ NaN, 
+                             
+                             Citation == "Pedersen et al. 2008" & 
+                               is.na(HostsSampled) ~ NaN,
+                             
+                             Citation == "Popiolek et al. 2007" ~ NaN,
+                             
+                             Citation == "Rosalino et al. 2006" ~ NaN, 
+                             
+                             Citation == "Szczesna and Popiolek 2007" ~ NaN,
+                             
+                             Citation == "Szczesna et al. 2008" ~ NaN,
+                             
+                             Citation == "Tsukada et al. 2000" ~ NaN,
+                             
+                             Citation == "Whitlaw and Lankester 1994" ~ NaN,
+                             
+                             all(is.na(HostAge)) & all(is.na(HostSex)) ~ Prevalence,
+                             
+                             TRUE ~ NewPrev))
+
+Citations_temp2 <- GMPD_Data_Test2 %>% filter(is.nan(NewSamp)) %>% pull(Citation) %>% unique()
+GMPD_Data_Test2 %>% 
+  filter(Citation %in% Citations_temp2) %>% 
+  View()
+
+# Another situation like previous sort through
+# Then do a fix of host age/sex/both
+# Then another sort through situation
+
+# TODO: Host age and sex
+
+# host age and sex
+GMPD_Data_Test2 <- GMPD_Data_Test %>% 
+  # select(Citation, SamplingBasis, Prevalence, HostsSampled, HostSex, HostAge, NumSamples, SamplingType) %>% 
+  # filter(!is.na(NumSamples) & HostsSampled != NumSamples) %>% 
+  group_by(Citation, HostCorrectedName, ParasiteCorrectedName, LocationName) %>% 
+  mutate(NewPrev = case_when(#HostsSampled == NumSamples | is.na(NumSamples) ~ Prevalence,
+                             
+                             n() == 1 ~ Prevalence,
+                             
+                             all(is.na(HostAge)) & all(is.na(HostSex)) ~ Prevalence,
+                             
+                             all(!is.na(HostAge) | !is.na(HostSex)) &
+                               (sum(NumSamples)/HostsSampled)%%1 == 0 ~ weighted.mean(Prevalence, NumSamples),
+                             
+                             TRUE ~ NA),
+         NewSamp = case_when(#HostsSampled == NumSamples | is.na(NumSamples) ~ HostsSampled,
+                             
+                             n() == 1 & !is.na(HostsSampled) ~ HostsSampled,
+                             
+                             all(is.na(HostAge)) & all(is.na(HostSex)) ~ HostsSampled,
+                             
+                             all(!is.na(HostAge) | !is.na(HostSex)) &
+                               (sum(NumSamples)/HostsSampled)%%1 == 0 ~ HostsSampled,
+                             
+                             TRUE ~ NA)) %>% 
+  group_by(Citation, HostCorrectedName, ParasiteCorrectedName, LocationName, HostsSampled) %>% 
+  mutate(NewPrev = case_when(!is.na(NewPrev) ~ NewPrev,
+                             
+                             all(!is.na(HostAge) | !is.na(HostSex)) &
+                               (sum(NumSamples)/HostsSampled)%%1 == 0 ~ weighted.mean(Prevalence, NumSamples),
+                             
+                             TRUE ~ NewPrev),
+         NewSamp = case_when(!is.na(NewSamp) ~ NewSamp,
+                             
+                             all(!is.na(HostAge) | !is.na(HostSex)) &
+                               (sum(NumSamples)/HostsSampled)%%1 == 0 ~ HostsSampled,
+                             TRUE ~ NewSamp)) #%>% 
+  
+  # mutate(NewAge = HostAge,
+  #        NewSex = HostSex) %>% 
+  # dplyr::group_by(pick(-NewAge, -HostAge)) %>% 
+  # tidyr::fill(NewAge, .direction = "updown") %>% 
+  # dplyr::ungroup() %>% 
+  # 
+  # dplyr::group_by(pick(-NewSex, -HostSex)) %>% 
+  # tidyr::fill(NewSex, .direction  = "updown") %>% 
+  # dplyr::ungroup() %>% 
+  # 
+  # dplyr::group_by(pick(-NewAge, -NewSex, -HostAge, -HostSex)) %>%
+  # tidyr::fill(c(NewSex, NewAge), .direction = "updown") %>% 
+
+  # group_split() %>% 
+
+GMPD_Data_Test3 <- GMPD_Data_Test2 %>% 
+  mutate(NumericSex = case_when(HostSex == "Female" ~ 1,
+                                HostSex == "Male" ~ -1,
+                                HostSex == "All" ~ 0,
+                                is.na(HostSex) ~ NA),
+         NumericAge = case_when(HostAge == "Adult" ~ 1,
+                                HostAge == "Juvenile" ~ -1,
+                                HostAge == "All" ~ 0,
+                                is.na(HostAge) ~ NA)) %>% 
+  group_by(Citation, HostCorrectedName, ParasiteCorrectedName, LocationName) %>% 
+  mutate(NewNewSamp = case_when(sum(NumericSex) == 0 & HostsSampled == NumSamples ~ HostsSampled,
+                                sum(NumericSex) == 0 ~ 99999,
+                                sum(NumericAge) == 0 & HostsSampled == NumSamples ~ HostsSampled,
+                                sum(NumericAge) == 0 ~ 99999),
+         NewNewPrev = case_when(sum(NumericSex) == 0 & HostsSampled == NumSamples ~ Prevalence,
+                                sum(NumericSex) == 0 ~ 99999,
+                                sum(NumericAge) == 0 & HostsSampled == NumSamples ~ Prevalence,
+                                sum(NumericAge) == 0 ~ 99999))
 
 # host age and sex NA duplications
 GMPD_Data <- GMPD_Data %>%
