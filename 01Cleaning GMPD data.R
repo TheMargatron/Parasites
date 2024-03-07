@@ -2,8 +2,10 @@
 # Written by Margaret Bolton mb804(at)exeter.ac.uk 
 
 # takes:
-## Raw GMPD data from https://doi.org/10.1002/ecy.1799
+## Raw GMPD data from https://doi.org/10.1002/ecy.1799 (Downloaded 2018)
+
 ## Terrestrial mammal IUCN range polygons https://www.iucnredlist.org/resources/spatial-data-download
+# 07/03/2024
 
 # makes: 
 ## GMPD_Data_res = cleaned GMPD data, restricted to points within native range polygons
@@ -38,7 +40,7 @@ GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"),
                           stringsAsFactors = FALSE) 
 nrow(GMPD_Raw_Data); length(unique(GMPD_Raw_Data$HostCorrectedName)) #Beginning with 24323 rows and 462 hosts
 
-IUCN_Mammals <- sf::read_sf(dsn = here::here("Data/IUCN"), layer = "MAMMALS")
+IUCN_Mammals <- sf::read_sf(dsn = here::here("Data/IUCN/MAMMALS"), layer = "MAMMALS")
 Projection_String <- sf::st_crs(IUCN_Mammals)
 
 River_Data50 <- rnaturalearth::ne_load(scale = 50,
@@ -48,7 +50,7 @@ River_Data50 <- rnaturalearth::ne_load(scale = 50,
                                        returnclass = "sf")
 
 # sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
-tmap_mode("view")
+# tmap_mode("view")
 
 # Basic data cleaning #########################################################################################
 
@@ -227,18 +229,14 @@ Hostlist <- unique(GMPD_Data$HostCorrectedName)
 ## Remove samples where feces was collected from an unknown number of hosts (e.g. environmental samples)
 ## Correct or remove rows which repeat data
 ## Remove samples from semi-domestic or captive populations
+## Remove lower Prevalence estimates when different sampling method on the same sample group
 
-## rows which are missing HostsSampled: get data from the other one
+## rows which are missing HostsSampled: get data from NumSamples
 
-## Filling in HostAge and HostSex reduces duplicated data
-### e.g. data inputted once with NA for HostSex and again identically except HostSex is reported accurately
-### This doesn't get rid of rows where HostSex differs between rows but still contains a value
-
-## Different sampling method on the same sample group
 
 # Starting with DirectFecal because they are often sampled from the environment
 Citations <- GMPD_Data %>% filter(SamplingType == "DirectFecal") %>% pull(Citation)
-GMPD_Data %>% filter(Citation %in% Citations) %>% View()
+# GMPD_Data %>% filter(Citation %in% Citations) %>% View()
 
 GMPD_Data_Filter <- GMPD_Data %>% 
   dplyr::mutate(SampleSize = case_when(
@@ -266,7 +264,6 @@ GMPD_Data_Filter <- GMPD_Data %>%
     
     Citation %in% c("Evans 2002",
                     "Kidder et al. 1989") ~ NumSamples,
-   
     
     # Rejected
     Citation %in% c("Archer et al. 1986",
@@ -421,7 +418,7 @@ GMPD_Data_Filter <- GMPD_Data %>%
 Citations <- GMPD_Data_Filter %>% filter(is.na(SampleSize)) %>% 
   group_by(Citation) %>% summarise(n = n()) %>% 
   filter(n == 1) %>% pull(Citation)
-GMPD_Data %>% filter(Citation %in% Citations) %>% View()
+# GMPD_Data %>% filter(Citation %in% Citations) %>% View()
 
 GMPD_Data_Filter <- GMPD_Data_Filter %>% 
   mutate(SampleSize = case_when(
@@ -723,7 +720,7 @@ GMPD_Data_Filter <- GMPD_Data_Filter %>%
 
 Citations <- GMPD_Data_Filter %>% filter(is.na(SampleSize) & HostsSampled != NumSamples) %>% 
   pull(Citation)
-GMPD_Data %>% filter(Citation %in% Citations) %>% View()
+# GMPD_Data %>% filter(Citation %in% Citations) %>% View()
 
 GMPD_Data_Filter <- GMPD_Data_Filter %>% 
   mutate(SampleSize = case_when(
@@ -1302,7 +1299,7 @@ GMPD_Data_Filter <- GMPD_Data_Filter %>%
 
 Citations <- GMPD_Data_Filter %>% filter(is.na(SampleSize) & HostsSampled < 5) %>% 
   pull(Citation)
-GMPD_Data %>% filter(Citation %in% Citations) %>% View()
+# GMPD_Data %>% filter(Citation %in% Citations) %>% View()
 
 GMPD_Data_Filter <- GMPD_Data_Filter %>% 
   mutate(SampleSize = case_when(
@@ -1820,7 +1817,7 @@ GMPD_Data_Filter <- GMPD_Data_Filter %>%
 
 Citations <- GMPD_Data_Filter %>% filter(is.na(SampleSize) & !is.na(HostAge)) %>% 
   pull(Citation)
-GMPD_Data %>% filter(Citation %in% Citations) %>% View()
+# GMPD_Data %>% filter(Citation %in% Citations) %>% View()
 
 GMPD_Data_Filter <- GMPD_Data_Filter %>% 
   mutate(SampleSize = case_when(
@@ -2427,7 +2424,7 @@ GMPD_Data_Filter <- GMPD_Data_Filter %>%
 
 Citations <- GMPD_Data_Filter %>% filter(is.na(SampleSize)) %>% 
   pull(Citation)
-GMPD_Data %>% filter(Citation %in% Citations) %>% View()
+# GMPD_Data %>% filter(Citation %in% Citations) %>% View()
 
 GMPD_Data_Filter <- GMPD_Data_Filter %>% 
   mutate(SampleSize = case_when(
@@ -2719,101 +2716,21 @@ GMPD_Data <- GMPD_Data %>%
                                        countries = "countrycode",
                                        tests = c("capitals","centroids","institutions", "countries"),
                                        value = "clean")
-nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 6062 and 122
+
+GMPD_Data <- GMPD_Data %>%
+  dplyr::group_by(ParasiteCorrectedName, HostCorrectedName) %>%
+  dplyr::filter(n()>1) %>% 
+  dplyr::ungroup()
+nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 5714 and 108
 
 # Native and non-native ####
 ## Removing non-native polygons ####
 
 # reducing to relevant subsets of IUCN data to save time and space 
-# TODO: Maybe move hostlist to here??
-Hostlist <- unique(GMPD_Data$HostCorrectedName)
-IUCN_Data <- IUCN_Mammals[IUCN_Mammals$binomial %in% Hostlist, ]
-
-# Correcting legend for Oreamnos americanus
-
-### Oreamnos americanus
-O_americanus_temp <- IUCN_Data[IUCN_Data$binomial == "Oreamnos americanus",]
-
-# According to iucn red list, O. americanus was introduced to Chicagof Island
-"Festa-Bianchet, M. 2022. Oreamnos americanus (errata version published in 2022). The IUCN Red List of Threatened Species 2022: e.T42680A211860282. Accessed on 27 September 2023."
-# It is recorded in their spatial data as Extant (resident)
-# Correcting to Extant & Introduced (resident)
-# The same applies to Kodiak island
-tm_shape(O_americanus_temp) + tm_polygons("legend") 
-
-# Chicagof and Kodiak are missing data in dist_comm
-tm_shape(O_americanus_temp) + tm_polygons("dist_comm") 
-
-O_americanus_temp <- O_americanus_temp %>% 
-  dplyr::mutate(legend = case_when(is.na(dist_comm) ~ "Extant & Introduced (resident)",
-                                   TRUE ~ legend))
-
-# Corrected map
-tm_shape(O_americanus_temp) + tm_polygons("legend")
-
-IUCN_Data <- IUCN_Data %>% 
-  dplyr::filter(binomial != "Oreamnos americanus") %>% 
-  rbind(O_americanus_temp)
-
-### Ovibos moschatus
-# O_moschatus_temp <- IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",]
-
-# IUCN red list states:
-# This has been corrected, I need to update my data
-# Can state in reference that this one has a more recent download date because 
-# the polygons were updataed by IUCN in a way that changed the legend
-# "Muskoxen were introduced and are well established in West Greenland"
-
-# tm_shape(O_moschatus_temp) + tm_polygons("legend")
-# tm_shape(O_moschatus_temp) + tm_polygons("SHAPE_Area") # aggregated across Greenland
-# 
-# clip_points_temp <- as.data.frame(matrix(c(-54.86, 71.54,
-#                                            -49.98, 66.64,
-#                                            -47.69, 61.36),
-#                                          ncol = 2, byrow = TRUE))
-# clip_points_temp <- st_as_sf(clip_points_temp,
-#                              crs = Projection_String,
-#                              coords = c(1,2))
-# 
-# O_moschatus_temp <- st_cast(O_moschatus_temp)
-# O_moschatus_temp <- O_moschatus_temp[clip_points_temp,]
-# O_moschatus_temp$legend <- "Extant & Introduced (resident)"
-# 
-# O_moschatus_temp <- rbind(st_difference(IUCN_Data[IUCN_Data$binomial == "Ovibos moschatus",], O_moschatus_temp$geometry),
-#                           O_moschatus_temp)
-# 
-# tm_shape(O_moschatus_temp) + tm_polygons("legend") + tm_shape(clip_points_temp) + tm_dots()
-# 
-# IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Ovibos moschatus",]
-# IUCN_Data <- rbind(IUCN_Data, O_moschatus_temp)
-
-# Rupicapra rupicapra
-# IUCN red list:
-# "The subspecies cartusiana is endemic to France, where it is restricted to a 350 km2 area of the Chartreuse limestone massif, centred around Grenoble, at the western edge of the French Alps."
-
-# R_rupicapra_temp <- IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",]
-# tm_shape(R_rupicapra_temp) + tm_polygons("legend")
-# 
-# clip_points_temp <- as.data.frame(matrix(c(2.935324, 45.199909),
-#                                          ncol = 2, byrow = TRUE))
-# clip_points_temp <- st_as_sf(clip_points_temp, 
-#                              crs = Projection_String,
-#                              coords = c(1,2))
-# 
-# R_rupicapra_temp <- sf::st_cast(R_rupicapra_temp)
-# R_rupicapra_temp <- R_rupicapra_temp[clip_points_temp,]
-# R_rupicapra_temp$legend <- "Extant & Reintroduced (Extant)"
-# 
-# R_rupicapra_temp <- rbind(sf::st_difference(IUCN_Data[IUCN_Data$binomial == "Rupicapra rupicapra",], 
-#                                             R_rupicapra_temp$geometry), 
-#                           R_rupicapra_temp)
-# 
-# tm_shape(R_rupicapra_temp) + tm_polygons("legend")
-# 
-# IUCN_Data <- IUCN_Data[IUCN_Data$binomial != "Rupicapra rupicapra",]
-# IUCN_Data <- rbind(IUCN_Data, R_rupicapra_temp)
-# 
-# rm(list = ls(pattern = "_temp$"))
+Hostlist <- sort(unique(GMPD_Data$HostCorrectedName))
+sf::sf_use_s2(FALSE) # make valid only works fully if geometry is planar
+IUCN_Data <- IUCN_Mammals[IUCN_Mammals$sci_name %in% Hostlist, ] %>% 
+  sf::st_make_valid()
 
 # Plotting with full polygons before restricting
 
@@ -2843,26 +2760,55 @@ places in Primorsky in the Far East), Taiwan (extinct in 1969, but subsequently
 re-introduced), and Viet Nam (probably now extinct)."
 # Harris, R.B. 2015. Cervus nippon. The IUCN Red List of Threatened Species 2015: e.T41788A22155877. https://dx.doi.org/10.2305/IUCN.UK.2015-2.RLTS.T41788A22155877.en. Accessed on 06 July 2023.
 
-# Lynx canadensis
+# Lynx canadensis 
 # Area with legend "Presence Uncertain & Origin Uncertain" is adjacent to "Extant (resident)" and "Extant & Vagrant (seasonality uncertain)"
 # Latitudinal span of this area is also within the bounds of the "Extant (resident)" range
-
 # Vashon, J. 2016. Lynx canadensis. The IUCN Red List of Threatened Species 2016: e.T12518A101138963. https://dx.doi.org/10.2305/IUCN.UK.2016-2.RLTS.T12518A101138963.en. Accessed on 06 July 2023.
 
+## Species corrections and removals
+# Lynx lynx
+# some Lynx canadensis samples appear to be incorrectly recorded as Lynx lynx
+GMPD_Data <- sf::st_as_sf(GMPD_Data,
+                          coords = c("Longitude", "Latitude"),
+                          crs = Projection_String)
+tm_shape(GMPD_Data[GMPD_Data$HostCorrectedName == "Lynx lynx",]) +
+  tm_dots("countrycode")
+
+GMPD_Data <- GMPD_Data %>% 
+  mutate(HostCorrectedName = case_when(HostCorrectedName == "Lynx lynx" &
+                                         countrycode %in% c("CAN", "USA") ~ "Lynx canadensis",
+                                       TRUE ~ HostCorrectedName))
+
+# Urocyon littoralis
+"Six distinct subspecies are recognized, one on each of the islands where they occur:
+
+San Miguel Island Fox (Urocyon littoralis littoralis (Baird, 1858)), San Miguel Island,
+Santa Rosa Island Fox (U. l. santarosae Grinnell & Linsdale, 1930), Santa Rosa Island,
+Santa Cruz Island Fox (U. l. santacruzae Merriam, 1903), Santa Cruz Island,
+Santa Catalina Island Fox (U. l. catalinae Merriam, 1903), Santa Caralina Island,
+San Nicolas Island Fox (U. l. dickeyi Grinnell & Linsdale, 1930), San Nicolas Island, and
+San Clemente Island Fox (U. l. clementae Merriam, 1903), San Clemente Island."
+# Coonan, T., Ralls, K., Hudgens, B., Cypher, B. & Boser, C. 2013. Urocyon littoralis. The IUCN Red List of Threatened Species 2013: e.T22781A13985603. https://dx.doi.org/10.2305/IUCN.UK.2013-2.RLTS.T22781A13985603.en. Accessed on 07 March 2024.
+# Population structure makes them not relevant to our analysis, particularly range position component
+
+
 Native_DF <- IUCN_Data %>% 
-  dplyr::select(binomial, legend) %>% 
+  dplyr::select(sci_name, legend) %>% 
   sf::st_drop_geometry() %>% 
   dplyr::distinct() %>% 
-  dplyr::mutate(keep = case_when(str_detect(binomial, "Cervus") & legend == "Extant & Introduced (resident)"  	    ~ TRUE,
-                          binomial == "Lynx canadensis" & legend == "Presence Uncertain & Origin Uncertain" ~ TRUE,
-                          str_detect(legend, "Introduced") 								                                  ~ FALSE,
-                          legend == "Extant & Origin Uncertain (resident)"						                      ~ FALSE,
-                          TRUE												                                                      ~ TRUE)) 
+  dplyr::mutate(keep = case_when(str_detect(sci_name, "Cervus") & legend == "Extant & Introduced (resident)"  	    ~ TRUE,
+                                 sci_name == "Lynx canadensis" & legend == "Presence Uncertain & Origin Uncertain"  ~ TRUE,
+                                 str_detect(legend, "Introduced") 								                                  ~ FALSE,
+                                 legend == "Extant & Origin Uncertain (resident)"						                        ~ FALSE,
+                                 TRUE												                                                        ~ TRUE)) 
+
+IUCN_Data <- Native_DF %>% 
+  {dplyr::right_join(IUCN_Data, ., by = c("sci_name", "legend"), relationship = "many-to-one")}
 
 IUCN_Native_Data <- Native_DF %>% 
   dplyr::filter(keep) %>% 
   dplyr::select(-keep) %>% 
-  {dplyr::right_join(IUCN_Data, ., by = c("binomial", "legend"), relationship = "many-to-one")}
+  {dplyr::right_join(IUCN_Data, ., by = c("sci_name", "legend"), relationship = "many-to-one")}
 
 
 # GMPD_plots_native_base_02 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data, range.polygon = IUCN_Native_Data, plot_type = "iucn")
@@ -2872,26 +2818,20 @@ IUCN_Native_Data <- Native_DF %>%
 # GMPD_plots_native_base_02
 # dev.off()
 
-## Adjusting subspecies ####
-# https://github.com/r-spatial/sf/wiki/Migrating
-source(here::here("01.1Subspecies polygons.R"))
+## Restricting by native IUCN polygon ####
 
-## Restricting by native IUCN polygon by species ####
-Hostlist <- unique(GMPD_Spatial@data$HostCorrectedName)
-GMPD_Data_res_all <- lapply(Hostlist, function(host, dat = GMPD_Spatial, range.polygon = IUCN_Native_Data, buff = 0, subsp = FALSE){
-  range.polygon <- range.polygon[range.polygon$binomial == host,]
-  out <- pip_test(host, dat, range.polygon, buff, subsp)
+GMPD_Data_res_all <- lapply(Hostlist, function(host, point.data = GMPD_Data, 
+                                               range.polygon = IUCN_Native_Data, 
+                                               buff = 0){
+  range.polygon <- range.polygon[range.polygon$sci_name == host, ]
+  point.data <- point.data[point.data$HostCorrectedName == host, ]
+  out <- pip_test(point.data, range.polygon, buff)
 })
 
-GMPD_Data_res_all <- GMPD_Data_res_all[which(lapply(GMPD_Data_res_all, function(x)nrow(x) != 0) == TRUE)]
-GMPD_Data_res_all <- do.call(raster::bind, GMPD_Data_res_all)
-GMPD_Data_res_all <- as.data.frame(GMPD_Data_res_all)
+GMPD_Data_res_all <- GMPD_Data_res_all[lapply(GMPD_Data_res_all, function(x)nrow(x) != 0) == TRUE]
+GMPD_Data_res_all <- do.call(rbind, GMPD_Data_res_all)
 
-GMPD_Data_res_all <- GMPD_Data_res_all %>%
-  group_by(ParasiteCorrectedName, HostCorrectedName) %>%
-  filter(n() > 1) %>% 
-  ungroup()
-nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7116 and 106
+nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 4746 and 100
 
 # GMPD_plots_native_restricted_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_res_all, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 # names(GMPD_plots_native_restricted_03) <- sort(Hostlist)
@@ -2900,35 +2840,92 @@ nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7
 # GMPD_plots_native_restricted_03
 # dev.off()
 
-## Restricting by native IUCN polygon by subspecies group ####
+## Cleaning by native IUCN polygon ####
 
-buffer_temp <- unique(GMPD_Subgroups[,c("HostCorrectedName", "subgroup")])
-buffer_temp$buff <- 0
+# lapply(Hostlist, plot_native)
 
-GMPD_Data_res_sub <- lapply(Hostlist, function(host, dat = GMPD_Spatial, range.polygon = IUCN_Native_Data, buff = buffer_temp){
-  range.polygon <- range.polygon[range.polygon$binomial == host,]
-  buff <- buff[buff$HostCorrectedName == host,]
-  out <- pip_test(host, dat, range.polygon, buff)
+# Canis aureus
+"Recent studies based on mtDNA and morphology have shown that 'Golden Jackals' in Africa are larger in size than those from 
+Eurasia and are actually more closely related to the Grey Wolf Canis lupus. African animals hence represent a previously 
+overlooked distinct species, the African Wolf, Canis lupaster (see Rueness et al. 2011, Gaubert et al. 2012, Koepfli et al. 
+2015, Viranta et al. 2017). However, the putative presence of Golden Jackal in the Sinai Peninsula of Egypt remains unclear 
+(see Gaubert et al. 2012, Viranta et al. 2017)." 
+# Hoffmann, M., Arnold, J., Duckworth, J.W., Jhala, Y., Kamler, J.F. & Krofel, M. 2018. Canis aureus (errata version published in 2020). The IUCN Red List of Threatened Species 2018: e.T118264161A163507876. https://dx.doi.org/10.2305/IUCN.UK.2018-2.RLTS.T118264161A163507876.en. Accessed on 07 March 2024.
+
+# Ovis ammon 
+# Sample locations don't correspond at all to Ovis ammon range
+
+# Phacochoerus aethiopicus
+# Some suspicious GMPD samples
+# odd ones are probably introduced for hunting
+
+# Rangifer tarandus
+# Excluding outlying points in North Norway because of overlap with semi-domestic herds (see Sami wiki page)
+# Although caribou in North America are hunted, they remain undomesticated
+
+
+# come back to after gbif:
+c("Antilocapra americana",
+  "Bison bison",
+  "Bison bonasus",
+  "Equus quagga,",
+  "Hippotragus niger",
+  "Lynx pardinus", 
+  "Lynx rufus")
+
+Native_DF <- Native_DF %>% 
+  mutate(gmpd_buffer = case_when(sci_name %in% c("Genetta genetta",
+                                                 "Mustela erminea",
+                                                 "Nyctereutes procyonoides") & !keep ~ 0,
+                                 sci_name %in% c("Aepyceros melampus",
+                                                 "Ovibos moschatus",
+                                                 "Rupicapra rupicapra")      & !keep ~ 0.5,
+                                 sci_name %in% c("Vulpes vulpes")            & !keep ~ 2, 
+                                 sci_name %in% c("Canis aureus",
+                                                 "Neovison vison",
+                                                 "Ovis ammon")               & keep  ~ 0,
+                                 sci_name %in% c("Rangifer tarandus",
+                                                 "Cervus elaphus")           & keep  ~ 1.5,
+                                 sci_name %in% c("Phacochoerus aethiopicus",
+                                                 "Procyon lotor")            & keep  ~ 6.5,
+                                 TRUE ~ NA_real_))
+
+
+GMPD_Data_cln_all <- lapply(Hostlist, function(host, point.data = GMPD_Data, 
+                                               range.polygon = IUCN_Data, 
+                                               buff = 0){
+  Native_DF <- Native_DF[Native_DF$sci_name == host,]
+  if(all(is.na(Native_DF$gmpd_buffer))) {
+    out <- point.data[point.data$HostCorrectedName == host, ]
+    
+  } else if(all(is.na(Native_DF[Native_DF$keep, "gmpd_buffer"]))){
+    range.polygon <- range.polygon[range.polygon$sci_name == host &
+                                     range.polygon$keep == FALSE, ]
+    point.data <- point.data[point.data$HostCorrectedName == host, ]
+    buff <- unique(Native_DF[!Native_DF$keep, "gmpd_buffer"])[[1]]
+    range.polygon <- sf::st_buffer(range.polygon, buff)
+    kept.indices <- sf::st_intersects(point.data, range.polygon)
+    
+    out <- point.data[unlist(lapply(kept.indices, function(x)length(x) == 0)), ]
+    
+  } else {
+    range.polygon <- range.polygon[range.polygon$sci_name == host, ]
+    point.data <- point.data[point.data$HostCorrectedName == host, ]
+    buff <- unique(Native_DF[Native_DF$keep, "gmpd_buffer"])[[1]]
+    out <- pip_test(point.data, range.polygon, buff)
+  }
+  
+  return(out)
 })
 
-GMPD_Data_res_sub <- GMPD_Data_res_sub[which(lapply(GMPD_Data_res_sub, is.null) == FALSE)]
-GMPD_Data_res_sub <- do.call(raster::bind, GMPD_Data_res_sub)
-GMPD_Data_res_sub <- as.data.frame(GMPD_Data_res_sub)
+GMPD_Data_cln_all <- GMPD_Data_cln_all[lapply(GMPD_Data_cln_all, function(x)nrow(x) != 0) == TRUE]
+GMPD_Data_cln_all <- do.call(rbind, GMPD_Data_cln_all)
 
-GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
+GMPD_Data_cln_all <- GMPD_Data_cln_all %>%
   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
   filter(n() > 1) %>% 
   ungroup()
-nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 7113 and 105
-
-## Cleaning by native IUCN polygon ####
-# Method in 01.1 already cleans species and subspecies
-
-GMPD_Data_cln <- GMPD_Subgroups %>%
-  group_by(ParasiteCorrectedName, HostCorrectedName) %>%
-  filter(n() > 1) %>% 
-  ungroup()
-nrow(GMPD_Data_cln); length(unique(GMPD_Data_cln$HostCorrectedName)) # 8130 and 113
+nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5367 and 106
 
 # GMPD_plots_native_clean_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 # names(GMPD_plots_native_clean_03) <- sort(Hostlist)
@@ -2937,89 +2934,127 @@ nrow(GMPD_Data_cln); length(unique(GMPD_Data_cln$HostCorrectedName)) # 8130 and 
 # GMPD_plots_native_clean_03
 # dev.off()
 
-# Restricting each by proximity ####################################################################################
+
+# Adjusting subspecies ####
+## Restricting by native IUCN polygon by subspecies group ####
+
+# https://github.com/r-spatial/sf/wiki/Migrating
+# TODO: redo
+# source(here::here("01.1Subspecies polygons.R"))
+
+# TODO: redo
+
+# buffer_temp <- unique(GMPD_Subgroups[,c("HostCorrectedName", "subgroup")])
+# buffer_temp$buff <- 0
+# 
+# GMPD_Data_res_sub <- lapply(Hostlist, function(host, dat = GMPD_Spatial, range.polygon = IUCN_Native_Data, buff = buffer_temp){
+#   range.polygon <- range.polygon[range.polygon$sci_name == host,]
+#   buff <- buff[buff$HostCorrectedName == host,]
+#   out <- pip_test(host, dat, range.polygon, buff)
+# })
+# 
+# GMPD_Data_res_sub <- GMPD_Data_res_sub[which(lapply(GMPD_Data_res_sub, is.null) == FALSE)]
+# GMPD_Data_res_sub <- do.call(raster::bind, GMPD_Data_res_sub)
+# GMPD_Data_res_sub <- as.data.frame(GMPD_Data_res_sub)
+# 
+# GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
+#   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
+#   filter(n() > 1) %>% 
+#   ungroup()
+# nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 7113 and 105
+
+
+# Restricting by proximity ####################################################################################
 ## IUCN restricted subgroup ####
-Res_Temp <- restrict_deci(GMPD_Data_res_sub, subsp = TRUE)
-Res_Temp <- Res_Temp[Res_Temp$enough, ]
-GMPD_Data_res_sub <- GMPD_Data_res_sub[GMPD_Data_res_sub$HostCorrectedName %in% Res_Temp$HostCorrectedName &
-                                         GMPD_Data_res_sub$subgroup %in% Res_Temp$subgroup,]
-GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
-  group_by(HostCorrectedName, subgroup) %>%
-  filter(n() > 1) %>%
-  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
-  filter(n() > 1) %>%
-  ungroup() 
-nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 6958 and 90
+# Res_Temp <- restrict_decimal(GMPD_Data_res_sub, subsp = TRUE)
+# Res_Temp <- Res_Temp[Res_Temp$enough, ]
+# GMPD_Data_res_sub <- GMPD_Data_res_sub[GMPD_Data_res_sub$HostCorrectedName %in% Res_Temp$HostCorrectedName &
+#                                          GMPD_Data_res_sub$subgroup %in% Res_Temp$subgroup,]
+# GMPD_Data_res_sub <- GMPD_Data_res_sub %>%
+#   group_by(HostCorrectedName, subgroup) %>%
+#   filter(n() > 1) %>%
+#   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
+#   filter(n() > 1) %>%
+#   ungroup() 
+# nrow(GMPD_Data_res_sub); length(unique(GMPD_Data_res_sub$HostCorrectedName)) # 6958 and 90
 
 ## IUCN restricted species ####
-Res_Temp <- restrict_deci(GMPD_Data_res_all)
+GMPD_Data_res_all <- cbind(sf::st_drop_geometry(GMPD_Data_res_all), 
+                           data.frame(sf::st_coordinates(GMPD_Data_res_all))) %>% 
+  dplyr::rename(Latitude = X, Longitude = Y)
+Res_Temp <- restrict_decimal(GMPD_Data_res_all)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_res_all <- GMPD_Data_res_all[GMPD_Data_res_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
 GMPD_Data_res_all <- GMPD_Data_res_all %>%
   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
   filter(n() > 1) %>%
   ungroup() 
-nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 7054 and 94
+nrow(GMPD_Data_res_all); length(unique(GMPD_Data_res_all$HostCorrectedName)) # 4538 and 84
+
+rm(Res_Temp)
 
 ## IUCN cleaned subgroup ####
-Res_Temp <- restrict_deci(GMPD_Data_cln, subsp = TRUE)
-Res_Temp <- Res_Temp[Res_Temp$enough, ]
-GMPD_Data_cln_sub <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName &
-                                 GMPD_Data_cln$subgroup %in% Res_Temp$subgroup,]
-GMPD_Data_cln_sub <- GMPD_Data_cln_sub %>%
-  group_by(HostCorrectedName, subgroup) %>%
-  filter(n() > 1) %>%
-  group_by(HostCorrectedName, ParasiteCorrectedName) %>%
-  filter(n() > 1) %>%
-  ungroup()
-nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName)) # 7995 and 107
+# Res_Temp <- restrict_decimal(GMPD_Data_cln, subsp = TRUE)
+# Res_Temp <- Res_Temp[Res_Temp$enough, ]
+# GMPD_Data_cln_sub <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName &
+#                                  GMPD_Data_cln$subgroup %in% Res_Temp$subgroup,]
+# GMPD_Data_cln_sub <- GMPD_Data_cln_sub %>%
+#   group_by(HostCorrectedName, subgroup) %>%
+#   filter(n() > 1) %>%
+#   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
+#   filter(n() > 1) %>%
+#   ungroup()
+# nrow(GMPD_Data_cln_sub); length(unique(GMPD_Data_cln_sub$HostCorrectedName)) # 7995 and 107
 
 ## IUCN cleaned species ####
-Res_Temp <- restrict_deci(GMPD_Data_cln)
+GMPD_Data_cln_all <- cbind(sf::st_drop_geometry(GMPD_Data_cln_all), 
+                           data.frame(sf::st_coordinates(GMPD_Data_cln_all))) %>% 
+  dplyr::rename(Latitude = X, Longitude = Y)
+Res_Temp <- restrict_decimal(GMPD_Data_cln_all)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
-GMPD_Data_cln_all <- GMPD_Data_cln[GMPD_Data_cln$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
+GMPD_Data_cln_all <- GMPD_Data_cln_all[GMPD_Data_cln_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
 GMPD_Data_cln_all <- GMPD_Data_cln_all %>%
   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
   filter(n() > 1) %>%
   ungroup()
-nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 8110 and 110
+nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5276 and 96
 
 rm(Res_Temp)
 
 # TODO: sort out afterthought
 # merging gmpd into one (afterthought) ####
 GMPD_Data_cln_all$CleanAll <- TRUE
-GMPD_Data_cln_sub$CleanSub <- TRUE
+# GMPD_Data_cln_sub$CleanSub <- TRUE
 GMPD_Data_res_all$RestrAll <- TRUE
-GMPD_Data_res_sub$RestrSub <- TRUE
+# GMPD_Data_res_sub$RestrSub <- TRUE
 
-GMPD_Data <- merge(GMPD_Data_cln_all, GMPD_Data_cln_sub, 
-                   by = intersect(names(GMPD_Data_cln_all), names(GMPD_Data_cln_sub)),
+GMPD_Data <- merge(GMPD_Data_cln_all, GMPD_Data_res_all, 
+                   by = intersect(names(GMPD_Data_cln_all), names(GMPD_Data_res_all)),
                    all = TRUE)
 
-GMPD_Data <- merge(GMPD_Data, GMPD_Data_res_all, 
-                   by = intersect(names(GMPD_Data), names(GMPD_Data_res_all)),
-                   all = TRUE)
-
-GMPD_Data <- merge(GMPD_Data, GMPD_Data_res_sub, 
-                   by = intersect(names(GMPD_Data), names(GMPD_Data_res_sub)),
-                   all = TRUE)
+# GMPD_Data <- merge(GMPD_Data, GMPD_Data_cln_sub, 
+#                    by = intersect(names(GMPD_Data), names(GMPD_Data_cln_sub)),
+#                    all = TRUE)
+# 
+# GMPD_Data <- merge(GMPD_Data, GMPD_Data_res_sub, 
+#                    by = intersect(names(GMPD_Data), names(GMPD_Data_res_sub)),
+#                    all = TRUE)
 
 GMPD_Data <- GMPD_Data %>%
-  mutate(CleanSub = case_when(is.na(CleanSub) ~  FALSE, TRUE ~ CleanSub)) %>%
-  mutate(RestrAll = case_when(is.na(RestrAll) ~  FALSE, TRUE ~ RestrAll)) %>%
-  mutate(RestrSub = case_when(is.na(RestrSub) ~  FALSE, TRUE ~ RestrSub))
+  # mutate(CleanSub = case_when(is.na(CleanSub) ~  FALSE, TRUE ~ CleanSub)) %>%
+  # mutate(RestrSub = case_when(is.na(RestrSub) ~  FALSE, TRUE ~ RestrSub)) %>% 
+  mutate(RestrAll = case_when(is.na(RestrAll) ~  FALSE, TRUE ~ RestrAll)) 
 
 # Write files #################################################################################################
 # narrowing down IUCN_Mammals to a more manageable size
-IUCN_Orders <- IUCN_Mammals[IUCN_Mammals$order_ %in% unique(IUCN_Native_Data$order_), ]
-rm(IUCN_Mammals)
-
-write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data_01.csv"), row.names = FALSE)
-
-write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data_01.csv"), row.names = FALSE)
-write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), row.names = FALSE)
-
-saveRDS(IUCN_Native_Data, file = here::here("Data/Data back ups/IUCN_Native_Data_01")) # too large to commit 
-saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders_01")) # too large to commit 
+# IUCN_Orders <- IUCN_Mammals[IUCN_Mammals$order_ %in% unique(IUCN_Native_Data$order_), ]
+# rm(IUCN_Mammals)
+# 
+# write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data_01.csv"), row.names = FALSE)
+# 
+# write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data_01.csv"), row.names = FALSE)
+# write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), row.names = FALSE)
+# 
+# saveRDS(IUCN_Native_Data, file = here::here("Data/Data back ups/IUCN_Native_Data_01")) # too large to commit 
+# saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders_01")) # too large to commit 
 
