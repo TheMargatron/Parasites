@@ -10,61 +10,62 @@ source(here::here("Functions.R"))
 
 GMPD_Data <- read.csv(here::here("Data/Data back ups/GMPD_Data_01.csv"), header = TRUE, stringsAsFactors = FALSE)
 
-#GBIF_Data <- read.csv(here::here("Data/Data back ups/GBIF_Data.csv"), header = TRUE, stringsAsFactors = FALSE)
-
-GBIF_Subgroups <- read.csv(here::here("Data/Data back ups/GBIF_Subgroups_02.csv"), header = TRUE, stringsAsFactors = FALSE)
+GBIF_Data <- read.csv(here::here("Data/Data back ups/GBIF_Data_02.csv"), header = TRUE, stringsAsFactors = FALSE)
 
 IUCN_Native_Data <- readRDS(here::here("Data/Data back ups/IUCN_Native_Data_01"))
+
+Projection_String <- sf::st_crs(IUCN_Native_Data)
+sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
+
 
 # Prep ####
 # simplifying data to essentials
 
-GMPD_Data_Temp <- GMPD_Data %>%
-  dplyr::select(HostCorrectedName, Group,
-                HostOrder, HostFamily,
-                
-                ParasiteCorrectedName, ParType, 
-                ParPhylum, ParClass,
-                
-                Citation, 
-                LocationName, PopulationType,
-                Longitude, Latitude, 
-                 
-                SamplingBasis, SamplingType, HostsSampled, 
-                Prevalence, 
-                HostSex, HostAge, 
-                subgroup, 
-                
-                CleanAll, CleanSub,
-                RestrAll, RestrSub)
+GMPD_Data <- GMPD_Data %>%
+  dplyr::select(-countrycode,
+                -mapname,
+                -rowname,
+                -LocationName,
+                -HostReportedSubspecies,
+                -HostEnvironment,
+                -PopulationType)
 
-GBIF_Data_Temp <- GBIF_Subgroups %>%
-  dplyr::select(species, taxonRank, scientificName,
-                subgroup, decimalLongitude, decimalLatitude) %>%
-  dplyr::mutate(species = case_when(species == "Pekania pennanti" ~ "Martes pennanti", # TODO: remove after rerunning 02.1
-                                    species == "Mustela vison" ~ "Neovison vison",
-                                    species == "Taurotragus oryx" ~ "Tragelaphus oryx",
-                                    TRUE ~ species))
+GBIF_Data <- GBIF_Data %>%
+  dplyr::select(species, decimalLongitude, decimalLatitude) 
 
 # Distance metrics and range traits ####
-Distances_Data_res_all <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$RestrAll,], range.pol = IUCN_Native_Data, method = "iucn", subsp = FALSE)
+Distances_Data_res_all <- lapply(unique(GMPD_Data[GMPD_Data$RestrAll, "HostCorrectedName"]),
+                                 range_distances_host,
+                                 dat = GMPD_Data[GMPD_Data$RestrAll,], 
+                                 range.object = IUCN_Native_Data, 
+                                 method = "iucn")
 
-Distances_Data_res_sub <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$RestrSub,], range.pol = IUCN_Native_Data, method = "iucn", subsp = TRUE) 
+Distances_Data_res_all_dat <- lapply(Distances_Data_res_all, function(x){x[[1]]}) %>% bind_rows()
+Distances_Data_res_all_range <- lapply(Distances_Data_res_all, function(x){x[[2]]}) %>% bind_rows()
 
-Distances_Data_cln_all <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$CleanAll,], range.dat = GBIF_Data_Temp, method = "gbif", subsp = FALSE)
+# Distances_Data_res_sub <- range_distances(dat = GMPD_Data[GMPD_Data$RestrSub,], range.pol = IUCN_Native_Data, method = "iucn", subsp = TRUE) 
 
-Distances_Data_cln_sub <- range_distances(dat = GMPD_Data_Temp[GMPD_Data_Temp$CleanSub,], range.dat = GBIF_Data_Temp, method = "gbif", subsp = TRUE) 
+Distances_Data_cln_all <- lapply(unique(GMPD_Data[GMPD_Data$CleanAll, "HostCorrectedName"]),
+                                 range_distances_host,
+                                 dat = GMPD_Data[GMPD_Data$CleanAll,],
+                                 range.object = GBIF_Data, 
+                                 method = "gbif")
+
+Distances_Data_cln_all_dat <- lapply(Distances_Data_cln_all, function(x){x[[1]]}) %>% bind_rows()
+Distances_Data_cln_all_range <- lapply(Distances_Data_cln_all, function(x){x[[2]]}) %>% bind_rows()
+
+# Distances_Data_cln_sub <- range_distances(dat = GMPD_Data[GMPD_Data$CleanSub,], range.dat = GBIF_Data, method = "gbif", subsp = TRUE) 
 
 # Merge into one df
-GMPD_Distances_Data <- dplyr::bind_rows(Distances_Data_res_all$DistanceMetrics,
-                                        Distances_Data_res_sub$DistanceMetrics,
-                                        Distances_Data_cln_all$DistanceMetrics,
-                                        Distances_Data_cln_sub$DistanceMetrics)
+GMPD_Distances_Data <- dplyr::bind_rows(Distances_Data_res_all_dat,
+                                        # Distances_Data_res_sub$DistanceMetrics,
+                                        # Distances_Data_cln_sub$DistanceMetrics,
+                                        Distances_Data_cln_all_dat)
 
-Range_Traits <- dplyr::bind_rows(Distances_Data_res_all$RangeTraits,
-                                 Distances_Data_res_sub$RangeTraits,
-                                 Distances_Data_cln_all$RangeTraits,
-                                 Distances_Data_cln_sub$RangeTraits)
+Range_Traits <- dplyr::bind_rows(Distances_Data_res_all_range,
+                                 # Distances_Data_res_sub$RangeTraits,
+                                 # Distances_Data_cln_sub$RangeTraits,
+                                 Distances_Data_cln_all_range)
 
 
 write.csv(GMPD_Distances_Data, file = here::here("Data/Data back ups/GMPD_Distances_Data_03.csv"), row.names = FALSE)
