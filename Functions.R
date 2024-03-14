@@ -26,7 +26,613 @@ library(tidyverse)
 library(tmap)
 
 # TODO: sort functions
-# used in script 05 ############################################################
+# used in 01 ############################################################
+pip_test <- function(point.data, range.polygon, buff = 0){
+  # TODO: get rid of this silly function
+  if(buff != 0){
+    range.polygon <- sf::st_buffer(range.polygon, buff)
+  }
+  
+  point.data <- point.data[range.polygon,]
+  return(point.data)
+}
+
+
+plot_native <- function(hostname, buff = 0){
+  if(!exists("World")) data("World")
+  
+  species_polygon <- IUCN_Data[IUCN_Data$sci_name == hostname, ]
+  species_dots <- GMPD_Data[GMPD_Data$HostCorrectedName == hostname, ]
+  
+  bbox_polygon <- sf::st_as_sfc(sf::st_bbox(species_polygon))
+  bbox_dots <- sf::st_as_sfc(sf::st_bbox(species_dots))
+  bbox_plot <- sf::st_bbox(sf::st_union(bbox_polygon, bbox_dots))
+
+  if(buff == 0){
+    tm_shape(World) + tm_fill() +
+      tm_shape(species_polygon) +
+      tm_polygons("keep") +
+      tm_shape(species_dots) +
+      tm_dots() +
+      tm_layout(title = hostname)
+  } else {
+    tm_shape(World) + tm_fill() +
+      tm_shape(species_polygon) +
+      tm_polygons("keep") +
+      tm_shape(sf::st_buffer(species_polygon, buff)) +
+      tm_polygons("keep", alpha = 0.3) +
+      tm_shape(species_dots) +
+      tm_dots() +
+      tm_layout(title = hostname)
+  }
+}
+
+restrict_decimal <- function(dat, subsp = FALSE){
+  hostlist <- unique(dat$HostCorrectedName)
+  
+  enough <- lapply(hostlist, function(host){
+    sp.dat <- dat[dat$HostCorrectedName == host,]
+    sp.dat <- sp.dat %>%
+      mutate(across(c(Latitude, Longitude), ~ trunc(.x)))
+    
+    if(subsp){
+      subgroups <- unique(sp.dat$subgroup)
+      nrow.sg.dat <- lapply(subgroups, function(sg){
+        sg.dat <- sp.dat[sp.dat$subgroup == sg,]
+        
+        out <- data.frame(HostCorrectedName = host,
+                          subgroup = sg, 
+                          enough = nrow(unique(sg.dat[c("Latitude", "Longitude")])) > 1)
+      })
+      nrow.sg.dat <- bind_rows(nrow.sg.dat)
+      
+    } else {
+      out <- data.frame(HostCorrectedName = host,
+                        enough = nrow(unique(sp.dat[c("Latitude", "Longitude")])) > 1)
+    }
+  })
+  enough <- bind_rows(enough)
+}
+
+# used in 02 ###################################################################
+plot_native_gbif <- function(hostname, buff = 0){
+  if(!exists("World")) data("World")
+  
+  species_polygon <- IUCN_Data[IUCN_Data$sci_name == hostname, ]
+  species_dots <- GBIF_Data[GBIF_Data$species == hostname, ]
+  
+  bbox_polygon <- sf::st_as_sfc(sf::st_bbox(species_polygon))
+  bbox_dots <- sf::st_as_sfc(sf::st_bbox(species_dots))
+  bbox_plot <- sf::st_bbox(sf::st_union(bbox_polygon, bbox_dots))
+  
+  if(buff == 0){
+    
+    plot_out <- tm_shape(World, bbox = bbox_plot) + tm_fill() +
+      tm_shape(species_dots) +
+      tm_dots() +
+      tm_shape(species_polygon) +
+      tm_fill("keep", alpha = 0.4) +
+      tm_layout(title = hostname,)
+    
+  } else {
+    
+    plot_out <- tm_shape(World, bbox = bbox_plot) + tm_fill() +
+      tm_shape(species_polygon) +
+      tm_fill("keep") +
+      tm_shape(species_dots) +
+      tm_dots() +
+      tm_layout(title = hostname) +
+      tm_shape(sf::st_buffer(species_polygon, buff)) +
+      tm_fill("keep", alpha = 0.3, legend.show = FALSE)
+    
+  }
+  return(plot_out)
+}
+
+
+# used in 03 ###################################################################
+
+range_distances_host <- function(host, dat, range.object, method){
+  
+  dat <- dat %>% filter(HostCorrectedName == host)
+  
+  # subset range.object to current host 
+  if("sci_name" %in% names(range.object)){
+  range.object <- range.object %>% filter(sci_name == host)
+  
+  } else if("species" %in% names(range.object)){
+  range.object <- range.object %>% filter(species == host)
+  
+  }
+  
+  if(!"sf" %in% class(range.object)){
+    range.object <- sf::st_as_sf(range.object,
+                                 coords = c("decimalLongitude", "decimalLatitude"),
+                                 crs = Projection_String)
+  }
+
+  out <- range_distances_method(dat = dat, range.object = range.object)
+  out$range.traits$HostCorrectedName <- host
+  out$range.traits$RangeArea <- sum(sf::st_area(IUCN_Native_Data[IUCN_Native_Data$sci_name == host,]))
+  
+  out[[1]]$RangeMethod <- method
+  out[[2]]$RangeMethod <- method
+  out[[1]]$RangeTaxonLvl <- "species"
+  out[[2]]$RangeTaxonLvl <- "species"
+  
+  return(out)
+}
+
+# range_distances_subsp <- function(host, dat, range.pol, method){
+#   
+#   dat <- dat %>% filter(HostCorrectedName == host)
+#   subsp.list <- dat %>% pull(subgroup) %>% unique()
+#   
+#   if(method == "iucn"){
+#     
+#     # subset range.pol to current host 
+#     range.pol <- range.pol %>% filter(sci_name == host)
+#     
+#     out <- lapply(subsp.list, function(subspecies){
+#       
+#       # subset range.pol and data to current subgroup
+#       dat <- dat %>% filter(subgroup == subspecies)
+#       range.pol.sub <- range.pol %>% filter(sci_name == subspecies)
+#       
+#       out.sub <- iucn_method(dat = dat, range.polygon = range.pol.sub)
+#       out.sub$range.traits <- cbind(out$range.traits, "subgroup" = subspecies)
+#       
+#       return(out.sub)
+#     })
+#     
+#     out <- do.call(rbind, out)
+#     
+#   } else if(method == "gbif"){
+#     
+#     # subset range.dat to current host 
+#     range.dat <- range.dat %>% filter(sci_name == host)
+#     
+#     out <- lapply(subsp.list, function(subspecies){
+#       
+#       # subset range.dat and data to current subgroup
+#       dat <- dat %>% filter(subgroup == subspecies)
+#       range.dat.sub <- range.dat %>% filter(sci_name == subspecies)
+#       
+#       # drop hosts with insufficient data
+#       if(nrow(range.dat.sub) == 0){
+#         
+#         out.sub <- NULL
+#         writeLines(paste(host, subspecies, "dropped, no data", sep = " "))
+#         
+#       } else if(nrow(range.dat.sub) < 2){
+#         
+#         out.sub <- NULL
+#         writeLines(paste(host, subspecies, "dropped, insufficient data", sep = " "))
+#         
+#       } else {
+#         
+#         out.sub <- gbif_method(dat = dat, range.points = range.dat)
+#         out.sub$range.traits <- cbind(out$range.traits, "subgroup" = subspecies)
+#       
+#       }
+#       
+#       return(out.sub)
+#       
+#     })
+#     
+#     out <- do.call(rbind, out)
+#     
+#   }
+#   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
+#   
+# }
+
+range_distances_method <- function(dat, range.object){
+  
+  # extract latitudes from range.object and convert to absolute values
+  range.vals.exact  <- sf::st_coordinates(range.object)
+  range.vals.abs    <- abs(range.vals.exact) 
+  
+  # absolute values (latitude)
+  range.max.abs         <- max(range.vals.abs)
+  range.max.abs.point   <- c(0, range.max.abs) %>% sf::st_point() %>% sf::st_sfc(crs = Projection_String) 
+  
+  range.min.abs         <- min(range.vals.abs)
+  range.min.abs.point   <- c(0, range.min.abs) %>% sf::st_point() %>% sf::st_sfc(crs = Projection_String)
+  
+  # using the absolute minimum rather than zero because there may be some which span the equator but do not cross it
+  # only really matters when it comes to error in analysis but this is avoided because we're now using median instead of span
+  range.span.abs        <- sf::st_distance(range.max.abs.point, range.min.abs.point) %>% as.vector()
+  
+  # exact values (median)
+  range.max.exact       <- max(range.vals.exact)
+  range.max.exact.point <- c(0, range.max.exact) %>% sf::st_point() %>% sf::st_sfc() %>% sf::st_set_crs(Projection_String)
+  
+  range.min.exact       <- min(range.vals.exact)
+  range.min.exact.point <- c(0, range.min.exact) %>% sf::st_point() %>% sf::st_sfc() %>% sf::st_set_crs(Projection_String)
+  
+  range.span.exact      <- sf::st_distance(range.max.exact.point, range.min.exact.point) %>% as.vector()
+  range.median          <- median(c(range.max.exact, range.min.exact))
+  range.median.point    <- c(0, range.median) %>% sf::st_point() %>% sf::st_sfc(crs = Projection_String)
+  
+  # range traits, distances, proportions
+  range.traits <- data.frame("RangeMaxAbs"   = range.max.abs,
+                             "RangeMaxExact" = range.max.exact,
+                             
+                             "RangeMinAbs"   = range.min.abs,
+                             "RangeMinExact" = range.min.exact,
+                             
+                             "RangeSpanAbs"   = range.span.abs,
+                             "RangeSpanExact" = range.span.exact,
+                             
+                             "RangeMedian" = range.median)
+  
+  # use absolute and exact values to calculate metrics
+  
+  # drop samples outside range limits
+  dat.out <- dat[!(dat$Latitude > range.max.exact | dat$Latitude < range.min.exact),]
+  
+  if(nrow(dat.out) == 0){
+    writeLines("All points outside range margins")
+    
+  } else {
+    
+    # use absolute and exact values to calculate metrics
+    
+    dat.out$zeros <- 0 # for use as a longitude calculating distances from sample points in dat.out
+    dat.out$absLat <- abs(dat.out$Latitude)
+    
+    dat.out.spatial.abs   <- sf::st_as_sf(dat.out,
+                                      coords = c("zeros", "Latitude"),
+                                      crs = Projection_String)
+    dat.out.spatial.exact <- sf::st_as_sf(dat.out,
+                                      coords = c("zeros", "absLat"),
+                                      crs = Projection_String)
+    
+    dat.out$EquatorwardsDist <- sf::st_distance(dat.out.spatial.abs, range.min.abs.point) %>% as.vector() # vertical distances to lowest abs latitude from sample locations
+    dat.out$EquatorwardsProp <- dat.out$EquatorwardsDist/range.span.abs # as a proportion of abs range span
+    
+    dat.out$MedianDist       <- sf::st_distance(dat.out.spatial.exact, range.median.point) %>% as.vector() # vertical distances to exact range median
+    dat.out$MedianProp       <- dat.out$MedianDist/(range.span.exact/2) # as proportion of half range span
+    dat.out$AboveMedn        <- (dat.out$Latitude > range.median & range.median > 0) | (dat.out$Latitude < range.median & range.median < 0) # "above" median really means polewards from median
+    
+    dat.out$zeros <- NULL
+    dat.out$absLat <- NULL
+    
+    writeLines(paste(nrow(dat) - nrow(dat.out), "points outside range margins"))
+    
+  }
+  
+  return(list(dat.out, range.traits))
+  
+}
+
+
+# used in 04 ###################################################################
+
+## Climate niche functions #####################################################
+## Written by Olivier Broennimann and Blaise Petitpierre. Departement of Ecology and Evolution (DEE). 
+## University of Lausanne. Switzerland. April 2012.
+
+### Modified by Regan Early
+### Adapted by Margaret Bolton, July 2023
+
+# Functions to calculate environmental niche position
+
+# TODO: rewrite descriptions
+## grid.clim(climate.pca.scores, species.pca.scores, R, threshold.species, threshold.env) 
+## use the scores of an ordination (or SDM predictions) and create a grid species.density of RxR pixels 
+## (or a vector of R pixels when using scores of dimension 1 or SDM predictions) with occurrence densities
+## Only scores of one, or two dimensions can be used 
+
+## climate.pca.scores = scores for the whole study area, 
+## species.pca.scores = scores for occurrences of the species in the ordination
+## samples.pca.scores = subset of scores for occurrences of the species in the ordination 
+## R                  = resolution of the grid to be outputted
+## threshold.species  = quantile of species density at species occurences used as a threshold to exclude low species density values
+## threshold.env      = quantile of environmental density at all study sites used as a threshold to exclude low environmental density values
+
+kd_prep <- function(clim.raw = BIO_050612, 
+                    spat.dat, 
+                    samp.dat, 
+                    pca.full = PCA_Full,
+                    bioclim.full.df = Bioclim_DF,
+                    density.resolution = 10/60){
+  list.out <- list()
+  
+  # species prep
+  hostlist <- unique(samp.dat$HostCorrectedName)
+  species.out <- lapply(hostlist, species_kd_prep, 
+                        spat.dat = spat.dat,
+                        samp.dat = samp.dat,
+                        clim.raw = clim.raw,
+                        pca.full = pca.full,
+                        density.resolution = density.resolution)
+  names(species.out) <- hostlist
+  species.out <- purrr::list_transpose(species.out, simplify = FALSE)
+  
+  list.out$pca.species <- species.out$pca.species
+  list.out$pca.samples <- species.out$pca.samples
+  
+  # climate prep
+  # output for gridclim
+  list.out$pca.climate <- ade4::suprow(pca.full, bioclim.full.df[, Clim_Variables])$lisup     #The pca scores for all climate
+  
+  return(list.out)
+}
+
+species_kd_prep <- function(host,
+                            spat.dat = spat.dat,
+                            samp.dat = samp.dat,
+                            clim.raw = clim.raw, 
+                            pca.full = pca.full,
+                            density.resolution){
+  list.out <- list()
+  
+  # Narrow down data to selected species
+  spat.dat <- spat.dat %>%
+    dplyr::filter(species == host) %>%
+    dplyr::select("decimalLongitude", "decimalLatitude")
+  
+  samp.dat <- samp.dat %>%
+    filter(HostCorrectedName == host)
+  
+  # (partially) account for sampling bias by gridding species occurence data and extracting filled cells
+  raster.count <- terra::rast(extent = terra::ext(c(-180,180,-90,90)),
+                              resolution = density.resolution) 
+  
+  raster.count <- samp.dat %>% 
+    dplyr::select(matches("Longitude|Latitude")) %>% 
+    dplyr::rename(decimalLongitude = Longitude,
+                  decimalLatitude = Latitude) %>% # TODO: use str_detect
+    rbind(spat.dat) %>% 
+    as.matrix() %>% 
+    terra::rasterize(y = raster.count,
+                     fun = sum)
+  
+  # TODO: could be more robust, but serves for now
+  if(all(terra::res(raster.count) < terra::res(clim.raw))) {
+    bioclim.occurrences.df <- terra::extract(x = clim.raw,
+                                             y = terra::xyFromCell(raster.count, terra::cells(raster.count)))
+  } else if(all(terra::res(raster.count) == terra::res(clim.raw))){
+    bioclim.occurrences.df <- terra::extract(x = clim.raw,
+                                             y = terra::cells(raster.count))
+  } else if(all(terra::res(raster.count) > terra::res(clim.raw))){
+    bioclim.occurrences.df <- terra::extract(x = terra::aggregate(x = clim.raw, 
+                                                                  fact = terra::res(raster.count) / terra::res(clim.raw),
+                                                                  fun = "mean"),
+                                             y = terra::xyFromCell(raster.count, terra::cells(raster.count)))
+  } else warning("no method for differing res factors")
+  # extract bioclim variables for points where species occurs
+  # bioclim.occurrences.df <- terra::extract(x = clim.raw,
+  #                                          y = terra::xyFromCell(raster.count, terra::cells(raster.count)))
+  
+  # extract bioclim variables for points where parasites are sampled
+  bioclim.parasites.df <- terra::extract(x = clim.raw,
+                                         y = samp.dat[c("Longitude", "Latitude")]) %>% 
+    cbind(samp.dat)
+  
+  # output for grid.clim
+  list.out$pca.species <- drop_na(ade4::suprow(pca.full, bioclim.occurrences.df[, Clim_Variables])$lisup)    #The pca scores for current species
+  list.out$pca.samples   <- cbind(ade4::suprow(pca.full, bioclim.parasites.df[, Clim_Variables])$lisup, bioclim.parasites.df)   # pca scores for current species from gmpd
+  
+  return(list.out)
+}
+
+clim_density <- function(climate.pca.scores,
+                         species.pca.scores,
+                         samples.pca.scores,
+                         R = 100,
+                         threshold.species = 0,
+                         threshold.env = 0){
+  
+  list.out <- list()
+  mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
+  
+  # normalise pca values
+  xmin <- min(climate.pca.scores["Axis1"])
+  xmax <- max(climate.pca.scores["Axis1"])
+  ymin <- min(climate.pca.scores["Axis2"])
+  ymax <- max(climate.pca.scores["Axis2"])
+  
+  climate.pca.normalised <- data.frame(cbind((climate.pca.scores["Axis1"] - xmin)/abs(xmax - xmin), 
+                                             (climate.pca.scores["Axis2"] - ymin)/abs(ymax - ymin)))
+  
+  # calculate values of H to match adehabitatHR::kernelUD use of the ad hoc method
+  climate.H <- (sqrt(0.5*(var(climate.pca.normalised["Axis1"]) + var(climate.pca.normalised["Axis2"]))))*(nrow(climate.pca.normalised)^-(1/6))
+  
+  # calculate the density of occurrences in a grid of RxR pixels along the score gradients
+  # using a gaussian kernel density function, with RxR bins.
+  
+  climate.density <- MASS::kde2d(x = climate.pca.normalised[,"Axis1"],
+                                 y = climate.pca.normalised[,"Axis2"],
+                                 n = R,
+                                 h = c(climate.H*4, climate.H*4),
+                                 lims = c(range(mask.xy$x), range(mask.xy$y)))
+  
+  # rescale density to the number of sites in climate.pca.scores
+  # or the number of occurrences in species.pca.scores
+  climate.density$uncorrected  <- climate.density$z*nrow(climate.pca.scores)/sum(climate.density$z)
+  
+  # Fill grid using pca scores 
+  pca.breaks <- data.frame(Axis1 = seq(from = min(climate.pca.scores["Axis1"]), # breaks on score gradient 1
+                                       to   = max(climate.pca.scores["Axis1"]), 
+                                       length.out = R),
+                           Axis2 = seq(from = min(climate.pca.scores["Axis2"]), # breaks on score gradient 2
+                                       to   = max(climate.pca.scores["Axis2"]), 
+                                       length.out = R))
+  
+  climate.pca.image <- points_to_image(climate.pca.scores, pca.breaks)
+  
+  # calculate threshold density
+  climate.density.threshold <- quantile(as.vector(climate.density$uncorrected[which(climate.pca.image == 1)]), threshold.env)  
+  
+  # remove tiny values generated by kernel density
+  climate.density$uncorrected[climate.density$uncorrected < climate.density.threshold] <- 0
+  
+  # climate density needed by species_clim_density
+  hostlist <- names(species.pca.scores)
+  species.out <- lapply(hostlist, 
+                        species_clim_density,
+                        climate.pca.scores = climate.pca.scores,
+                        species.pca.scores = species.pca.scores,
+                        samples.pca.scores = samples.pca.scores,
+                        climate.density = climate.density)
+  names(species.out) <- hostlist
+  species.out <- purrr::list_transpose(species.out, simplify = FALSE)
+  
+  list.out <- species.out
+  list.out$climate.density <- climate.density
+  
+  return(list.out)
+}
+
+species_clim_density <- function(host,
+                                 climate.pca.scores = climate.pca.scores,
+                                 species.pca.scores = species.pca.scores,
+                                 samples.pca.scores = samples.pca.scores,
+                                 R = 100,
+                                 threshold.species = 0,
+                                 climate.density = climate.density){
+  list.out <- list()
+  mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
+  
+  # subset species inputs
+  species.pca.scores <- species.pca.scores[[host]]
+  samples.pca.scores <- samples.pca.scores[[host]]
+  
+  # normalise pca values
+  xmin <- min(climate.pca.scores["Axis1"])
+  xmax <- max(climate.pca.scores["Axis1"])
+  ymin <- min(climate.pca.scores["Axis2"])
+  ymax <- max(climate.pca.scores["Axis2"])
+  
+  species.pca.normalised <- data.frame(cbind((species.pca.scores["Axis1"] - xmin)/abs(xmax - xmin), 
+                                             (species.pca.scores["Axis2"] - ymin)/abs(ymax - ymin))) 
+  
+  # calculate values of H to match adehabitatHR::kernelUD use of the ad hoc method
+  species.H <- (sqrt(0.5*(var(species.pca.normalised["Axis1"]) + var(species.pca.normalised["Axis2"]))))*(nrow(species.pca.normalised)^-(1/6))
+  
+  # calculate the density of occurrences in a grid of RxR pixels along the score gradients
+  # using a gaussian kernel density function, with RxR bins.
+  
+  species.density <- MASS::kde2d(x = species.pca.normalised[,"Axis1"],
+                                 y = species.pca.normalised[,"Axis2"],
+                                 n = R,
+                                 h = c(species.H*4, species.H*4),
+                                 lims = c(range(mask.xy$x), range(mask.xy$y)))
+  
+  # rescale density to the number of sites in climate.pca.scores
+  # or the number of occurrences in species.pca.scores
+  species.density$uncorrected <- species.density$z*nrow(species.pca.scores)/sum(species.density$z)
+  
+  # Fill grid using pca scores 
+  pca.breaks <- data.frame(Axis1 = seq(from = min(climate.pca.scores["Axis1"]), # breaks on score gradient 1
+                                       to   = max(climate.pca.scores["Axis1"]), 
+                                       length.out = R),
+                           Axis2 = seq(from = min(climate.pca.scores["Axis2"]), # breaks on score gradient 2
+                                       to   = max(climate.pca.scores["Axis2"]), 
+                                       length.out = R))
+  
+  species.pca.image <- points_to_image(species.pca.scores, pca.breaks)
+  
+  # calculate threshold density
+  species.density.threshold <- quantile(as.vector(species.density$uncorrected[which(species.pca.image == 1)]), threshold.species)
+  
+  # remove tiny values generated by kernel density
+  species.density$uncorrected[species.density$uncorrected < species.density.threshold] <- 0 
+  
+  # scale between 0:1 for comparison with other species
+  species.density$uncorrected <- species.density$uncorrected/max(species.density$uncorrected)	
+  
+  # record density as presence absence
+  species.density$presence <- species.density$uncorrected
+  species.density$presence[species.density$presence > 0] <- 1
+  
+  # correct for environment prevalence
+  # TODO: probably shouldn't be using the uncorrected like this!!
+  species.density$corrected <- species.density$uncorrected/climate.density$uncorrected
+  
+  # remove n/0 situations
+  species.density$corrected[is.na(species.density$corrected)] <- 0
+  species.density$corrected[species.density$corrected == "Inf"] <- 0
+  
+  # rescale between [0:1] for comparison with other species (again)
+  species.density$corrected <- species.density$corrected/max(species.density$corrected)	
+  
+  # get peak of kernel density
+  species.density$peak_uncorrected <- which(species.density$uncorrected == 1, arr.ind = T)
+  species.density$peak_corrected <- which(species.density$corrected == 1, arr.ind = T)
+  
+  # parasite data time
+  # get positions within climate pca from values for parasite data
+  samples.pca.loci <- points_to_indices(samples.pca.scores, pca.breaks)
+  
+  # calculate distances and angle, and extract density for each parasite sample 
+  samples.out <- distangles(loci = samples.pca.loci, 
+                            origin = species.density$peak_uncorrected) %>% 
+    dplyr::bind_cols(UncorrectedDensity = species.density$uncorrected[samples.pca.loci], 
+                     samples.pca.scores) %>% 
+    dplyr::rename(UncorrectedDistance = distance,
+                  UncorrectedAngle = angle)
+  
+  samples.out <- distangles(loci = samples.pca.loci, 
+                            origin = species.density$peak_corrected) %>% 
+    dplyr::bind_cols(CorrectedDensity = species.density$corrected[samples.pca.loci], 
+                     samples.out, 
+                     samples.pca.loci) %>% 
+    dplyr::rename(CorrectedDistance = distance,
+                  CorrectedAngle = angle) 
+  
+  # output
+  list.out$samples.out <- samples.out
+  list.out$species.density <- species.density
+  
+  return(list.out)
+}
+
+# rotate_matrix <- function(mat) t(mat[nrow(mat):1,,drop = FALSE])
+
+
+points_to_image <- function(pts, extent){
+  img <- matrix(0, nrow = nrow(extent), ncol = nrow(extent))
+  interval1 <- findInterval(pts$Axis1, extent$Axis1)
+  interval2 <- findInterval(pts$Axis2, extent$Axis2)
+  xy <- cbind(interval1, interval2)
+  img[xy] <- 1
+  return(img)
+}
+
+
+points_to_indices <- function(pts, extent){
+  interval1 <- findInterval(pts$Axis1, extent$Axis1)
+  interval2 <- findInterval(pts$Axis2, extent$Axis2)
+  img.vals <- cbind(interval1, interval2)
+  return(img.vals)
+}
+
+
+dists <- function(loci, origin){
+  D <- sqrt((loci[, 1] - origin[, 1])^2+(loci[, 2] - origin[, 2])^2)
+  return(D)
+}
+
+distangles <- function(loci, origin){
+  D <- dists(loci, origin)
+  
+  loci[,1] <- loci[,1] - origin[,1]
+  loci[,2] <- loci[,2] - origin[,2]
+  
+  radians <- atan2(loci[,1], loci[,2])
+  
+  degrees <- radians * (180/pi)
+  
+  DA <- cbind(D, degrees)
+  colnames(DA) <- c("distance", "angle")
+  return(DA)
+}
+
+# used in 05 ###################################################################
 basic_barplot <- function(dat = GMPD_Parasite_Data, xvar = ParClass, yvar = Prevalence){
   
   dat <- dat %>% 
@@ -102,303 +708,7 @@ restrict_grid <- function(location.data, rastr){
   return(length(Which(c.rast, cells = TRUE))>1) 
 }
 
-restrict_deci <- function(dat, subsp = FALSE){
-  hostlist <- unique(dat$HostCorrectedName)
 
-  enough <- lapply(hostlist, function(host){
-    sp.dat <- dat[dat$HostCorrectedName == host,]
-    sp.dat <- sp.dat %>%
-      mutate(across(c(Latitude, Longitude), ~ trunc(.x)))
-    
-    if(subsp){
-      subgroups <- unique(sp.dat$subgroup)
-      nrow.sg.dat <- lapply(subgroups, function(sg){
-        sg.dat <- sp.dat[sp.dat$subgroup == sg,]
-        
-        out <- data.frame(HostCorrectedName = host,
-                          subgroup = sg, 
-                          enough = nrow(unique(sg.dat[c("Latitude", "Longitude")])) > 1)
-      })
-      nrow.sg.dat <- bind_rows(nrow.sg.dat)
-      
-    } else {
-      out <- data.frame(HostCorrectedName = host,
-                        enough = nrow(unique(sp.dat[c("Latitude", "Longitude")])) > 1)
-    }
-  })
-  enough <- bind_rows(enough)
-}
-
-
-range_distances <- function(dat, range.pol, range.dat, method, subsp){
-  
-  if(method == "iucn"){
-    
-    # restrict range.pol to match hosts or subgroups in dat
-    # split dat into list of datasets to be operated on 
-
-    if(subsp){
-      range.pol <- range.pol[range.pol@data$binomial %in% dat$HostCorrectedName &
-                               range.pol@data$subgroup %in% dat$subgroup, ]
-      
-      dat.sets <- split(dat, f = list(dat$HostCorrectedName, dat$subgroup), drop = TRUE)
-      
-    } else {
-      range.pol <- range.pol[range.pol@data$binomial %in% dat$HostCorrectedName, ]
-      
-      dat.sets <- split(dat, f = dat$HostCorrectedName)
-      
-    }
-    
-    # do the stuff
-    dat.out <- lapply(dat.sets, function(k){
-      
-      # subset range.pol to current host or subgroup
-      if(subsp){
-        range.pol.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName) &
-                                     range.pol@data$subgroup == unique(k$subgroup), ]
-        
-      } else {
-        range.pol.sub <- range.pol[range.pol@data$binomial == unique(k$HostCorrectedName), ] 
-        
-      }
-      
-      # extract latitudes from range.pol.sub and convert to absolute values
-      range.exact.vals  <- terra::geom(range.pol.sub)[,"y"]
-      range.abs.vals    <- abs(range.exact.vals) 
-      
-      # absolute values (latitude)
-      range.max         <- max(range.abs.vals)
-      range.min         <- min(range.abs.vals)
-      # using the absolute minimum rather than zero because there may be some which span the equator but do not cross it
-      # only really matters when it comes to error in analysis but this is avoided because we're now using median instead of span
-      range.span        <- geosphere::distGeo(c(0, range.max), c(0, range.min))
-      range.area        <- sum(geosphere::areaPolygon(range.pol.sub))
-      
-      # exact values (median)
-      range.max.exact   <- max(range.exact.vals)
-      range.min.exact   <- min(range.exact.vals)
-      range.span.exact  <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
-      range.median      <- median(c(range.max.exact, range.min.exact))
-      
-      # range traits, distances, proportions
-      range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
-                                 
-                                 "RangeMaxAbs" = range.max,
-                                 "RangeMaxExact" = range.max.exact,
-                                 
-                                 "RangeMinAbs" = range.min,
-                                 "RangeMinExact" = range.min.exact,
-                                 
-                                 "RangeSpanAbs" = range.span,
-                                 "RangeSpanExact" = range.span.exact,
-                                 
-                                 "RangeArea" = range.area,
-                                 "RangeMedian" = range.median)
-      
-      if(subsp){
-        range.traits <- cbind(range.traits, "subgroup" = unique(k$subgroup))
-      }
-      
-      # use absolute and exact values to calculate metrics
-      
-      k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
-      
-      # TODO: phase out sp
-      k$EquatorwardsDist  <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min))
-      k$EquatorwardsProp  <- k$EquatorwardsDist/range.span
-      
-      k$MedianDist        <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median))
-      k$MedianProp        <- k$MedianDist/(range.span.exact/2)
-      k$AboveMedn         <- (k$Latitude > range.median & range.median > 0) | (k$Latitude < range.median & range.median < 0) # "above" median really means polewards from median
-      
-      k$zeros <- NULL
-      
-      return(list(k, range.traits))
-    })
-    
-  } else if(method == "gbif"){
-    
-    if(subsp){
-      # restrict range.dat to match hosts and subgroups in dat, and vice versa
-      range.dat <- range.dat[range.dat$species %in% dat$HostCorrectedName & 
-                                range.dat$subgroup %in% dat$subgroup, ]
-      
-      # drop hosts with insufficient data
-      if(class(range.dat) == "SpatialPointsDataFrame"){
-        range.dat.tmp <- range.dat@data
-      } else {
-        range.dat.tmp <- range.dat
-      }
-      
-      range.dat.tmp <- range.dat.tmp %>%
-        group_by(species, subgroup) %>%
-        summarise(samples = n())
-      
-      dat.tmp <- dat %>%
-        dplyr::select(HostCorrectedName, subgroup) %>%
-        distinct() %>%
-        rename(species = HostCorrectedName) %>%
-        full_join(range.dat.tmp) %>%
-        mutate(samples = case_when(is.na(samples) ~ 0L,
-                                   TRUE           ~ samples)) %>%
-        filter(samples < 2)
-      
-      if(nrow(dat.tmp) > 0){
-        writeLines(paste("The following species subgroups have been dropped because they have insufficient range data: ",
-                         paste(paste(dat.tmp$species, dat.tmp$subgroup, sep = " "), collapse = "\n"),
-                         sep = "\n"))
-      }
-      
-      dat <- dat[!dat$HostCorrectedName %in% dat.tmp$species |
-                   !dat$subgroup %in% dat.tmp$subgroup, ]
-      
-      # split into datasets to use in function so that method is largely consistent between species and subgroups
-      dat.sets <- split(dat, f = list(dat$HostCorrectedName, dat$subgroup), drop = TRUE)
-      
-    } else {
-      # restrict range.dat to match hosts in dat, and vice versa
-      range.dat <- range.dat[range.dat$species %in% dat$HostCorrectedName, ]
-
-      if(class(range.dat) == "SpatialPointsDataFrame"){
-        range.dat.tmp <- range.dat@data
-      } else {
-        range.dat.tmp <- range.dat
-      }
-      
-      range.dat.tmp <- range.dat.tmp %>% 
-        group_by(species) %>%
-        summarise(samples = n()) 
-      
-      dat.tmp <- dat %>%
-        dplyr::select(HostCorrectedName) %>%
-        distinct() %>%
-        rename(species = HostCorrectedName) %>%
-        full_join(range.dat.tmp) %>% 
-        mutate(samples = case_when(is.na(samples) ~ 0L,
-                                   TRUE           ~ samples)) %>% 
-        filter(samples < 2)
-      
-      # drop hosts with insufficient data
-      if(nrow(dat.tmp) > 0){
-        writeLines(paste("The following species have been dropped because they have insufficient range data: ",
-                         paste(dat.tmp$species, collapse = "\n"),
-                         sep = "\n"))
-      }
-      
-      dat <- dat[!dat$HostCorrectedName %in% dat.tmp$species,]
-      
-      
-      dat.sets <- split(dat, f = dat$HostCorrectedName)
-      
-    } # ifelse restrict range data
-    
-    dat.out <- lapply(dat.sets, function(k){
-      
-      # subset range.dat to current host or subgroup
-      if(subsp){
-        range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName) & 
-                                     range.dat$subgroup == unique(k$subgroup), ]
-      } else {
-        range.dat.sub <- range.dat[range.dat$species == unique(k$HostCorrectedName), ]
-        
-      } # ifelse subset range to host
-      
-      # extract latitudes from range.dat.sub and convert to absolute values
-      if(class(range.dat.sub) == "data.frame"){
-        range.exact.vals <- range.dat.sub[, "decimalLatitude"]
-        range.abs.vals <- abs(range.exact.vals)
-
-      } else if(class(range.dat.sub) == "SpatialPointsDataFrame"){
-        range.exact.vals <- range.dat.sub@coords[, "Latitude"]
-        range.abs.vals <- abs(range.exact.vals) 
-        
-      } # ifelse extract latitudes
-      
-      # absolute values (latitude)
-      range.max         <- max(range.abs.vals)
-      range.min         <- min(range.abs.vals)
-      range.span        <- geosphere::distGeo(c(0, range.max), c(0, range.min))
-      # range.area <- ## Currently no method for range area from gbif, but could use convex hull
-      
-      # exact values (median)
-      range.max.exact   <- max(range.exact.vals)
-      range.min.exact   <- min(range.exact.vals)
-      range.span.exact  <- geosphere::distGeo(c(0, range.max.exact), c(0, range.min.exact))
-      range.median      <- median(c(range.max.exact, range.min.exact))
-
-      # range traits, distances, proportions
-      range.traits <- data.frame("HostCorrectedName" = unique(k$HostCorrectedName),
-                                 
-                                 "RangeMaxAbs" = range.max,
-                                 "RangeMaxExact" = range.max.exact,
-                                 
-                                 "RangeMinAbs" = range.min,
-                                 "RangeMinExact" = range.min.exact,
-                                 
-                                 "RangeSpanAbs" = range.span,
-                                 "RangeSpanExact" = range.span.exact,
-                                 
-                                 #"RangeArea" = range.area,
-                                 "RangeMedian" = range.median)
-      
-      if(subsp){
-        range.traits <- cbind(range.traits, "subgroup" = unique(k$subgroup))
-      }
-      
-      # drop samples outside range limits
-      k <- k[!(k$Latitude > range.max.exact | k$Latitude < range.min.exact),]
-      
-      if(nrow(k) > 0){
-      
-        # use absolute and exact values to calculate metrics
-      
-        k$zeros <- 0 # for use as a longitude calculating distances from sample points in k
-        
-        k$EquatorwardsDist <- geosphere::distGeo(abs(k[,c("zeros","Latitude")]), c(0,range.min)) # vertical distances to lowest latitude from sample locations
-        k$EquatorwardsProp <- k$EquatorwardsDist/range.span # as a proportion of range span
-
-        k$MedianDist       <- geosphere::distGeo(k[,c("zeros","Latitude")], c(0,range.median)) # vertical distances to range median
-        k$MedianProp       <- k$MedianDist/(range.span.exact/2) # as proportion of half range span
-        k$AboveMedn        <- (k$Latitude > range.median & range.median > 0) | (k$Latitude < range.median & range.median < 0) # "above" median really means polewards from median
-        
-        k$zeros <- NULL
-        
-      }
-      
-      return(list(k, range.traits))
-      
-    })
-    
-  }
-  
-  out <- do.call(rbind, lapply(dat.out, function(dat) dat[[1]]))
-  range.traits <- do.call(rbind, lapply(dat.out, function(dat) dat[[2]]))
-  
-  if(method == "iucn"){
-    out$RangeMethod <- "iucn"
-    range.traits$RangeMethod <- "iucn"
-    
-  } else if(method == "gbif"){
-    out$RangeMethod <- "gbif"
-    range.traits$RangeMethod <- "gbif"
-    
-  }
-  
-  if(subsp){
-    out$RangeTaxonLvl <- "subgroup"
-    range.traits$RangeTaxonLvl <- "subgroup"
-    
-  } else {
-    out$RangeTaxonLvl <- "species"
-    range.traits$RangeTaxonLvl <- "species"
-  }
-  
-  writeLines(paste(nrow(dat) - nrow(out), "points outside range margins"))
-  
-  return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
-  
-}
 
 gmpd_plotter <- function(host, dat, range.polygon, legend.text = Legend_Text, plot_type){
   if(plot_type == "iucn"){
@@ -949,312 +1259,4 @@ bboxer <- function(...){
 
 
 
-# Climate niche functions ####
-## Written by Olivier Broennimann and Blaise Petitpierre. Departement of Ecology and Evolution (DEE). 
-## University of Lausanne. Switzerland. April 2012.
-
-### Modified by Regan Early
-### Adapted by Margaret Bolton, July 2023
-
-# Functions to calculate environmental niche position
-
-# TODO: rewrite descriptions
-## grid.clim(climate.pca.scores, species.pca.scores, R, threshold.species, threshold.env) 
-## use the scores of an ordination (or SDM predictions) and create a grid species.density of RxR pixels 
-## (or a vector of R pixels when using scores of dimension 1 or SDM predictions) with occurrence densities
-## Only scores of one, or two dimensions can be used 
-
-## climate.pca.scores = scores for the whole study area, 
-## species.pca.scores = scores for occurrences of the species in the ordination
-## samples.pca.scores = subset of scores for occurrences of the species in the ordination 
-## R                  = resolution of the grid to be outputted
-## threshold.species  = quantile of species density at species occurences used as a threshold to exclude low species density values
-## threshold.env      = quantile of environmental density at all study sites used as a threshold to exclude low environmental density values
-
-kd_prep <- function(clim.raw = BIO_050612, 
-                    spat.dat, 
-                    samp.dat, 
-                    pca.full = PCA_Full,
-                    bioclim.full.df = Bioclim_DF,
-                    density.resolution = 10/60){
-  list.out <- list()
-  
-  # species prep
-  hostlist <- unique(samp.dat$HostCorrectedName)
-  species.out <- lapply(hostlist, species_kd_prep, 
-                        spat.dat = spat.dat,
-                        samp.dat = samp.dat,
-                        clim.raw = clim.raw,
-                        pca.full = pca.full,
-                        density.resolution = density.resolution)
-  names(species.out) <- hostlist
-  species.out <- purrr::list_transpose(species.out, simplify = FALSE)
-  
-  list.out$pca.species <- species.out$pca.species
-  list.out$pca.samples <- species.out$pca.samples
-  
-  # climate prep
-  # output for gridclim
-  list.out$pca.climate <- ade4::suprow(pca.full, bioclim.full.df[, Clim_Variables])$lisup     #The pca scores for all climate
-  
-  return(list.out)
-}
-
-species_kd_prep <- function(species.name,
-                            spat.dat = spat.dat,
-                            samp.dat = samp.dat,
-                            clim.raw = clim.raw, 
-                            pca.full = pca.full,
-                            density.resolution){
-  list.out <- list()
-  
-  # Narrow down data to selected species
-  spat.dat <- spat.dat %>%
-    dplyr::filter(species == species.name) %>%
-    dplyr::select("decimalLongitude", "decimalLatitude")
-  
-  samp.dat <- samp.dat %>%
-    filter(HostCorrectedName == species.name)
-  
-  # (partially) account for sampling bias by gridding species occurence data and extracting filled cells
-  raster.count <- terra::rast(extent = terra::ext(c(-180,180,-90,90)),
-                              resolution = density.resolution) 
-  
-  raster.count <- samp.dat %>% 
-    dplyr::select(matches("Longitude|Latitude")) %>% 
-    dplyr::rename(decimalLongitude = Longitude,
-                  decimalLatitude = Latitude) %>% # TODO: use str_detect
-    rbind(spat.dat) %>% 
-    as.matrix() %>% 
-    terra::rasterize(y = raster.count,
-                     fun = sum)
-  
-  # extract bioclim variables for points where species occurs
-  bioclim.occurrences.df <- terra::extract(x = clim.raw,
-                                           y = terra::cells(raster.count),
-                                           xy = TRUE)
-  
-  # extract bioclim variables for points where parasites are sampled
-  bioclim.parasites.df <- terra::extract(x = clim.raw,
-                                         y = samp.dat[c("Longitude", "Latitude")]) %>% 
-    cbind(samp.dat)
-  
-  # output for grid.clim
-  list.out$pca.species <- drop_na(ade4::suprow(pca.full, bioclim.occurrences.df[, Clim_Variables])$lisup)    #The pca scores for current species
-  list.out$pca.samples   <- cbind(ade4::suprow(pca.full, bioclim.parasites.df[, Clim_Variables])$lisup, bioclim.parasites.df)   # pca scores for current species from gmpd
-  
-  return(list.out)
-}
-
-clim_density <- function(climate.pca.scores,
-                         species.pca.scores,
-                         samples.pca.scores,
-                         R = 100,
-                         threshold.species = 0,
-                         threshold.env = 0){
-  
-  list.out <- list()
-  mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
-  
-  # normalise pca values
-  xmin <- min(climate.pca.scores["Axis1"])
-  xmax <- max(climate.pca.scores["Axis1"])
-  ymin <- min(climate.pca.scores["Axis2"])
-  ymax <- max(climate.pca.scores["Axis2"])
-  
-  climate.pca.normalised <- data.frame(cbind((climate.pca.scores["Axis1"] - xmin)/abs(xmax - xmin), 
-                                            (climate.pca.scores["Axis2"] - ymin)/abs(ymax - ymin)))
-  
-  # calculate values of H to match adehabitatHR::kernelUD use of the ad hoc method
-  climate.H <- (sqrt(0.5*(var(climate.pca.normalised["Axis1"]) + var(climate.pca.normalised["Axis2"]))))*(nrow(climate.pca.normalised)^-(1/6))
-  
-  # calculate the density of occurrences in a grid of RxR pixels along the score gradients
-  # using a gaussian kernel density function, with RxR bins.
-  
-  climate.density <- MASS::kde2d(x = climate.pca.normalised[,"Axis1"],
-                                y = climate.pca.normalised[,"Axis2"],
-                                n = R,
-                                h = c(climate.H*4, climate.H*4),
-                                lims = c(range(mask.xy$x), range(mask.xy$y)))
-  
-  # rescale density to the number of sites in climate.pca.scores
-  # or the number of occurrences in species.pca.scores
-  climate.density$uncorrected  <- climate.density$z*nrow(climate.pca.scores)/sum(climate.density$z)
-
-  # Fill grid using pca scores 
-  pca.breaks <- data.frame(Axis1 = seq(from = min(climate.pca.scores["Axis1"]), # breaks on score gradient 1
-                                       to   = max(climate.pca.scores["Axis1"]), 
-                                       length.out = R),
-                           Axis2 = seq(from = min(climate.pca.scores["Axis2"]), # breaks on score gradient 2
-                                       to   = max(climate.pca.scores["Axis2"]), 
-                                       length.out = R))
-  
-  climate.pca.image <- points_to_image(climate.pca.scores, pca.breaks)
-  
-  # calculate threshold density
-  climate.density.threshold <- quantile(as.vector(climate.density$uncorrected[which(climate.pca.image == 1)]), threshold.env)  
-  
-  # remove tiny values generated by kernel density
-  climate.density$uncorrected[climate.density$uncorrected < climate.density.threshold] <- 0
-  
-  # climate density needed by species_clim_density
-  hostlist <- names(species.pca.scores)
-  species.out <- lapply(hostlist, 
-                        species_clim_density,
-                        climate.pca.scores = climate.pca.scores,
-                        species.pca.scores = species.pca.scores,
-                        samples.pca.scores = samples.pca.scores,
-                        climate.density = climate.density)
-  names(species.out) <- hostlist
-  species.out <- purrr::list_transpose(species.out, simplify = FALSE)
-  
-  list.out <- species.out
-  list.out$climate.density <- climate.density
-   
-  return(list.out)
-}
-
-species_clim_density <- function(species.name,
-                                 climate.pca.scores = climate.pca.scores,
-                                 species.pca.scores = species.pca.scores,
-                                 samples.pca.scores = samples.pca.scores,
-                                 R = 100,
-                                 threshold.species = 0,
-                                 climate.density = climate.density){
-  list.out <- list()
-  mask.xy <- expand.grid(x = seq(0.01, 1, by = 0.01), y = seq(0.01, 1, by = 0.01))
-  
-  # subset species inputs
-  species.pca.scores <- species.pca.scores[[species.name]]
-  samples.pca.scores <- samples.pca.scores[[species.name]]
-  
-  # normalise pca values
-  xmin <- min(climate.pca.scores["Axis1"])
-  xmax <- max(climate.pca.scores["Axis1"])
-  ymin <- min(climate.pca.scores["Axis2"])
-  ymax <- max(climate.pca.scores["Axis2"])
-  
-  species.pca.normalised <- data.frame(cbind((species.pca.scores["Axis1"] - xmin)/abs(xmax - xmin), 
-                                             (species.pca.scores["Axis2"] - ymin)/abs(ymax - ymin))) 
-  
-  # calculate values of H to match adehabitatHR::kernelUD use of the ad hoc method
-  species.H <- (sqrt(0.5*(var(species.pca.normalised["Axis1"]) + var(species.pca.normalised["Axis2"]))))*(nrow(species.pca.normalised)^-(1/6))
-  
-  # calculate the density of occurrences in a grid of RxR pixels along the score gradients
-  # using a gaussian kernel density function, with RxR bins.
-  
-  species.density <- MASS::kde2d(x = species.pca.normalised[,"Axis1"],
-                                 y = species.pca.normalised[,"Axis2"],
-                                 n = R,
-                                 h = c(species.H*4, species.H*4),
-                                 lims = c(range(mask.xy$x), range(mask.xy$y)))
-  
-  # rescale density to the number of sites in climate.pca.scores
-  # or the number of occurrences in species.pca.scores
-  species.density$uncorrected <- species.density$z*nrow(species.pca.scores)/sum(species.density$z)
-  
-  # Fill grid using pca scores 
-  pca.breaks <- data.frame(Axis1 = seq(from = min(climate.pca.scores["Axis1"]), # breaks on score gradient 1
-                                       to   = max(climate.pca.scores["Axis1"]), 
-                                       length.out = R),
-                           Axis2 = seq(from = min(climate.pca.scores["Axis2"]), # breaks on score gradient 2
-                                       to   = max(climate.pca.scores["Axis2"]), 
-                                       length.out = R))
-  
-  species.pca.image <- points_to_image(species.pca.scores, pca.breaks)
-  
-  # calculate threshold density
-  species.density.threshold <- quantile(as.vector(species.density$uncorrected[which(species.pca.image == 1)]), threshold.species)
-  
-  # remove tiny values generated by kernel density
-  species.density$uncorrected[species.density$uncorrected < species.density.threshold] <- 0 
-  
-  # scale between 0:1 for comparison with other species
-  species.density$uncorrected <- species.density$uncorrected/max(species.density$uncorrected)	
-  
-  # record density as presence absence
-  species.density$presence <- species.density$uncorrected
-  species.density$presence[species.density$presence > 0] <- 1
-  
-  # correct for environment prevalence
-  species.density$corrected <- species.density$uncorrected/climate.density$uncorrected
-  
-  # remove n/0 situations
-  species.density$corrected[is.na(species.density$corrected)] <- 0
-  species.density$corrected[species.density$corrected == "Inf"] <- 0
-  
-  # rescale between [0:1] for comparison with other species (again)
-  species.density$corrected <- species.density$corrected/max(species.density$corrected)	
-  
-  # get peak of kernel density
-  species.density$peak_uncorrected <- which(species.density$uncorrected == 1, arr.ind = T)
-  species.density$peak_corrected <- which(species.density$corrected == 1, arr.ind = T)
-  
-  # parasite data time
-  # get positions within climate pca from values for parasite data
-  samples.pca.loci <- points_to_indices(samples.pca.scores, pca.breaks)
-  
-  # calculate distances and angle, and extract density for each parasite sample 
-  samples.out <- distangles(loci = samples.pca.loci, 
-                            origin = species.density$peak_uncorrected) %>% 
-    dplyr::bind_cols(UncorrectedDensity = species.density$uncorrected[samples.pca.loci], 
-                     samples.pca.scores) %>% 
-    dplyr::rename(UncorrectedDistance = distance,
-                  UncorrectedAngle = angle)
-  
-  samples.out <- distangles(loci = samples.pca.loci, 
-                            origin = species.density$peak_corrected) %>% 
-    dplyr::bind_cols(CorrectedDensity = species.density$corrected[samples.pca.loci], 
-                     samples.out, 
-                     samples.pca.loci) %>% 
-    dplyr::rename(CorrectedDistance = distance,
-                  CorrectedAngle = angle) 
-  
-  # output
-  list.out$samples.out <- samples.out
-  list.out$species.density <- species.density
-  
-  return(list.out)
-}
-
-# rotate_matrix <- function(mat) t(mat[nrow(mat):1,,drop = FALSE])
-
-
-points_to_image <- function(pts, extent){
-  img <- matrix(0, nrow = nrow(extent), ncol = nrow(extent))
-  interval1 <- findInterval(pts$Axis1, extent$Axis1)
-  interval2 <- findInterval(pts$Axis2, extent$Axis2)
-  xy <- cbind(interval1, interval2)
-  img[xy] <- 1
-  return(img)
-}
-
-
-points_to_indices <- function(pts, extent){
-  interval1 <- findInterval(pts$Axis1, extent$Axis1)
-  interval2 <- findInterval(pts$Axis2, extent$Axis2)
-  img.vals <- cbind(interval1, interval2)
-  return(img.vals)
-}
-
-
-dists <- function(loci, origin){
-  D <- sqrt((loci[, 1] - origin[, 1])^2+(loci[, 2] - origin[, 2])^2)
-  return(D)
-}
-
-distangles <- function(loci, origin){
-  D <- dists(loci, origin)
-  
-  loci[,1] <- loci[,1] - origin[,1]
-  loci[,2] <- loci[,2] - origin[,2]
-  
-  radians <- atan2(loci[,1], loci[,2])
-  
-  degrees <- radians * (180/pi)
-  
-  DA <- cbind(D, degrees)
-  colnames(DA) <- c("distance", "angle")
-  return(DA)
-}
 
