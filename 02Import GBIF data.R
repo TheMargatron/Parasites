@@ -19,7 +19,7 @@ library(taxize)
 library(tidyverse)
 library(tmap)
 library(beepr)
-# source(here::here("Functions.R"))
+source(here::here("Functions.R"))
 
 sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 tmap::tmap_mode("view")
@@ -898,7 +898,7 @@ GBIF_Data <- do.call(rbind, GBIF_Data_list)
 
 write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_02.csv"), row.names = FALSE)
 
-GBIF_Data_test2 <- read.csv(here::here("Data/Data back ups/GBIF_Data_test_02.csv"), header = TRUE)
+write.csv(GBIF_Data, here::here("Data/Data back ups/GBIF_Data_02.csv"), row.names = FALSE)
 
 
 
