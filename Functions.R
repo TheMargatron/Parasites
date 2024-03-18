@@ -152,8 +152,9 @@ range_distances_host <- function(host, dat, range.object, method){
   }
 
   out <- range_distances_method(dat = dat, range.object = range.object)
-  out$range.traits$HostCorrectedName <- host
-  out$range.traits$RangeArea <- sum(sf::st_area(IUCN_Native_Data[IUCN_Native_Data$sci_name == host,]))
+  
+  out[[2]]$HostCorrectedName <- host
+  out[[2]]$RangeArea <- sum(sf::st_area(IUCN_Native_Data[IUCN_Native_Data$sci_name == host,]))
   
   out[[1]]$RangeMethod <- method
   out[[2]]$RangeMethod <- method
@@ -230,9 +231,9 @@ range_distances_host <- function(host, dat, range.object, method){
 range_distances_method <- function(dat, range.object){
   
   # extract latitudes from range.object and convert to absolute values
-  range.vals.exact  <- sf::st_coordinates(range.object)
+  range.vals.exact  <- sf::st_coordinates(range.object)[,"Y"]
   range.vals.abs    <- abs(range.vals.exact) 
-  
+
   # absolute values (latitude)
   range.max.abs         <- max(range.vals.abs)
   range.max.abs.point   <- c(0, range.max.abs) %>% sf::st_point() %>% sf::st_sfc(crs = Projection_String) 
@@ -252,6 +253,7 @@ range_distances_method <- function(dat, range.object){
   range.min.exact.point <- c(0, range.min.exact) %>% sf::st_point() %>% sf::st_sfc() %>% sf::st_set_crs(Projection_String)
   
   range.span.exact      <- sf::st_distance(range.max.exact.point, range.min.exact.point) %>% as.vector()
+  
   range.median          <- median(c(range.max.exact, range.min.exact))
   range.median.point    <- c(0, range.median) %>% sf::st_point() %>% sf::st_sfc(crs = Projection_String)
   
@@ -273,6 +275,7 @@ range_distances_method <- function(dat, range.object){
   dat.out <- dat[!(dat$Latitude > range.max.exact | dat$Latitude < range.min.exact),]
   
   if(nrow(dat.out) == 0){
+    dat.out <- rbind(NA, dat.out) 
     writeLines("All points outside range margins")
     
   } else {
@@ -283,10 +286,10 @@ range_distances_method <- function(dat, range.object){
     dat.out$absLat <- abs(dat.out$Latitude)
     
     dat.out.spatial.abs   <- sf::st_as_sf(dat.out,
-                                      coords = c("zeros", "Latitude"),
+                                      coords = c("zeros", "absLat"),
                                       crs = Projection_String)
     dat.out.spatial.exact <- sf::st_as_sf(dat.out,
-                                      coords = c("zeros", "absLat"),
+                                      coords = c("zeros", "Latitude"),
                                       crs = Projection_String)
     
     dat.out$EquatorwardsDist <- sf::st_distance(dat.out.spatial.abs, range.min.abs.point) %>% as.vector() # vertical distances to lowest abs latitude from sample locations
@@ -633,7 +636,7 @@ distangles <- function(loci, origin){
 }
 
 # used in 05 ###################################################################
-basic_barplot <- function(dat = GMPD_Parasite_Data, xvar = ParClass, yvar = Prevalence){
+basic_barplot <- function(dat = GMPD_Climate_Data, xvar = ParClass, yvar = Prevalence){
   
   dat <- dat %>% 
     dplyr::mutate(AbsLatitude = abs(Latitude))
