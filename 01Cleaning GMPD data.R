@@ -22,7 +22,7 @@ library(beepr)
 library(here)               #
 library(maps)               # iso 3166 country codes and mapnames ## suggests sp but does not import
 # library(maptools)             # TODO: depends sp
-library(rnaturalearth)      # river data 
+# library(rnaturalearth)      # river data 
 # library(rnaturalearthdata)  # countries data # TODO: depends sp
 # library(raster)             # Use terra instead
 # library(rgdal)              # read shapefiles
@@ -43,13 +43,13 @@ nrow(GMPD_Raw_Data); length(unique(GMPD_Raw_Data$HostCorrectedName)) #Beginning 
 IUCN_Mammals <- sf::read_sf(dsn = here::here("Data/IUCN/MAMMALS"), layer = "MAMMALS")
 Projection_String <- sf::st_crs(IUCN_Mammals)
 
-River_Data50 <- rnaturalearth::ne_load(scale = 50,
-                                       type = "rivers_lake_centerlines",
-                                       category = "physical",
-                                       destdir = here::here("Data/Extras/ne_rivers"),
-                                       returnclass = "sf")
+# River_Data50 <- rnaturalearth::ne_load(scale = 50,
+#                                        type = "rivers_lake_centerlines",
+#                                        category = "physical",
+#                                        destdir = here::here("Data/Extras/ne_rivers"),
+#                                        returnclass = "sf")
 
-# sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
+sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 # tmap_mode("view")
 
 # Basic data cleaning #########################################################################################
@@ -2541,6 +2541,8 @@ GMPD_Data <- GMPD_Data_Filter %>%
   filter(SampleSize != 99999)
 nrow(GMPD_Data); length(unique(GMPD_Data$HostCorrectedName)) # 6530 128
 
+rm(GMPD_Data_Filter)
+
 # Cleaning by location ########################################################################################
 
 ## Fixing country names #######################################################################################
@@ -2895,23 +2897,41 @@ GMPD_Data_cln_all <- lapply(Hostlist, function(host, point.data = GMPD_Data,
                                                range.polygon = IUCN_Data, 
                                                buff = 0){
   Native_DF <- Native_DF[Native_DF$sci_name == host,]
+  
+  # Start with ones that need no buffer
   if(all(is.na(Native_DF$gmpd_buffer))) {
     out <- point.data[point.data$HostCorrectedName == host, ]
     
+  # Then do ones that have no buffer for kept but do for removed
   } else if(all(is.na(Native_DF[Native_DF$keep, "gmpd_buffer"]))){
+    
+    # filter range polygon to ones I'm removing
     range.polygon <- range.polygon[range.polygon$sci_name == host &
-                                     range.polygon$keep == FALSE, ]
+                                     !range.polygon$keep, ]
     point.data <- point.data[point.data$HostCorrectedName == host, ]
+    
+    # extract buffer
     buff <- unique(Native_DF[!Native_DF$keep, "gmpd_buffer"])[[1]]
+    
+    # buffer the polygon
     range.polygon <- sf::st_buffer(range.polygon, buff)
+    
+    # get the intersections
     kept.indices <- sf::st_intersects(point.data, range.polygon)
     
-    out <- point.data[unlist(lapply(kept.indices, function(x)length(x) == 0)), ]
+    # Keep only the points that have no intersections
+    out <- point.data[lengths(kept.indices) == 0, ]
     
   } else {
+    # get the full range polygon and the point data for species
     range.polygon <- range.polygon[range.polygon$sci_name == host, ]
     point.data <- point.data[point.data$HostCorrectedName == host, ]
+    
+    # get the buffer
     buff <- unique(Native_DF[Native_DF$keep, "gmpd_buffer"])[[1]]
+    
+    # TODO replace pip_test
+    # use pip_test to get the points
     out <- pip_test(point.data, range.polygon, buff)
   }
   
@@ -2981,7 +3001,7 @@ nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5
 ## IUCN restricted species ####
 GMPD_Data_res_all <- cbind(sf::st_drop_geometry(GMPD_Data_res_all), 
                            data.frame(sf::st_coordinates(GMPD_Data_res_all))) %>% 
-  dplyr::rename(Latitude = X, Longitude = Y)
+  dplyr::rename(Longitude = X, Latitude = Y)
 Res_Temp <- restrict_decimal(GMPD_Data_res_all)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_res_all <- GMPD_Data_res_all[GMPD_Data_res_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
@@ -3009,7 +3029,7 @@ rm(Res_Temp)
 ## IUCN cleaned species ####
 GMPD_Data_cln_all <- cbind(sf::st_drop_geometry(GMPD_Data_cln_all), 
                            data.frame(sf::st_coordinates(GMPD_Data_cln_all))) %>% 
-  dplyr::rename(Latitude = X, Longitude = Y)
+  dplyr::rename(Longitude = X, Latitude = Y)
 Res_Temp <- restrict_decimal(GMPD_Data_cln_all)
 Res_Temp <- Res_Temp[Res_Temp$enough, ]
 GMPD_Data_cln_all <- GMPD_Data_cln_all[GMPD_Data_cln_all$HostCorrectedName %in% Res_Temp$HostCorrectedName,]
@@ -3050,11 +3070,12 @@ GMPD_Data <- GMPD_Data %>%
 # IUCN_Orders <- IUCN_Mammals[IUCN_Mammals$order_ %in% unique(IUCN_Native_Data$order_), ]
 # rm(IUCN_Mammals)
 # 
-# write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data_01.csv"), row.names = FALSE)
-# 
-# write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data_01.csv"), row.names = FALSE)
-# write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), row.names = FALSE)
-# 
-# saveRDS(IUCN_Native_Data, file = here::here("Data/Data back ups/IUCN_Native_Data_01")) # too large to commit 
+write.csv(GMPD_Data, file = here::here("Data/Data back ups/GMPD_Data_01.csv"), row.names = FALSE)
+
+write.csv(GMPD_Location_Data, file = here::here("Data/Data back ups/GMPD_Location_Data_01.csv"), row.names = FALSE)
+write.csv(Native_DF, file = here::here("Data/Data back ups/Native_DF_01.csv"), row.names = FALSE)
+
+saveRDS(IUCN_Native_Data, file = here::here("Data/Data back ups/IUCN_Native_Data_01")) # too large to commit
+saveRDS(IUCN_Data, file = here::here("Data/Data back ups/IUCN_Data_01")) # too large to commit
 # saveRDS(IUCN_Orders, file = here::here("Data/Data back ups/IUCN_Orders_01")) # too large to commit 
 
