@@ -13,25 +13,9 @@ GMPD_Climate_Data <- read.csv(here::here("Data/Data back ups/GMPD_Climate_Data_0
                               header = TRUE, 
                               stringsAsFactors = FALSE)
 
-# temp until I rerun earlier scripts
-GMPD_Parasite_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), 
-                          header = TRUE, 
-                          stringsAsFactors = FALSE) %>% 
-  dplyr::select(ParasiteCorrectedName, ParType, ParPhylum, ParClass) %>% 
-  dplyr::distinct() %>% 
-  dplyr::right_join(GMPD_Climate_Data, by = join_by("ParasiteCorrectedName"))
-
-# It was losing rows when both steps together
-GMPD_Parasite_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), 
-                               header = TRUE, 
-                               stringsAsFactors = FALSE) %>% 
-  dplyr::select(HostCorrectedName, Group) %>% 
-  dplyr::distinct() %>% 
-  dplyr::right_join(GMPD_Parasite_Data, by = join_by("HostCorrectedName")) %>% 
-  dplyr::mutate(Group = case_when(!is.na(Group) ~ Group,
-                                  str_detect(HostCorrectedName, "Tragelaphus oryx|Cervus canadensis|Equus quagga") ~ "ungulates",
-                                  str_detect(HostCorrectedName, "Melogale subaurantiaca")                          ~ "carnivores"))
-
+# TODO: rename? remove?
+GMPD_Climate_Data_IUCN <- GMPD_Climate_Data %>% filter(RangeMethod == "iucn")
+GMPD_Climate_Data_GBIF <- GMPD_Climate_Data %>% filter(RangeMethod == "gbif")
 
 # Prep and data exploration ####################################################
 ## Hosts ####
@@ -39,37 +23,39 @@ GMPD_Parasite_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"),
 
 pdf(here::here("Figures/Host Group.pdf"), width = 8, height = 6)
 
-basic_barplot(dat = GMPD_Climate_Data, xvar = Group, yvar = Prevalence)
-basic_barplot(dat = GMPD_Climate_Data, xvar = Group, yvar = Latitude)
-basic_barplot(dat = GMPD_Climate_Data, xvar = Group, yvar = AbsLatitude)
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = Prevalence) +
+  ggtitle("Host data restricted by polygons")
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = Latitude)
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = AbsLatitude)
 
-dev.off()
-
-pdf(here::here("Figures/Host Order.pdf"), width = 8, height = 6)
-
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostOrder, yvar = Prevalence)
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostOrder, yvar = Latitude)
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostOrder, yvar = AbsLatitude)
-
-dev.off()
-
-pdf(here::here("Figures/Host Family.pdf"), width = 8, height = 6)
-
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostFamily, yvar = Prevalence)
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostFamily, yvar = Latitude)
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostFamily, yvar = AbsLatitude)
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = Prevalence) +
+  ggtitle("Host data cleaned")
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = Latitude)
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = AbsLatitude)
 
 dev.off()
 
 pdf(here::here("Figures/Host Species.pdf"), width = 10, height = 25)
 
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostCorrectedName, yvar = Prevalence) +
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = Prevalence) +
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  ggtitle("Host data restricted by polygons")
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = Latitude) +
   coord_flip() +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostCorrectedName, yvar = Latitude) +
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = AbsLatitude) +
   coord_flip() +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
-basic_barplot(dat = GMPD_Climate_Data, xvar = HostCorrectedName, yvar = AbsLatitude) +
+
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = Prevalence) +
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+  ggtitle("Host data cleaned")
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = Latitude) +
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = AbsLatitude) +
   coord_flip() +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
@@ -83,27 +69,31 @@ dev.off()
 ## Parasites ####
 # Check whether there are any parasite groups which should be removed
 
-pdf(here::here("Figures/Parasite Class.pdf"), width = 8, height = 6)
-
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParClass, yvar = Prevalence)
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParClass, yvar = Latitude)
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParClass, yvar = AbsLatitude)
-
-dev.off()
-
 pdf(here::here("Figures/Parasite Type.pdf"), width = 8, height = 6)
 
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParType, yvar = Prevalence)
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParType, yvar = Latitude)
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParType, yvar = AbsLatitude)
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = Prevalence) +
+  ggtitle("Host data restricted by polygons")
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = Latitude)
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = AbsLatitude)
+
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = Prevalence) +
+  ggtitle("Host data cleaned")
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = Latitude)
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = AbsLatitude)
 
 dev.off()
 
 pdf(here::here("Figures/Parasite Phylum.pdf"), width = 8, height = 6)
 
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParPhylum, yvar = Prevalence)
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParPhylum, yvar = Latitude)
-basic_barplot(dat = GMPD_Climate_Data, xvar = ParPhylum, yvar = AbsLatitude)
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = Prevalence) +
+  ggtitle("Host data restricted by polygons")
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = Latitude)
+basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = AbsLatitude)
+
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = Prevalence) +
+  ggtitle("Host data cleaned")
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = Latitude)
+basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = AbsLatitude)
 
 dev.off()
 
@@ -115,10 +105,8 @@ dev.off()
 # Sarcomastigophora is a bit more acceptable because it's within Protozoa, and
 # because it has a broader geographic spread
 
-GMPD_Analysis_Data <- GMPD_Parasite_Data %>% 
-  dplyr::filter(!ParType %in% c("Prion", "Fungus") &
-                  !is.na(ParType) &
-                  HostsSampled != 0) # TODO: delete after rerunning?
+GMPD_Analysis_Data <- GMPD_Climate_Data %>% 
+  dplyr::filter(!ParType %in% c("Prion", "Fungus"))
 
 
 # https://stats.stackexchange.com/questions/117497/comparing-between-random-effects-structures-in-a-linear-mixed-effects-model
@@ -132,7 +120,8 @@ GMPD_Analysis_Data <- GMPD_Parasite_Data %>%
 
 # I'm going to go back to taking a more thoughtful approach
 
-GMPD_IUCN_Species %>% 
+GMPD_Analysis_Data %>% 
+  dplyr::filter(RangeMethod == "iucn") %>% 
   group_by(ParPhylum, ParType) %>% 
   summarise(n = n()) %>% 
   print() %>% 
@@ -145,15 +134,28 @@ GMPD_IUCN_Species %>%
 # That's where I think Type wins out, because the smaller samples coalesce without the
 # groupings losing meaning as they are based on (hopefully) informative traits
 
-  
+
 ## Correlations ####
-GMPD_Analysis_Data %>% 
-  dplyr::select(Prevalence, HostsSampled, Latitude, MedianProp, 
+GMPD_IUCN_Species <- GMPD_Analysis_Data %>% 
+  dplyr::filter(RangeMethod == "iucn")
+GMPD_GBIF_Species <- GMPD_Analysis_Data %>% 
+  dplyr::filter(RangeMethod == "gbif")
+
+GMPD_IUCN_Species %>% 
+  dplyr::select(Prevalence, SampleSize, Latitude, MedianProp, 
                 CorrectedDensity, CorrectedDistance, CorrectedAngle,
                 Axis1, Axis2, 
                 wc2.1_10m_bio_5, wc2.1_10m_bio_6, wc2.1_10m_bio_12) %>% 
   cor() %>% 
-  corrplot::corrplot()
+  corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
+
+GMPD_GBIF_Species %>% 
+  dplyr::select(Prevalence, SampleSize, Latitude, MedianProp, 
+                CorrectedDensity, CorrectedDistance, CorrectedAngle,
+                Axis1, Axis2, 
+                wc2.1_10m_bio_5, wc2.1_10m_bio_6, wc2.1_10m_bio_12) %>% 
+  cor() %>% 
+  corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
 
 # https://doi.org/10.1111/j.1600-0587.2012.07348.x
 # None of the variables I plan on modelling 
@@ -161,44 +163,9 @@ GMPD_Analysis_Data %>%
 # have particularly high collinearity, though I will keep an eye on
 # Latitude + Axis1, and CorrectedDistance + CorrectedDensity
 
-# Analysis  ####################################################################
-## Prepping IUCN Species data ####
-GMPD_IUCN_Species <- GMPD_Analysis_Data %>%
-  dplyr::filter(RestrAll, 
-                RangeMethod   == "iucn",
-                RangeTaxonLvl == "species") %>%
-  dplyr::mutate(LatitudeScaled          = base::scale(abs(Latitude)),
-                # EquatorwardsPropScaled  = base::scale(EquatorwardsProp),
-                MedianPropScaled        = base::scale(MedianProp),
-                MedianPropSquared       = dplyr::case_when(!AboveMedn ~ MedianProp * -1,
-                                                           TRUE       ~ MedianProp),
-                MedianPropSquScaled     = base::scale(MedianPropSquared),
-                
-                Axis1Scaled             = base::scale(Axis1),
-                Axis2Scaled             = base::scale(Axis2),
-                
-                CorrectedDensityScaled  = base::scale(CorrectedDensity),
-                CorrectedDistanceScaled = base::scale(CorrectedDistance),
-                CorrectedAngleScaled    = base::scale(CorrectedAngle),
-                
-                CorrectedDistanceLogged = base::scale(log(CorrectedDistance + 1)),
-                CorrectedDistanceSqrt   = base::scale(sqrt(CorrectedDistance)),
-                
-                ParasiteDetected        = as.integer(round(HostsSampled * Prevalence, 0)),
-                ParasiteUndetected      = HostsSampled - ParasiteDetected,
-                
-                HostSubgroup            = paste(HostCorrectedName, subgroup, sep = "_"),
-                HostParasite            = paste(HostCorrectedName, ParasiteCorrectedName, sep = "_"),
-                
-                RowID                   = row.names(.)) %>% 
-  dplyr::arrange(desc(pmax(CorrectedDistance, CorrectedAngle))) %>% 
-  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
-                CorrectedDistanceSquared = case_when(!TopHalf ~ CorrectedDistance * -1,
-                                                     TRUE ~ CorrectedDistance),
-                CorrectedDistanceSquScaled = base::scale(CorrectedDistanceSquared))
 
-### Non-normal distributions ####
-# TODO: put this in a sensible place
+## Non-normal distributions ####
+## IUCN 
 hist(GMPD_IUCN_Species$Latitude)
 hist(abs(GMPD_IUCN_Species$Latitude))
 
@@ -225,38 +192,111 @@ GMPD_IUCN_Species %>%
                                                      TRUE ~ CorrectedDistance)) %>% 
   dplyr::pull(CorrectedDistanceSquared) %>% 
   hist()
+
 # I think the last is the most appropriate given that it's a true half-normal 
 # distribution that was calculated from a 2d space
 # Or at least, something approximating this approach
 # Debatable whether I should use angle in sorting
 
-## Prepping IUCN Subgroup data ####
-GMPD_IUCN_Subgroup <- GMPD_Analysis_Data %>%
-  dplyr::filter(RestrAll, 
-                RangeMethod   == "iucn",
-                RangeTaxonLvl == "subgroup") %>%
-  dplyr::mutate(LatitudeScaled          = base::scale(abs(Latitude)),
-                # EquatorwardsPropScaled  = base::scale(EquatorwardsProp),
-                MedianPropScaled        = base::scale(MedianProp),
-                MedianPropSquared       = dplyr::case_when(!AboveMedn ~ MedianProp * -1,
-                                                           TRUE       ~ MedianProp),
-                MedianPropSquScaled     = base::scale(MedianPropSquared),
-                
-                Axis1Scaled             = base::scale(Axis1),
-                Axis2Scaled             = base::scale(Axis2),
-                
-                CorrectedDensityScaled  = base::scale(CorrectedDensity),
-                CorrectedDistanceScaled = base::scale(CorrectedDistance),
-                CorrectedAngleScaled    = base::scale(CorrectedAngle),
-                
-                ParasiteDetected        = as.integer(round(HostsSampled * Prevalence, 0)),
-                ParasiteUndetected      = HostsSampled - ParasiteDetected,
-                HostSubgroup            = paste(HostCorrectedName, subgroup))
 
-## Prepping GBIF Species data ####
-GMPD_GBIF_Species <- GMPD_Analysis_Data %>%
-  dplyr::filter(RestrAll, 
-                RangeMethod   == "gbif",
+hist(GMPD_IUCN_Species$CorrectedDensity_5)
+hist(GMPD_IUCN_Species$CorrectedAngle_5)
+
+hist(GMPD_IUCN_Species$CorrectedDistance_5)
+hist(log(GMPD_IUCN_Species$CorrectedDistance_5+1))
+hist(sqrt(GMPD_IUCN_Species$CorrectedDistance_5))
+GMPD_IUCN_Species %>% 
+  dplyr::arrange(desc(pmax(CorrectedDistance_5, CorrectedAngle_5))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_5 = case_when(!TopHalf ~ CorrectedDistance_5 * -1,
+                                                       TRUE ~ CorrectedDistance_5)) %>% 
+  dplyr::pull(CorrectedDistanceSquared_5) %>% 
+  hist()
+# Still comes out normal
+
+hist(GMPD_IUCN_Species$CorrectedDensity_20)
+hist(GMPD_IUCN_Species$CorrectedAngle_20)
+
+hist(GMPD_IUCN_Species$CorrectedDistance_20)
+hist(log(GMPD_IUCN_Species$CorrectedDistance_20+1))
+hist(sqrt(GMPD_IUCN_Species$CorrectedDistance_20))
+GMPD_IUCN_Species %>% 
+  dplyr::arrange(desc(pmax(CorrectedDistance_20, CorrectedAngle_20))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_20 = case_when(!TopHalf ~ CorrectedDistance_20 * -1,
+                                                        TRUE ~ CorrectedDistance_20)) %>% 
+  dplyr::pull(CorrectedDistanceSquared_20) %>% 
+  hist()
+# Still comes out normal
+
+## GBIF 
+hist(GMPD_GBIF_Species$Latitude)
+hist(abs(GMPD_GBIF_Species$Latitude))
+
+hist(GMPD_GBIF_Species$MedianProp)
+GMPD_GBIF_Species %>% 
+  dplyr::mutate(MedianPropSquared = dplyr::case_when(!AboveMedn ~ MedianProp * -1,
+                                                     TRUE       ~ MedianProp)) %>% 
+  dplyr::pull(MedianPropSquared) %>% 
+  hist()
+
+hist(GMPD_GBIF_Species$Axis1)
+hist(GMPD_GBIF_Species$Axis2)
+
+hist(GMPD_GBIF_Species$CorrectedDensity)
+hist(GMPD_GBIF_Species$CorrectedAngle)
+
+hist(GMPD_GBIF_Species$CorrectedDistance)
+hist(log(GMPD_GBIF_Species$CorrectedDistance+1))
+hist(sqrt(GMPD_GBIF_Species$CorrectedDistance))
+GMPD_GBIF_Species %>% 
+  dplyr::arrange(desc(pmax(CorrectedDistance, CorrectedAngle))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared = case_when(!TopHalf ~ CorrectedDistance * -1,
+                                                     TRUE ~ CorrectedDistance)) %>% 
+  dplyr::pull(CorrectedDistanceSquared) %>% 
+  hist()
+
+# I think the last is the most appropriate given that it's a true half-normal 
+# distribution that was calculated from a 2d space
+# Or at least, something approximating this approach
+# Debatable whether I should use angle in sorting
+
+
+hist(GMPD_GBIF_Species$CorrectedDensity_5)
+hist(GMPD_GBIF_Species$CorrectedAngle_5)
+
+hist(GMPD_GBIF_Species$CorrectedDistance_5)
+hist(log(GMPD_GBIF_Species$CorrectedDistance_5+1))
+hist(sqrt(GMPD_GBIF_Species$CorrectedDistance_5))
+GMPD_GBIF_Species %>% 
+  dplyr::arrange(desc(pmax(CorrectedDistance_5, CorrectedAngle_5))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_5 = case_when(!TopHalf ~ CorrectedDistance_5 * -1,
+                                                       TRUE ~ CorrectedDistance_5)) %>% 
+  dplyr::pull(CorrectedDistanceSquared_5) %>% 
+  hist()
+# Still comes out normal
+
+hist(GMPD_GBIF_Species$CorrectedDensity_20)
+hist(GMPD_GBIF_Species$CorrectedAngle_20)
+
+hist(GMPD_GBIF_Species$CorrectedDistance_20)
+hist(log(GMPD_GBIF_Species$CorrectedDistance_20+1))
+hist(sqrt(GMPD_GBIF_Species$CorrectedDistance_20))
+GMPD_GBIF_Species %>% 
+  dplyr::arrange(desc(pmax(CorrectedDistance_20, CorrectedAngle_20))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_20 = case_when(!TopHalf ~ CorrectedDistance_20 * -1,
+                                                        TRUE ~ CorrectedDistance_20)) %>% 
+  dplyr::pull(CorrectedDistanceSquared_20) %>% 
+  hist()
+# Still comes out normal
+
+# Analysis  ####################################################################
+## Prepping IUCN Species data ####
+GMPD_IUCN_Species <- GMPD_Analysis_Data %>%
+  dplyr::filter(RangeMethod   == "iucn",
                 RangeTaxonLvl == "species") %>%
   dplyr::mutate(LatitudeScaled          = base::scale(abs(Latitude)),
                 # EquatorwardsPropScaled  = base::scale(EquatorwardsProp),
@@ -272,32 +312,124 @@ GMPD_GBIF_Species <- GMPD_Analysis_Data %>%
                 CorrectedDistanceScaled = base::scale(CorrectedDistance),
                 CorrectedAngleScaled    = base::scale(CorrectedAngle),
                 
+                CorrectedDistanceLogged = base::scale(log(CorrectedDistance + 1)),
+                CorrectedDistanceSqrt   = base::scale(sqrt(CorrectedDistance)),
+
+                CorrectedDensityScaled_5  = base::scale(CorrectedDensity_5),
+                CorrectedDistanceScaled_5 = base::scale(CorrectedDistance_5),
+                CorrectedAngleScaled_5    = base::scale(CorrectedAngle_5),
+
+                CorrectedDistanceLogged_20 = base::scale(log(CorrectedDistance_20 + 1)),
+                CorrectedDistanceSqrt_20   = base::scale(sqrt(CorrectedDistance_20)),
+
+                CorrectedDensityScaled_20  = base::scale(CorrectedDensity_20),
+                CorrectedDistanceScaled_20 = base::scale(CorrectedDistance_20),
+                CorrectedAngleScaled_20    = base::scale(CorrectedAngle_20),
+
+                CorrectedDistanceLogged_20 = base::scale(log(CorrectedDistance_20 + 1)),
+                CorrectedDistanceSqrt_20   = base::scale(sqrt(CorrectedDistance_20)),
+                
                 ParasiteDetected        = as.integer(round(HostsSampled * Prevalence, 0)),
                 ParasiteUndetected      = HostsSampled - ParasiteDetected,
-                HostSubgroup            = paste(HostCorrectedName, subgroup))
+                
+                # HostSubgroup            = paste(HostCorrectedName, subgroup, sep = "_"),
+                HostParasite            = paste(HostCorrectedName, ParasiteCorrectedName, sep = "_"),
+                
+                RowID                   = row.names(.)) %>% 
+  
+  dplyr::arrange(desc(pmax(CorrectedDistance, CorrectedAngle))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared = case_when(!TopHalf ~ CorrectedDistance * -1,
+                                                     TRUE ~ CorrectedDistance),
+                CorrectedDistanceSquScaled = base::scale(CorrectedDistanceSquared)) %>% 
+  
+  dplyr::arrange(desc(pmax(CorrectedDistance_5, CorrectedAngle_5))) %>%
+  dplyr::mutate(TopHalf_5 = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_5 = case_when(!TopHalf ~ CorrectedDistance_5 * -1,
+                                                       TRUE ~ CorrectedDistance_5),
+                CorrectedDistanceSquScaled_5 = base::scale(CorrectedDistanceSquared_5)) %>%
+  dplyr::arrange(desc(pmax(CorrectedDistance_20, CorrectedAngle_20))) %>%
 
-## Prepping GBIF Subgroup data ####
-GMPD_GBIF_Subgroup <- GMPD_Analysis_Data %>%
-  dplyr::filter(RestrAll, 
-                RangeMethod   == "gbif",
-                RangeTaxonLvl == "subgroup") %>%
-  dplyr::mutate(LatitudeScaled            = base::scale(abs(Latitude)),
+  dplyr::mutate(TopHalf_20 = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_20 = case_when(!TopHalf ~ CorrectedDistance_20 * -1,
+                                                       TRUE ~ CorrectedDistance_20),
+                CorrectedDistanceSquScaled_20 = base::scale(CorrectedDistanceSquared_20))
+
+GMPD_IUCN_Species %>% 
+  dplyr::select(Prevalence, SampleSize, Latitude, MedianProp, MedianPropSquared,
+                CorrectedDensity, CorrectedDistance, CorrectedAngle, CorrectedDistanceSquared) %>% 
+  mutate(abslatitude = abs(Latitude)) %>% 
+  cor() %>% 
+  corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
+
+
+## Prepping GBIF Species data ####
+GMPD_GBIF_Species <- GMPD_Analysis_Data %>%
+  dplyr::filter(RangeMethod   == "gbif",
+                RangeTaxonLvl == "species") %>%
+  dplyr::mutate(LatitudeScaled          = base::scale(abs(Latitude)),
                 # EquatorwardsPropScaled  = base::scale(EquatorwardsProp),
-                MedianPropScaled          = base::scale(MedianProp),
-                MedianPropSquared         = dplyr::case_when(!AboveMedn ~ MedianProp * -1,
+                MedianPropScaled        = base::scale(MedianProp),
+                MedianPropSquared       = dplyr::case_when(!AboveMedn ~ MedianProp * -1,
                                                            TRUE       ~ MedianProp),
-                MedianPropSquScaled       = base::scale(MedianPropSquared),
+                MedianPropSquScaled     = base::scale(MedianPropSquared),
                 
-                Axis1Scaled               = base::scale(Axis1),
-                Axis2Scaled               = base::scale(Axis2),
+                Axis1Scaled             = base::scale(Axis1),
+                Axis2Scaled             = base::scale(Axis2),
                 
-                CorrectedDensityScaled    = base::scale(CorrectedDensity),
-                CorrectedDistanceScaled   = base::scale(CorrectedDistance),
-                CorrectedAngleScaled      = base::scale(CorrectedAngle),
+                CorrectedDensityScaled  = base::scale(CorrectedDensity),
+                CorrectedDistanceScaled = base::scale(CorrectedDistance),
+                CorrectedAngleScaled    = base::scale(CorrectedAngle),
+                
+                CorrectedDistanceLogged = base::scale(log(CorrectedDistance + 1)),
+                CorrectedDistanceSqrt   = base::scale(sqrt(CorrectedDistance)),
+                
+                CorrectedDensityScaled_5  = base::scale(CorrectedDensity_5),
+                CorrectedDistanceScaled_5 = base::scale(CorrectedDistance_5),
+                CorrectedAngleScaled_5    = base::scale(CorrectedAngle_5),
+                
+                CorrectedDistanceLogged_20 = base::scale(log(CorrectedDistance_20 + 1)),
+                CorrectedDistanceSqrt_20   = base::scale(sqrt(CorrectedDistance_20)),
+                
+                CorrectedDensityScaled_20  = base::scale(CorrectedDensity_20),
+                CorrectedDistanceScaled_20 = base::scale(CorrectedDistance_20),
+                CorrectedAngleScaled_20    = base::scale(CorrectedAngle_20),
+                
+                CorrectedDistanceLogged_20 = base::scale(log(CorrectedDistance_20 + 1)),
+                CorrectedDistanceSqrt_20   = base::scale(sqrt(CorrectedDistance_20)),
+                
+                ParasiteDetected        = as.integer(round(HostsSampled * Prevalence, 0)),
+                ParasiteUndetected      = HostsSampled - ParasiteDetected,
+                
+                # HostSubgroup            = paste(HostCorrectedName, subgroup, sep = "_"),
+                HostParasite            = paste(HostCorrectedName, ParasiteCorrectedName, sep = "_"),
+                
+                RowID                   = row.names(.)) %>% 
+  
+  dplyr::arrange(desc(pmax(CorrectedDistance, CorrectedAngle))) %>% 
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared = case_when(!TopHalf ~ CorrectedDistance * -1,
+                                                     TRUE ~ CorrectedDistance),
+                CorrectedDistanceSquScaled = base::scale(CorrectedDistanceSquared)) %>% 
+  
+  dplyr::arrange(desc(pmax(CorrectedDistance_5, CorrectedAngle_5))) %>%
+  dplyr::mutate(TopHalf_5 = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_5 = case_when(!TopHalf ~ CorrectedDistance_5 * -1,
+                                                       TRUE ~ CorrectedDistance_5),
+                CorrectedDistanceSquScaled_5 = base::scale(CorrectedDistanceSquared_5)) %>%
+  dplyr::arrange(desc(pmax(CorrectedDistance_20, CorrectedAngle_20))) %>%
+  
+  dplyr::mutate(TopHalf_20 = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistanceSquared_20 = case_when(!TopHalf ~ CorrectedDistance_20 * -1,
+                                                        TRUE ~ CorrectedDistance_20),
+                CorrectedDistanceSquScaled_20 = base::scale(CorrectedDistanceSquared_20))
 
-                ParasiteDetected          = as.integer(round(HostsSampled * Prevalence, 0)),
-                ParasiteUndetected        = HostsSampled - ParasiteDetected,
-                HostSubgroup              = paste(HostCorrectedName, subgroup))
+GMPD_GBIF_Species %>% 
+  dplyr::select(Prevalence, SampleSize, Latitude, MedianProp, MedianPropSquared,
+                CorrectedDensity, CorrectedDistance, CorrectedAngle, CorrectedDistanceSquared) %>% 
+  mutate(abslatitude = abs(Latitude)) %>% 
+  cor() %>% 
+  corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
 
 ## Frequentist ####
 source(here::here("05.1Frequentist analysis.R"))
@@ -307,68 +439,71 @@ source(here::here("05.1Frequentist analysis.R"))
 ### Geographic ####
 # Looking at fixed effects first, making sure to compare between unweighted, weighted, and random ID models
 
-# We're relying mostly on random ID for final conclusions and generally disregarding 
-# weighted models. When models are unweighted, the model is underdispersed (and 
+# We're relying mostly on random ID for final conclusions and generally disregarding all other models.
+# When models are unweighted, the model is underdispersed (and, 
 # without weighting, incorrectly specified). With the model properly weighted, the 
 # residuals are badly overdispersed and terms are spuriously accepted. To account 
 # for overdispersion we add random ID intercepts for each row of the data. This 
 # addresses the overdispersion well because it accounts for host traits, parasite 
-# traits, and unmeasured environmental variables. It also permits us more flexibility 
+# traits, unmeasured environmental variables, and citation. It also permits us more flexibility 
 # than modelling with a more interpretable random structure (e.g. random host slope) 
 # because more complex random structures often fail to converge or have singular fit.
 
-# TODO: example of model diagnostics?
-
 #### Latitude ####
 # starting with Latitude because that's what we're most interested in
-# unweighted
+# weighted
 summary(LM_IUCN_Species$Fixed$Lat)
 AIC(LM_IUCN_Species$Fixed$Lat, LM_IUCN_Species$Fixed$Null)
 relative_likelihood(LM_IUCN_Species$Fixed$Lat, LM_IUCN_Species$Fixed$Null)
 
-# weighted
-summary(LM_IUCN_Species$Fixed_W$Lat)
-AIC(LM_IUCN_Species$Fixed_W$Lat, LM_IUCN_Species$Fixed_W$Null)
-relative_likelihood(LM_IUCN_Species$Fixed_W$Lat, LM_IUCN_Species$Fixed_W$Null)
-
 # random ID
 summary(LM_IUCN_Species$Fixed_ID$Lat)
-AIC(LM_IUCN_Species$Fixed_ID$Lat, LM_IUCN_Species$FixedID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$Lat, LM_IUCN_Species$Fixed_ID$Null)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$Lat, LM_IUCN_Species$Fixed_ID$Null)
 
 # Latitude is accepted
 
+# weighted
+summary(LM_GBIF_Species$Fixed$Lat)
+AIC(LM_GBIF_Species$Fixed$Lat, LM_GBIF_Species$Fixed$Null)
+relative_likelihood(LM_GBIF_Species$Fixed$Lat, LM_GBIF_Species$Fixed$Null)
+
+# random ID
+summary(LM_GBIF_Species$Fixed_ID$Lat)
+AIC(LM_GBIF_Species$Fixed_ID$Lat, LM_GBIF_Species$Fixed_ID$Null)
+relative_likelihood(LM_GBIF_Species$Fixed_ID$Lat, LM_GBIF_Species$Fixed_ID$Null)
+
 #### Latitude + MedianProp ####
 # Next thing we're interested in is position within geographic range
-# unweighted
+# weighted
 summary(LM_IUCN_Species$Fixed$LatMed)
 AIC(LM_IUCN_Species$Fixed$LatMed, LM_IUCN_Species$Fixed$Lat)
 relative_likelihood(LM_IUCN_Species$Fixed$LatMed, LM_IUCN_Species$Fixed$Lat)
-
-# weighted
-summary(LM_IUCN_Species$Fixed_W$LatMed)
-AIC(LM_IUCN_Species$Fixed_W$LatMed, LM_IUCN_Species$Fixed_W$Lat)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatMed, LM_IUCN_Species$Fixed_W$Lat)
 
 # random ID
 summary(LM_IUCN_Species$Fixed_ID$LatMed)
 AIC(LM_IUCN_Species$Fixed_ID$LatMed, LM_IUCN_Species$Fixed_ID$Lat)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatMed, LM_IUCN_Species$Fixed_ID$Lat)
 
-# MedianProp is accepted, but jumps from positive, negative, and back to positive between the models
-# Because the random ID model is the most robust (and comparable to random host)
-# That's the one we can rely on 
+# MedianProp is accepted, but jumps from negative to positive between the models
+# Because the random ID model is the most robust that's the one we can rely on 
 # Either way we want to include geographic range position
+
+# weighted
+summary(LM_GBIF_Species$Fixed$LatMed)
+AIC(LM_GBIF_Species$Fixed$LatMed, LM_GBIF_Species$Fixed$Lat)
+relative_likelihood(LM_GBIF_Species$Fixed$LatMed, LM_GBIF_Species$Fixed$Lat)
+
+# random ID
+summary(LM_GBIF_Species$Fixed_ID$LatMed)
+AIC(LM_GBIF_Species$Fixed_ID$LatMed, LM_GBIF_Species$Fixed_ID$Lat)
+relative_likelihood(LM_GBIF_Species$Fixed_ID$LatMed, LM_GBIF_Species$Fixed_ID$Lat)
 
 #### Latitude + Quadratic MedianProp ####
 # Probably better to model it as a quadratic
 summary(LM_IUCN_Species$Fixed$LatQMed)
 AIC(LM_IUCN_Species$Fixed$LatQMed, LM_IUCN_Species$Fixed$LatMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMed, LM_IUCN_Species$Fixed$LatMed)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMed)
-AIC(LM_IUCN_Species$Fixed_W$LatQMed, LM_IUCN_Species$Fixed_W$LatMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMed, LM_IUCN_Species$Fixed_W$LatMed)
 
 summary(LM_IUCN_Species$Fixed_ID$LatQMed)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMed, LM_IUCN_Species$Fixed_ID$LatMed)
@@ -377,21 +512,36 @@ relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMed, LM_IUCN_Species$Fixed_ID$L
 # Definitely better as a quadratic
 # Got the same thing of it switching signs, but same conclusion as previous
 
+summary(LM_GBIF_Species$Fixed$LatQMed)
+AIC(LM_GBIF_Species$Fixed$LatQMed, LM_GBIF_Species$Fixed$LatMed)
+relative_likelihood(LM_GBIF_Species$Fixed$LatQMed, LM_GBIF_Species$Fixed$LatMed)
+
+summary(LM_GBIF_Species$Fixed_ID$LatQMed)
+AIC(LM_GBIF_Species$Fixed_ID$LatQMed, LM_GBIF_Species$Fixed_ID$LatMed)
+relative_likelihood(LM_GBIF_Species$Fixed_ID$LatQMed, LM_GBIF_Species$Fixed_ID$LatMed)
+
 #### Latitude + Asymmetric Quadratic MedianProp ####
 # Median prop might have an asymmetric pattern depending on which half of the range it's in
 summary(LM_IUCN_Species$Fixed$LatQMedAsym)
 AIC(LM_IUCN_Species$Fixed$LatQMedAsym, LM_IUCN_Species$Fixed$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsym, LM_IUCN_Species$Fixed$LatQMed)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsym)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsym, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsym, LM_IUCN_Species$Fixed_W$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedAsym) # fails to converge
+summary(LM_IUCN_Species$Fixed_ID$LatQMedAsym) 
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsym, LM_IUCN_Species$Fixed_ID$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsym, LM_IUCN_Species$Fixed_ID$LatQMed)
 
-# It doesn't hold for the unweighted model but does for both weighted models
+# It does get included in the model
+
+summary(LM_GBIF_Species$Fixed$LatQMedAsym)
+AIC(LM_GBIF_Species$Fixed$LatQMedAsym, LM_GBIF_Species$Fixed$LatQMed)
+relative_likelihood(LM_GBIF_Species$Fixed$LatQMedAsym, LM_GBIF_Species$Fixed$LatQMed)
+
+summary(LM_GBIF_Species$Fixed_ID$LatQMedAsym) # fails to converge
+AIC(LM_GBIF_Species$Fixed_ID$LatQMedAsym, LM_GBIF_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_GBIF_Species$Fixed_ID$LatQMedAsym, LM_GBIF_Species$Fixed_ID$LatQMed)
+
+# It does get included in the model
+
 
 #### Latitude * Quadratic MedianProp ####
 # Testing out the interaction term without the asymmetry first 
@@ -401,20 +551,25 @@ relative_likelihood(LM_IUCN_Species$Fixed$LatQMedInt, LM_IUCN_Species$Fixed$LatQ
 AIC(LM_IUCN_Species$Fixed$LatQMedInt, LM_IUCN_Species$Fixed$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedInt, LM_IUCN_Species$Fixed$LatQMedAsym)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedInt)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedInt, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedInt, LM_IUCN_Species$Fixed_W$LatQMed)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedInt, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedInt, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
 summary(LM_IUCN_Species$Fixed_ID$LatQMedInt)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedInt, LM_IUCN_Species$Fixed_ID$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedInt, LM_IUCN_Species$Fixed_ID$LatQMed)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedInt, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedInt, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 
-# interaction isn't quite there in the unweighted model but better supported by the weighted ones
-# It doesn't add as much as the asymmetry does to the model
+# It doesn't add as much as the asymmetry does to the model and is only accepted when random ID not included
+
+summary(LM_GBIF_Species$Fixed$LatQMedInt)
+AIC(LM_GBIF_Species$Fixed$LatQMedInt, LM_GBIF_Species$Fixed$LatQMed)
+relative_likelihood(LM_GBIF_Species$Fixed$LatQMedInt, LM_GBIF_Species$Fixed$LatQMed)
+AIC(LM_GBIF_Species$Fixed$LatQMedInt, LM_GBIF_Species$Fixed$LatQMedAsym)
+relative_likelihood(LM_GBIF_Species$Fixed$LatQMedInt, LM_GBIF_Species$Fixed$LatQMedAsym)
+
+summary(LM_GBIF_Species$Fixed_ID$LatQMedInt)
+AIC(LM_GBIF_Species$Fixed_ID$LatQMedInt, LM_GBIF_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_GBIF_Species$Fixed_ID$LatQMedInt, LM_GBIF_Species$Fixed_ID$LatQMed)
+AIC(LM_GBIF_Species$Fixed_ID$LatQMedInt, LM_GBIF_Species$Fixed_ID$LatQMedAsym)
+relative_likelihood(LM_GBIF_Species$Fixed_ID$LatQMedInt, LM_GBIF_Species$Fixed_ID$LatQMedAsym)
 
 #### Latitude * Asymmetric Quadratic MedianProp ####
 # Testing out all terms at once
@@ -425,13 +580,6 @@ relative_likelihood(LM_IUCN_Species$Fixed$LatQMedIntAsym, LM_IUCN_Species$Fixed$
 AIC(LM_IUCN_Species$Fixed$LatQMedIntAsym, LM_IUCN_Species$Fixed$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedIntAsym, LM_IUCN_Species$Fixed$LatQMedAsym)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedIntAsym)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedIntAsym, LM_IUCN_Species$Fixed_W$LatQMedInt)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedIntAsym, LM_IUCN_Species$Fixed_W$LatQMedInt)
-# ^ comparing without asymmetry, v comparing without interaction
-AIC(LM_IUCN_Species$Fixed_W$LatQMedIntAsym, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedIntAsym, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
 summary(LM_IUCN_Species$Fixed_ID$LatQMedIntAsym)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedIntAsym, LM_IUCN_Species$Fixed_ID$LatQMedInt)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedIntAsym, LM_IUCN_Species$Fixed_ID$LatQMedInt)
@@ -439,80 +587,17 @@ relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedIntAsym, LM_IUCN_Species$Fix
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedIntAsym, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedIntAsym, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 
-# Asymmetry isn't quite there in the unweighted model, is included by the weighted, and random ID doesn't converge
+# Asymmetry is included but random ID doesn't converge
 # Same goes for the interaction.
 # Will leave the interaction out for now as it added the least to the model
 
 ### Climatic ####
-#### Latitude + Quadratic MedianProp + Axis1 ####
-# First looking at pca axes as conceptual twin to Latitude
-# without the asymmetry
-summary(LM_IUCN_Species$Fixed$LatQMedAxis1)
-AIC(LM_IUCN_Species$Fixed$LatQMedAxis1, LM_IUCN_Species$Fixed$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAxis1, LM_IUCN_Species$Fixed$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedAxis1)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAxis1, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAxis1, LM_IUCN_Species$Fixed_W$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedAxis1)
-AIC(LM_IUCN_Species$Fixed_ID$LatQMedAxis1, LM_IUCN_Species$Fixed_ID$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAxis1, LM_IUCN_Species$Fixed_ID$LatQMed)
-
-# with the asymmetry
-summary(LM_IUCN_Species$Fixed$LatQMedAsymAxis1)
-AIC(LM_IUCN_Species$Fixed$LatQMedAsymAxis1, LM_IUCN_Species$Fixed$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsymAxis1, LM_IUCN_Species$Fixed$LatQMedAsym)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsymAxis1)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsymAxis1, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsymAxis1, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymAxis1) # failed to converge
-AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsymAxis1, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymAxis1, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
-
-# Definitely not 
-
-#### Latitude + Quadratic MedianProp + Axis2 ####
-# without asymmetry
-summary(LM_IUCN_Species$Fixed$LatQMedAxis2)
-AIC(LM_IUCN_Species$Fixed$LatQMedAxis2, LM_IUCN_Species$Fixed$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAxis2, LM_IUCN_Species$Fixed$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedAxis2)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAxis2, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAxis2, LM_IUCN_Species$Fixed_W$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedAxis2)
-AIC(LM_IUCN_Species$Fixed_ID$LatQMedAxis2, LM_IUCN_Species$Fixed_ID$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAxis2, LM_IUCN_Species$Fixed_ID$LatQMed)
-
-# with asymmetry
-summary(LM_IUCN_Species$Fixed$LatQMedAsymAxis2)
-AIC(LM_IUCN_Species$Fixed$LatQMedAsymAxis2, LM_IUCN_Species$Fixed$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsymAxis2, LM_IUCN_Species$Fixed$LatQMedAsym)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsymAxis2)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsymAxis2, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsymAxis2, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymAxis2) # failed to converge
-AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsymAxis2, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymAxis2, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
-
-# Definitely not in unweighted or random ID, so not overall
-
 #### Latitude + Quadratic MedianProp + Distance ####
 # Distance from niche centre as a conceptual twin to MedianProp 
 # without asymmetry
 summary(LM_IUCN_Species$Fixed$LatQMedDist)
 AIC(LM_IUCN_Species$Fixed$LatQMedDist, LM_IUCN_Species$Fixed$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedDist, LM_IUCN_Species$Fixed$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedDist)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedDist, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedDist, LM_IUCN_Species$Fixed_W$LatQMed)
 
 summary(LM_IUCN_Species$Fixed_ID$LatQMedDist)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedDist, LM_IUCN_Species$Fixed_ID$LatQMed)
@@ -523,15 +608,11 @@ summary(LM_IUCN_Species$Fixed$LatQMedDist)
 AIC(LM_IUCN_Species$Fixed$LatQMedDist, LM_IUCN_Species$Fixed$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedDist, LM_IUCN_Species$Fixed$LatQMed)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedDist)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedDist, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedDist, LM_IUCN_Species$Fixed_W$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedDist) # Failed to converge
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDist) 
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedDist, LM_IUCN_Species$Fixed_ID$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDist, LM_IUCN_Species$Fixed_ID$LatQMed)
 
-# Nope, based on unweighted and random ID
+# Nope
 # But that's quite nice really because I want Dist to be symmetric and therefore flat
 # It should be modelled as a quadratic
 
@@ -542,10 +623,6 @@ summary(LM_IUCN_Species$Fixed$LatQMedQDist)
 AIC(LM_IUCN_Species$Fixed$LatQMedQDist, LM_IUCN_Species$Fixed$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedQDist, LM_IUCN_Species$Fixed$LatQMed)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedQDist)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedQDist, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedQDist, LM_IUCN_Species$Fixed_W$LatQMed)
-
 summary(LM_IUCN_Species$Fixed_ID$LatQMedQDist)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDist, LM_IUCN_Species$Fixed_ID$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDist, LM_IUCN_Species$Fixed_ID$LatQMed)
@@ -555,15 +632,11 @@ summary(LM_IUCN_Species$Fixed$LatQMedAsymQDist)
 AIC(LM_IUCN_Species$Fixed$LatQMedAsymQDist, LM_IUCN_Species$Fixed$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsymQDist, LM_IUCN_Species$Fixed$LatQMedAsym)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsymQDist)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsymQDist, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsymQDist, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
 summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDist)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDist, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDist, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 
-# Only just improves the weighted and random ID models (strongly in weighted)
+# Only just improves the models but fails to converge alongside asymmetry
 # Tentatively accept
 
 #### Latitude + Quadratic MedianProp + Density ####
@@ -572,10 +645,6 @@ relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDist, LM_IUCN_Species$F
 summary(LM_IUCN_Species$Fixed$LatQMedDens)
 AIC(LM_IUCN_Species$Fixed$LatQMedDens, LM_IUCN_Species$Fixed$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedDens, LM_IUCN_Species$Fixed$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedDens)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedDens, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedDens, LM_IUCN_Species$Fixed_W$LatQMed)
 
 summary(LM_IUCN_Species$Fixed_ID$LatQMedDens)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedDens, LM_IUCN_Species$Fixed_ID$LatQMed)
@@ -586,15 +655,11 @@ summary(LM_IUCN_Species$Fixed$LatQMedAsymDens)
 AIC(LM_IUCN_Species$Fixed$LatQMedAsymDens, LM_IUCN_Species$Fixed$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsymDens, LM_IUCN_Species$Fixed$LatQMedAsym)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsymDens)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsymDens, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsymDens, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
 summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymDens) # failed to converge
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsymDens, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymDens, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 
-# Nope, based on unweighted and random ID
+# Nope, based on random ID
 
 #### Latitude + Quadratic MedianProp + Quadratic Density ####
 # Testing density as a quadratic
@@ -602,10 +667,6 @@ relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymDens, LM_IUCN_Species$Fi
 summary(LM_IUCN_Species$Fixed$LatQMedQDens)
 AIC(LM_IUCN_Species$Fixed$LatQMedQDens, LM_IUCN_Species$Fixed$LatQMed)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedQDens, LM_IUCN_Species$Fixed$LatQMed)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedQDens)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedQDens, LM_IUCN_Species$Fixed_W$LatQMed)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedQDens, LM_IUCN_Species$Fixed_W$LatQMed)
 
 summary(LM_IUCN_Species$Fixed_ID$LatQMedQDens)
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDens, LM_IUCN_Species$Fixed_ID$LatQMed)
@@ -616,11 +677,7 @@ summary(LM_IUCN_Species$Fixed$LatQMedAsymQDens)
 AIC(LM_IUCN_Species$Fixed$LatQMedAsymQDens, LM_IUCN_Species$Fixed$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsymQDens, LM_IUCN_Species$Fixed$LatQMedAsym)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsymQDens)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsymQDens, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsymQDens, LM_IUCN_Species$Fixed_W$LatQMedAsym)
-
-summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDens) 
+summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDens) # failed to converge
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDens, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedAsymQDens, LM_IUCN_Species$Fixed_ID$LatQMedAsym)
 
@@ -633,10 +690,6 @@ summary(LM_IUCN_Species$Fixed$LatQMedQIDist)
 AIC(LM_IUCN_Species$Fixed$LatQMedQIDist, LM_IUCN_Species$Fixed$LatQMedQDist)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedQIDist, LM_IUCN_Species$Fixed$LatQMedQDist)
 
-summary(LM_IUCN_Species$Fixed_W$LatQMedQIDist)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedQIDist, LM_IUCN_Species$Fixed_W$LatQMedQDist)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedQIDist, LM_IUCN_Species$Fixed_W$LatQMedQDist)
-
 summary(LM_IUCN_Species$Fixed_ID$LatQMedQIDist) # failed to converge
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedQIDist, LM_IUCN_Species$Fixed_ID$LatQMedQDist)
 relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQIDist, LM_IUCN_Species$Fixed_ID$LatQMedQDist)
@@ -645,10 +698,6 @@ relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQIDist, LM_IUCN_Species$Fixe
 summary(LM_IUCN_Species$Fixed$LatQMedAsymQIDist)
 AIC(LM_IUCN_Species$Fixed$LatQMedAsymQIDist, LM_IUCN_Species$Fixed$LatQMedAsymQDist)
 relative_likelihood(LM_IUCN_Species$Fixed$LatQMedAsymQIDist, LM_IUCN_Species$Fixed$LatQMedAsymQDist)
-
-summary(LM_IUCN_Species$Fixed_W$LatQMedAsymQIDist)
-AIC(LM_IUCN_Species$Fixed_W$LatQMedAsymQIDist, LM_IUCN_Species$Fixed_W$LatQMedAsymQDist)
-relative_likelihood(LM_IUCN_Species$Fixed_W$LatQMedAsymQIDist, LM_IUCN_Species$Fixed_W$LatQMedAsymQDist)
 
 summary(LM_IUCN_Species$Fixed_ID$LatQMedAsymQIDist) # failed to converge
 AIC(LM_IUCN_Species$Fixed_ID$LatQMedAsymQIDist, LM_IUCN_Species$Fixed_ID$LatQMedAsymQDist)
@@ -1038,8 +1087,130 @@ plot(sim_LatQMedQDist_Combo_WIO)
 # Gets rid of the slope!
 # TODO: rewrite notes a little
 
+### Model diagnostics ####
+# TODO: source diagnostics to save diagnostic plots for all models
+#### In-depth diagnostics ####
+# TODO: final model plot
+# TODO: testZeroInflation
+# TODO: testDispersion
+# TODO: plot variables against residuals 
 #### Host Phylo ####
+# TODO: source Host Phylo script
+#### Density data ####
+# TODO: source density script
+#### kernel raster ####
+# compare distance, density, and quad of both on their own
+# if they look interesting, try in the bigger model
 
+##### Distance ####
+summary(LM_IUCN_Species$Fixed_ID$Dist_5)
+summary(LM_IUCN_Species$Fixed_ID$Dist)
+summary(LM_IUCN_Species$Fixed_ID$Dist_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$Dist_5, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$Dist, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$Dist_20, LM_IUCN_Species$Fixed_ID$Null)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$Dist_5, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$Dist, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$Dist_20, LM_IUCN_Species$Fixed_ID$Null)
+
+summary(LM_IUCN_Species$Fixed_ID$QDist_5)
+summary(LM_IUCN_Species$Fixed_ID$QDist)
+summary(LM_IUCN_Species$Fixed_ID$QDist_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$QDist_5, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$QDist, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$QDist_20, LM_IUCN_Species$Fixed_ID$Null)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$QDist_5, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$QDist, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$QDist_20, LM_IUCN_Species$Fixed_ID$Null)
+
+# Broadly the same, distance is weakest in 5 and strongest in 20
+
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDist_5)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDist)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDist_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedDist_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedDist, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedDist_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDist_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDist, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDist_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+summary(LM_IUCN_Species$Fixed_ID$LatQMedQDist_5)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedQDist)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedQDist_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDist_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDist, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDist_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDist_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDist, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDist_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+# Shouldn't worry too much because I would be intensifying 
+# If sampling bias was causing results, would expect to see increase in effect size in finer res 
+# 
+# Same in the full model
+
+##### Density ####
+summary(LM_IUCN_Species$Fixed_ID$Dens_5)
+summary(LM_IUCN_Species$Fixed_ID$Dens)
+summary(LM_IUCN_Species$Fixed_ID$Dens_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$Dens_5, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$Dens, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$Dens_20, LM_IUCN_Species$Fixed_ID$Null)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$Dens_5, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$Dens, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$Dens_20, LM_IUCN_Species$Fixed_ID$Null)
+
+summary(LM_IUCN_Species$Fixed_ID$QDens_5)
+summary(LM_IUCN_Species$Fixed_ID$QDens)
+summary(LM_IUCN_Species$Fixed_ID$QDens_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$QDens_5, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$QDens, LM_IUCN_Species$Fixed_ID$Null)
+AIC(LM_IUCN_Species$Fixed_ID$QDens_20, LM_IUCN_Species$Fixed_ID$Null)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$QDens_5, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$QDens, LM_IUCN_Species$Fixed_ID$Null)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$QDens_20, LM_IUCN_Species$Fixed_ID$Null)
+
+# Density changes a little. Strongest in 5 and weakest in 20
+# Also more linear in 5 and more quadratic in 20
+
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDens_5)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDens)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedDens_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedDens_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedDens, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedDens_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDens_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDens, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedDens_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+summary(LM_IUCN_Species$Fixed_ID$LatQMedQDens_5)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedQDens)
+summary(LM_IUCN_Species$Fixed_ID$LatQMedQDens_20)
+
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDens_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDens, LM_IUCN_Species$Fixed_ID$LatQMed)
+AIC(LM_IUCN_Species$Fixed_ID$LatQMedQDens_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDens_5, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDens, LM_IUCN_Species$Fixed_ID$LatQMed)
+relative_likelihood(LM_IUCN_Species$Fixed_ID$LatQMedQDens_20, LM_IUCN_Species$Fixed_ID$LatQMed)
+
+#### pca quadrant ####
 
 ## Bayesian ####
 # source(here::here("05.3Bayesian analysis.R"))
