@@ -24,6 +24,11 @@ library(RColorBrewer)
 # library(sp)
 library(tidyverse)
 library(tmap)
+library(extrafont)
+# extrafont::loadfonts(device = "win")
+extrafont::loadfonts(device = "all")
+Sys.setenv(R_GSCMD = "C:/Program Files/gs/gs10.03.1/bin/gswin64c.exe")
+
 
 # TODO: sort functions
 # used in 01 ############################################################
@@ -156,9 +161,9 @@ range_distances_host <- function(host, dat, range.object, method){
   out[[2]]$HostCorrectedName <- host
   out[[2]]$RangeArea <- sum(sf::st_area(IUCN_Native_Data[IUCN_Native_Data$sci_name == host,]))
   
-  out[[1]]$RangeMethod <- method
+  # out[[1]]$RangeMethod <- method
   out[[2]]$RangeMethod <- method
-  out[[1]]$RangeTaxonLvl <- "species"
+  # out[[1]]$RangeTaxonLvl <- "species"
   out[[2]]$RangeTaxonLvl <- "species"
   
   return(out)
@@ -275,7 +280,10 @@ range_distances_method <- function(dat, range.object){
   dat.out <- dat[!(dat$Latitude > range.max.exact | dat$Latitude < range.min.exact),]
   
   if(nrow(dat.out) == 0){
-    dat.out <- rbind(NA, dat.out) 
+    dat.out <- rep(NA, length(names(dat))) %>% 
+      matrix(nrow = 1) %>% 
+      as.data.frame()
+    names(dat.out) <- names(dat)
     writeLines("All points outside range margins")
     
   } else {
@@ -549,16 +557,19 @@ species_clim_density <- function(host,
   species.density$uncorrected <- species.density$uncorrected/max(species.density$uncorrected)	
   
   # record density as presence absence
-  species.density$presence <- species.density$uncorrected
-  species.density$presence[species.density$presence > 0] <- 1
+  species.density$presence_uncorrected <- species.density$uncorrected
+  species.density$presence_uncorrected[species.density$presence_uncorrected > 0] <- 1
   
   # correct for environment prevalence
-  # TODO: probably shouldn't be using the uncorrected like this!!
   species.density$corrected <- species.density$uncorrected/climate.density$uncorrected
   
   # remove n/0 situations
   species.density$corrected[is.na(species.density$corrected)] <- 0
   species.density$corrected[species.density$corrected == "Inf"] <- 0
+  
+  # record density as presence absence
+  species.density$presence_corrected <- species.density$corrected
+  species.density$presence_corrected[species.density$presence_corrected > 0] <- 1
   
   # rescale between [0:1] for comparison with other species (again)
   species.density$corrected <- species.density$corrected/max(species.density$corrected)	
@@ -571,13 +582,23 @@ species_clim_density <- function(host,
   # get positions within climate pca from values for parasite data
   samples.pca.loci <- points_to_indices(samples.pca.scores, pca.breaks)
   
+  # get maximum distance from peak
+  presence_uncorrected.pca.loci <- which(species.density$presence_uncorrected != 0, arr.ind = TRUE)
+  max_dist_uncorrected <- max(dists(loci = presence_uncorrected.pca.loci,
+                                   origin = species.density$peak_uncorrected))
+  
+  presence_corrected.pca.loci <- which(species.density$presence_corrected != 0, arr.ind = TRUE)
+  max_dist_corrected <- max(dists(loci = presence_corrected.pca.loci,
+                                   origin = species.density$peak_corrected))
+  
   # calculate distances and angle, and extract density for each parasite sample 
   samples.out <- distangles(loci = samples.pca.loci, 
                             origin = species.density$peak_uncorrected) %>% 
     dplyr::bind_cols(UncorrectedDensity = species.density$uncorrected[samples.pca.loci], 
                      samples.pca.scores) %>% 
     dplyr::rename(UncorrectedDistance = distance,
-                  UncorrectedAngle = angle)
+                  UncorrectedAngle = angle) %>% 
+    dplyr::mutate(UncorrectedDistProp = UncorrectedDistance/max_dist_uncorrected) 
   
   samples.out <- distangles(loci = samples.pca.loci, 
                             origin = species.density$peak_corrected) %>% 
@@ -585,7 +606,8 @@ species_clim_density <- function(host,
                      samples.out, 
                      samples.pca.loci) %>% 
     dplyr::rename(CorrectedDistance = distance,
-                  CorrectedAngle = angle) 
+                  CorrectedAngle = angle) %>% 
+    dplyr::mutate(CorrectedDistProp = CorrectedDistance/max_dist_corrected)
   
   # output
   list.out$samples.out <- samples.out
@@ -645,26 +667,26 @@ basic_barplot <- function(dat = GMPD_Climate_Data, xvar = ParClass, yvar = Preva
   plot_data <- dat %>% 
     dplyr::group_by({{xvar}}) %>% 
     dplyr::summarise(
-      HostsSampledMax = mean(HostsSampled) + sd(HostsSampled),
+      SampleSizeMax = mean(SampleSize) + sd(SampleSize),
       LatitudeMax     = mean(Latitude) + sd(Latitude),
       AbsLatitudeMax  = mean(AbsLatitude) + sd(AbsLatitude),
       PrevalenceMax   = mean(Prevalence) + sd(Prevalence),
       
-      HostsSampledMin = mean(HostsSampled) - sd(HostsSampled),
+      SampleSizeMin = mean(SampleSize) - sd(SampleSize),
       LatitudeMin     = mean(Latitude) - sd(Latitude),
       AbsLatitudeMin  = mean(AbsLatitude) - sd(AbsLatitude),
       PrevalenceMin   = mean(Prevalence) - sd(Prevalence),
       
-      HostsSampled    = mean(HostsSampled),
+      SampleSize    = mean(SampleSize),
       Latitude        = mean(Latitude),
       AbsLatitude     = mean(AbsLatitude),
       Prevalence      = mean(Prevalence),
       
-      TotalHostsSampled = sum(HostsSampled), 
+      TotalSampleSize = sum(SampleSize), 
       n = n()
     ) %>% 
     dplyr::mutate(xvar2 = paste0({{xvar}}, " (", n, ")"),
-                  xvar3 = paste0({{xvar}}, " (", TotalHostsSampled, ")"))
+                  xvar3 = paste0({{xvar}}, " (", TotalSampleSize, ")"))
   
   # data for points
   jitter_data <- plot_data %>% 
@@ -701,563 +723,954 @@ relative_likelihood <- function(model1, model2){
   return(exp((min(aics)-max(aics))/2))
 }
 
-# used in script 0? ############################################################
+compare_models <- function(model1, model2, text_out = ""){
+  print(summary(model1))
+  print(AIC(model1, model2))
+  writeLines(c(" ", 
+               paste0("relative likelihood: ", relative_likelihood(model1, model2)),
+               " ",
+               text_out))
+}
 
-restrict_grid <- function(location.data, rastr){
-  # c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
-  c.rast <- terra::rasterize(y = location.data[[1]],
-                   fun = length)
+all_models <- function(model_data, method){
   
-  return(length(Which(c.rast, cells = TRUE))>1) 
+  model_list <- list()
+  
+  model_data <- rename_with(model_data, 
+                            ~ gsub(paste0("_", method), "", .),
+                            ends_with(method))
+  
+  
+  ## Geographic niche ############################################################
+  #///////////////////////////////////////////////////////////////////////////////
+  ### Null 
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$Null       <-         glm(formula = Prevalence ~ 1,             data = model_data, family = binomial, weights = SampleSize)
+  
+  # Host focus
+  #_______________________________________________________________________________
+  model_list$Host$Null        <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$Group$Null       <- lme4::glmer(formula = Prevalence ~ (1|Group), data = model_data, family = binomial, weights = SampleSize)
+  model_list$HostGroup$Null   <- lme4::glmer(formula = Prevalence ~ 1 + (1|Group/HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  # Parasite focus
+  #_______________________________________________________________________________
+  model_list$Parasite$Null    <- lme4::glmer(formula = Prevalence ~ 1 + (1|ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$Type$Null        <- lme4::glmer(formula = Prevalence ~ 1 + (1|ParType), data = model_data, family = binomial, weights = SampleSize)
+  model_list$ParType$Null     <- lme4::glmer(formula = Prevalence ~ 1 + (1|ParType/ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  # Both
+  #_______________________________________________________________________________
+  model_list$BothType$Null     <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName) + (1|ParType), data = model_data, family = binomial, weights = SampleSize)
+  model_list$BothSpecies$Null  <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName) + (1|ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$CrossType$Null    <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName:ParType), data = model_data, family = binomial, weights = SampleSize)
+  model_list$CrossSpecies$Null <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName:ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  ### Latitude 
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Host_IO$Lat        <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + (1 |HostCorrectedName),     data = model_data, family = binomial, weights = SampleSize)
+  model_list$Parasite_IO$Lat    <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$BothSpecies_IO$Lat <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  ### Latitude + MedianProp 
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatMed <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + MedianPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  ### Latitude + Quadratic MedianProp 
+  #///////////////////////////////////////////////////////////////////////////////
+  # Host focus
+  #_______________________________________________________________________________
+  model_list$Host_IO$LatQMed       <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$Group_IO$LatQMed      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|Group),                                                    data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$HostGroup_IO$LatQMed  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|Group/HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  
+  # Parasite focus
+  #_______________________________________________________________________________
+  model_list$Parasite_IO$LatQMed  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$Type_IO$LatQMed      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|ParType),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$ParType_IO$LatQMed   <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|ParType/ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  
+  # Both
+  #_______________________________________________________________________________
+  model_list$BothType_IO$LatQMed     <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName) + (1|ParType),               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$BothSpecies_IO$LatQMed  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName) + (1|ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$CrossType_IO$LatQMed    <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName:ParType),                     data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$CrossSpecies_IO$LatQMed <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName:ParasiteCorrectedName),       data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  
+  ### Latitude + Asymmetric Quadratic MedianProp 
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Host_IO$LatQMedAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) * AboveMedn + (1 |HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$Parasite_IO$LatQMedAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) * AboveMedn + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$BothSpecies_IO$LatQMedAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) * AboveMedn + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  ### Latitude * Quadratic MedianProp 
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedInt <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  ### Latitude * Asymmetric Quadratic MedianProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedIntAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) * AboveMedn + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  ## Climatic niche ##############################################################
+  #///////////////////////////////////////////////////////////////////////////////
+  ### PCA axes ###################################################################
+  #///////////////////////////////////////////////////////////////////////////////
+  #### Axis1
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$Axis1       <-         glm(formula = Prevalence ~ Axis1Scaled,             data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Axis2
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$Axis2       <-         glm(formula = Prevalence ~ Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Axes
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$Axes       <-         glm(formula = Prevalence ~ Axis1Scaled + Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude + Axis1
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$LatAxis1       <-         glm(formula = Prevalence ~ LatitudeScaled + Axis1Scaled ,             data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude + Axis2Scaled
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$LatAxis2       <-         glm(formula = Prevalence ~ LatitudeScaled + Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude + Axes
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$LatAxes       <-         glm(formula = Prevalence ~ LatitudeScaled + Axis1Scaled + Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
+  
+  ### Kernel Density #############################################################
+  #///////////////////////////////////////////////////////////////////////////////
+  #### Latitude + Quadratic MedianProp + DistProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + CorrectedDistPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * Quadratic MedianProp + DistProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQIMedProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude + Quadratic MedianProp + DistProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedQProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * Quadratic MedianProp + DistProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQIMedQProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * DistProp + Quadratic MedianProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedQIProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(CorrectedDistPropSquared, 2) + poly(MedianPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * (Quadratic MedianProp + DistProp)
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Fixed$LatQIMedQIProp <- glm(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)), data = model_data, family = binomial, weights = SampleSize)
+  
+  # Host focus
+  #_______________________________________________________________________________
+  model_list$Host_IO$LatQIMedQIProp       <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$Group_IO$LatQIMedQIProp      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|Group),                                                    data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$HostGroup_IO$LatQIMedQIProp  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|Group/HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  
+  # Parasite focus
+  #_______________________________________________________________________________
+  model_list$Parasite_IO$LatQIMedQIProp  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$Type_IO$LatQIMedQIProp      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|ParType),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$ParType_IO$LatQIMedQIProp   <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|ParType/ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  
+  # Both
+  #_______________________________________________________________________________
+  model_list$BothType_IO$LatQIMedQIProp     <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName) + (1|ParType),                                                                                             data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$BothSpecies_IO$LatQIMedQIProp  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName) + (1|ParasiteCorrectedName),                                                                                             data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$CrossType_IO$LatQIMedQIProp    <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName:ParType),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  model_list$CrossSpecies_IO$LatQIMedQIProp <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName:ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
+  
+  #### Latitude + Quadratic MedianProp * DistProp
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatMedPropI <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + MedianPropSquScaled * CorrectedDistPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  
+  
+  
+  ### Kernel density 5 ####
+  #///////////////////////////////////////////////////////////////////////////////
+  #### Latitude + Quadratic MedianProp + DistProp 5
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + CorrectedDistPropSquared_5 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude + Quadratic MedianProp + Quadratic DistProp 5
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedQProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * Quadratic MedianProp + DistProp 5
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQIMedProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquared_5 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * Quadratic MedianProp + Quadratic DistProp 5
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQIMedQProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * (Quadratic MedianProp + Quadratic DistProp 5)
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Host_IO$LatQIMedQIProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2)) + (1|HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$Parasite_IO$LatQIMedQIProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2)) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$BothSpecies_IO$LatQIMedQIProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2)) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  
+  ### Kernel density 20 ##########################################################
+  #///////////////////////////////////////////////////////////////////////////////
+  #### Latitude + Quadratic MedianProp + DistProp 5
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + CorrectedDistPropSquared_20 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude + Quadratic MedianProp + Quadratic DistProp 20
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQMedQProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * Quadratic MedianProp + DistProp 5
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQIMedProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquared_20 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * Quadratic MedianProp + Quadratic DistProp 20
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$BothSpecies_IO$LatQIMedQProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  
+  #### Latitude * (Quadratic MedianProp + Quadratic DistProp 20)
+  #///////////////////////////////////////////////////////////////////////////////
+  model_list$Host_IO$LatQIMedQIProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2)) + (1|HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$Parasite_IO$LatQIMedQIProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2)) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+  model_list$BothSpecies_IO$LatQIMedQIProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2)) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
+
+  return(model_list)  
+}
+
+custom_theme <- theme(axis.title.x = element_text(margin = margin(t=10,r=0,b=0,l=0)),
+                      axis.title.y = element_text(angle = 90, 
+                                                  margin = margin(t=0,r=15,b=0,l=0)),
+                      axis.line = element_line(linewidth = 1, colour = "#656565", lineend = "round"),
+                      axis.ticks = element_line(linewidth = 0.7, colour = "#656565", lineend = "round"),
+                      axis.ticks.length = unit(0.3, "lines"),
+                      axis.text.x = element_text(size = 10, margin = margin(t=5,r=0,b=0,l=0)),
+                      axis.text.y = element_text(size = 10, margin = margin(t=0,r=5,b=0,l=0)),
+                      
+                      panel.background = element_rect(fill = "white", colour = "white"),
+                      plot.background = element_rect(fill = "white", colour = "white"),
+                      plot.margin = margin(t=20,r=25,b=10,l=20),
+                      text = element_text(family = "Outfit", size = 15),
+                      aspect.ratio = 0.7
+                      )
+
+plot_latitude <- function(model_list,
+                          model_name = "LatQIMedQIProp", 
+                          model_data,
+                          raster_res = ""){
+  # Prep fixed values
+  meanLat   <- mean(abs(model_data$Latitude))
+  midLat    <- 45
+  lowLat    <- 0
+  highLat   <- 60
+  maxLat    <- 90
+  
+  meanLat.sc <- (meanLat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  midLat.sc  <- (midLat  - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  lowLat.sc  <- (lowLat  - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  highLat.sc <- (highLat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  maxLat.sc  <- (maxLat  - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  
+  # prep data
+  plot_data <- data.frame(Latitude = seq(lowLat, maxLat, length.out = 2000),
+                          LatitudeScaled = seq(lowLat.sc, maxLat.sc, length.out = 2000),
+                          MedianPropSquared = rep(0, 2000),
+                          CorrectedDistPropSquared = rep(0, 2000)) %>% 
+    dplyr::rename_with(~ paste0(.x, raster_res, recycle0 = TRUE), 
+                       starts_with("CorrectedDistProp"))
+  
+  plot_data <- plot_data %>% 
+    mutate(BothSpecies = predict(model_list$Host_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           HostSpecies = predict(model_list$Parasite_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           ParasiteSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
+                                     plot_data, 
+                                     re.form = NA, 
+                                     type = "response"))
+  
+  
+  # plot 
+  ggplot(plot_data) +
+    geom_line(aes(x = Latitude, y = BothSpecies),     col = "#222E50", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = Latitude, y = HostSpecies),     col = "#D1495B", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = Latitude, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+    custom_theme +
+    labs(x = "Latitude", y = "Parasite prevalence") +
+    scale_x_continuous(breaks = c(0, 45, 90), limits = c(0,90)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+  
+}
+
+
+plot_medianprop <- function(model_list,
+                            model_name = "LatQIMedQIProp", 
+                            model_data,
+                            fixed_lat, 
+                            raster_res = ""){
+  # Prep fixed values
+  meanLat   <- mean(abs(model_data$Latitude))
+  
+  fixed_lat.sc <- (fixed_lat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  
+  # prep data
+  plot_data <- data.frame(MedianProp = seq(0, 1, length.out = 2000),
+                          LatitudeScaled = rep(fixed_lat.sc, 2000),
+                          MedianPropSquared = seq(0, 1, length.out = 2000),
+                          CorrectedDistPropSquared = rep(0, 2000)) %>% 
+    dplyr::rename_with(~ paste0(.x, raster_res, recycle0 = TRUE), 
+                       starts_with("CorrectedDistProp"))
+  
+  plot_data <- plot_data %>% 
+    mutate(BothSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           HostSpecies = predict(model_list$Host_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           ParasiteSpecies = predict(model_list$Parasite_IO[[model_name]], 
+                                     plot_data, 
+                                     re.form = NA, 
+                                     type = "response"))
+  
+  
+  ggplot(plot_data) +
+    geom_line(aes(x = MedianProp, y = BothSpecies), col = "#222E50", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = MedianProp, y = HostSpecies), col = "#D1495B", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = MedianProp, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+    custom_theme +
+    labs(x = "Range position", y = "Parasite prevalence") +
+    scale_x_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+  
+}
+
+
+plot_medianprop_asym <- function(model_list,
+                                 model_name = "LatQMedAsym", 
+                                 model_data,
+                                 fixed_lat){
+  # Prep fixed values
+  meanLat   <- mean(abs(model_data$Latitude))
+  
+  fixed_lat.sc <- (fixed_lat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  
+  # prep data
+  plot_data <- data.frame(MedianProp = seq(-1, 1, length.out = 2000),
+                          AboveMedn = c(rep(FALSE, 1000), rep(TRUE, 1000)), 
+                          LatitudeScaled = rep(fixed_lat.sc, 2000),
+                          MedianPropSquared = seq(-1, 1, length.out = 2000),
+                          CorrectedDistPropSquared = rep(0, 2000)) 
+  
+  plot_data <- plot_data %>% 
+    mutate(BothSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           HostSpecies = predict(model_list$Host_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           ParasiteSpecies = predict(model_list$Parasite_IO[[model_name]], 
+                                     plot_data, 
+                                     re.form = NA, 
+                                     type = "response"))
+  
+  
+  ggplot(plot_data) +
+    geom_line(aes(x = MedianProp, y = BothSpecies), col = "#222E50", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = MedianProp, y = HostSpecies), col = "#D1495B", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = MedianProp, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+    custom_theme +
+    labs(x = "Range position", y = "Parasite prevalence") +
+    scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+  
+}
+
+
+plot_distprop <- function(model_list,
+                          model_name = "LatQIMedQIProp",
+                          model_data,
+                          fixed_lat,
+                          raster_res = ""){
+  # Prep fixed values
+  meanLat   <- mean(abs(model_data$Latitude))
+  
+  fixed_lat.sc <- (fixed_lat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
+  
+  # prep data
+  plot_data <- data.frame(CorrectedDist = seq(0, 1, length.out = 2000),
+                          LatitudeScaled = rep(fixed_lat.sc, 2000),
+                          MedianPropSquared = rep(0, 2000),
+                          CorrectedDistPropSquared = seq(0, 1, length.out = 2000)) %>% 
+    dplyr::rename_with(~ paste0(.x, raster_res, recycle0 = TRUE), 
+                       starts_with("CorrectedDistProp"))
+  
+  plot_data <- plot_data %>% 
+    mutate(BothSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           HostSpecies = predict(model_list$Host_IO[[model_name]], 
+                                 plot_data, 
+                                 re.form = NA, 
+                                 type = "response"),
+           ParasiteSpecies = predict(model_list$Parasite_IO[[model_name]], 
+                                     plot_data, 
+                                     re.form = NA, 
+                                     type = "response"))
+  
+  # plot
+  ggplot(plot_data) +
+    geom_line(aes(x = CorrectedDist, y = BothSpecies), col = "#222E50", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = CorrectedDist, y = HostSpecies), col = "#D1495B", linewidth = 2, lineend = "round") +
+    geom_line(aes(x = CorrectedDist, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+    custom_theme +
+    labs(x = "Niche position", y = "Parasite prevalence") +
+    scale_x_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+  
 }
 
 
 
-gmpd_plotter <- function(host, dat, range.polygon, legend.text = Legend_Text, plot_type){
-  if(plot_type == "iucn"){
-    species_dat <- filter(dat, HostCorrectedName == host)
-    range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
-    range.polygon$id <- rownames(range.polygon@data)
-    sp.range.polygon <- range.polygon[range.polygon$binomial == host, ]
-    sp.range.polygon <-  base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
-    
-    # to make active levels bold in legend
-    curr <- unique(sp.range.polygon$legend)
-    new <- c(paste0("**",curr, "**"), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
-    curr <- c(as.character(curr), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
-    sp.range.polygon$legend <- dplyr::recode(sp.range.polygon$legend, !!!deframe(data.frame(curr, new))) 
-    
-    # from https://sashamaps.net/docs/resources/20-colors/
-    g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
-                '#f58231', '#911eb4', '#42d4f4', '#f032e6', 
-                '#bfef45', '#fabed4', '#469990', '#dcbeff', 
-                '#9A6324', '#fffac8', '#800000', '#aaffc3', 
-                '#808000', '#ffd8b1', '#000075', '#a9a9a9')
-    
-    # creating bounding box to clip plots
-    # Blocked out for now because coord_sf is buggy
-    # bbox <- range.polygon@bbox
-    # dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
-    # bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
-    #                   min(c(bbox[2,1], dat.bbox[2,1])),
-    #                   max(c(bbox[1,2], dat.bbox[1,2])),
-    #                   max(c(bbox[2,2], dat.bbox[2,2]))),
-    #                   c(2,2)) # there must be a one-liner for this..
-    # 
-    # # expanding bboxes that are too small to give context
-    # if(bbox[1,2] - bbox[1,1] < 10){
-    #   bbox[1,1] <- bbox[1,1] -5
-    #   bbox[1,2] <- bbox[1,2] +5
-    # }
-    # if(bbox[2,2] - bbox[2,1] < 10){
-    #   bbox[2,1] <- bbox[2,1] -5
-    #   bbox[2,2] <- bbox[2,2] +5
-    # }
-    
-    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
-      xlab("Longitude") + ylab("Latitude") +
-      
-      geom_polypath(data = sp.range.polygon, 
-                    aes(x = long, y = lat, group = group, 
-                        colour = legend, fill = legend),
-                    size = 0.15) +
-      
-      scale_color_manual(values = g.cols, drop = FALSE) +
-      scale_fill_manual(values = g.cols, drop = FALSE) +
-      
-      theme(legend.text = element_markdown(size = 6),
-            legend.title = element_text(size = 6),
-            legend.key.size = unit(0.3, "lines"),
-            legend.position = "bottom") +
-      
-      geom_point(data = species_dat,
-                 aes(x = Longitude, y = Latitude),
-                 colour = "navy", shape = 1, alpha = 0.5) +
-      
-      ggtitle(host)
-  } else if(plot_type == "base") {
-    species_dat <- filter(dat, HostCorrectedName == host)
-    
-    ## Currently there's a bug from the recent crs change
-    ## https://rgdal.r-forge.r-project.org/articles/CRS_projections_transformations.html
-    # bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
-    # 
-    # #expanding smaller bboxes to give context
-    # if(bbox[1,2] - bbox[1,1] < 15){
-    #   bbox[1,1] <- bbox[1,1] - round((15 - (bbox[1,2] - bbox[1,1]))/2, 2)
-    #   bbox[1,2] <- bbox[1,2] + round((15 - (bbox[1,2] - bbox[1,1]))/2, 2)
-    # }
-    # if(bbox[2,2] - bbox[2,1] < 15){
-    #   bbox[2,1] <- bbox[2,1] - round((15 - (bbox[2,2] - bbox[2,1]))/2, 2)
-    #   bbox[2,2] <- bbox[2,2] + round((15 - (bbox[2,2] - bbox[2,1]))/2, 2)
-    # }
-    
-    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
-      xlab("Longitude") + ylab("Latitude") +
-      
-      geom_point(data = species_dat,
-                 aes(x = Longitude, y = Latitude),
-                 colour = "navy", shape = 1, alpha = 0.5) +
-      
-      ggtitle(host)
-  }
-}
+# used in script ? ############################################################
 
-iucn_test <- function(host, dat = GMPD_Data, range.polygon = IUCN_Data_List, native.df = Native_Clean){
-  species_dat <- dat %>%
-    filter(HostCorrectedName == host) 
-  native.df <- filter(native.df, HostCorrectedName == host)
-  
-  throw <- native.df$Status
-  range.polygon <- range.polygon[[host]]
-  
-  if(length(throw) > 0){
-    removed.polygon <- range.polygon[range.polygon$legend %in% throw, ]
-  }
-  
-  species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = HostCorrectedName),
-                              range = removed.polygon,
-                              lon = "Longitude",
-                              lat = "Latitude",
-                              species = "binomial",
-                              buffer = unique(native.df$buffer),
-                              value = "flagged")
-  species_dat <- species_dat %>% 
-    mutate(out = case_when(out  ~ "Discarded",
-                           !out ~ "Kept")) 
-  species_dat$out <- factor(species_dat$out, levels = c("Kept", "Discarded"))
-  
-  bbox <- range.polygon@bbox
-  dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
-  bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
-                   min(c(bbox[2,1], dat.bbox[2,1])),
-                   max(c(bbox[1,2], dat.bbox[1,2])),
-                   max(c(bbox[2,2], dat.bbox[2,2]))),
-                 c(2,2)) # there must be a one-liner for this..
-  
-  ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-    geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-    coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
-    xlab("Longitude") + ylab("Latitude") +
-    
-    geom_polypath(data = fortify(range.polygon), 
-                  aes(x = long, y = lat, group = group),
-                  colour = "palegreen3",
-                  fill = "palegreen3") +
-    
-    geom_polypath(data = fortify(gBuffer(removed.polygon, byid = FALSE, width = 0.1)), 
-                  aes(x = long, y = lat, group = group),
-                  colour = NA,
-                  fill = "firebrick",
-                  alpha = 0.5) +
-    
-    geom_polypath(data = fortify(removed.polygon), 
-                  aes(x = long, y = lat, group = group),
-                  colour = "firebrick",
-                  fill = "firebrick") +
-    
-    geom_point(data = species_dat,
-               aes(x = Longitude, y = Latitude, colour = out)) +
-    scale_colour_discrete(drop = FALSE) +
-    
-    theme(legend.position = "bottom") +
-    ggtitle(host)
-}
+# restrict_grid <- function(location.data, rastr){
+#   # c.rast <- raster::rasterize(location.data[[1]], rastr, fun = "count")
+#   c.rast <- terra::rasterize(y = location.data[[1]],
+#                    fun = length)
+#   
+#   return(length(Which(c.rast, cells = TRUE))>1) 
+# }
 
-iucn_cleaning <- function(dat, native.df, range.polygon = IUCN_Data){
-  hosts <- unique(native.df$HostCorrectedName)
-  for(host in hosts){
-    sp.range.polygon <- range.polygon[range.polygon$binomial == host, ]
-    species.dat <- split(dat, dat$HostCorrectedName == host)
-    sp.native.df <- filter(native.df, HostCorrectedName == host)
-    
-    throw <- sp.native.df$Status
-    removed.polygon <- sp.range.polygon[sp.range.polygon$legend %in% throw, ]
-    
-    species.dat[["TRUE"]]$out <-  cc_iucn(x = rename(species.dat[["TRUE"]], binomial = HostCorrectedName),
-                                range = removed.polygon,
-                                lon = "Longitude",
-                                lat = "Latitude",
-                                species = "binomial",
-                                buffer = unique(sp.native.df$buffer),
-                                value = "flagged")
-    
-    species.dat[["TRUE"]] %>%
-      filter(!out) %>%
-      dplyr::select(-out)
-    
-    dat <- bind_rows(species.dat)
-  }
-  return(dat)
-}
 
-gbif_plotter <- function(synonym_row, dat, data_type, range.polygon, legend.text = Legend_Text){
-  if (data_type == "base"){
-    species_dat <- filter(dat, species == synonym_row["GBIFName"])
-    
-    # sorting out polygons to have data for legend
-    range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
-    range.polygon$id <- rownames(range.polygon@data)
-    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
-    sp.range.polygon <- base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
-    
-    # to make active levels bold in legend
-    curr <- unique(sp.range.polygon$legend)
-    new <- c(paste0("**", curr, "**"), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
-    curr <- c(as.character(curr), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
-    sp.range.polygon$legend <- dplyr::recode(sp.range.polygon$legend, !!!deframe(data.frame(curr, new))) 
-    
-    # from https://sashamaps.net/docs/resources/20-colors/
-    g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
-                '#f58231', '#911eb4', '#42d4f4', '#f032e6', 
-                '#bfef45', '#fabed4', '#469990', '#dcbeff', 
-                '#9A6324', '#fffac8', '#800000', '#aaffc3', 
-                '#808000', '#ffd8b1', '#000075', '#a9a9a9')
-    
-    # bbox <- range.polygon@bbox
-    # dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
-    # bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
-    #                  min(c(bbox[2,1], dat.bbox[2,1])),
-    #                  max(c(bbox[1,2], dat.bbox[1,2])),
-    #                  max(c(bbox[2,2], dat.bbox[2,2]))),
-    #                c(2,2)) # there must be a one-liner for this..
-    
-    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
-      xlab("Longitude") + ylab("Latitude") +
-      
-      geom_polypath(data = sp.range.polygon, 
-                    aes(x = long, y = lat, group = group, 
-                        colour = legend, fill = legend)) +
-      
-      scale_color_manual(values = g.cols, drop = FALSE) +
-      scale_fill_manual(values = g.cols, drop = FALSE) +
-      
-      theme(legend.text = element_markdown(size = 6),
-            legend.title = element_text(size = 6),
-            legend.key.size = unit(0.3, "lines"),
-            legend.position = "bottom") +
-      
-      geom_point(data = species_dat,
-                 aes(x = decimalLongitude, y = decimalLatitude),
-                 colour = "navy", shape = 1, alpha = 0.5) +
-      
-      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
-    
-  } else if (data_type == "outlier"){
-    species_dat <- dat[[synonym_row["GBIFName"]]] %>%
-      mutate(outlier = case_when(is.na(outlier) ~ "untested",
-                                 outlier        ~ "accepted",
-                                 !outlier       ~ "rejected"))
-    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
-    
-    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      
-      geom_point(data = species_dat,
-                 aes(x = decimalLongitude, y = decimalLatitude, colour = outlier),
-                 shape = 1, size = 1) +
-      scale_colour_manual(values = c("firebrick", "chartreuse1")) +
-      
-      geom_polypath(data = sp.range.polygon, 
-                   aes(x = long, y = lat, group = group),
-                   colour = "skyblue", fill = NA) +
-      
-      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")")) +
-      
-      if(!as.logical(synonym_row["cc_outl"]) & !as.logical(synonym_row["cc_iucn"])){
-        labs(caption = "Coordinates untested")
-      } else if (as.logical(synonym_row["cc_outl"])){
-        labs(caption = paste0("Coordinates tested using 'outlier' method from 'cc_outl' with a multiple of ",
-                              synonym_row["mltpl"]))
-      } else if (as.logical(synonym_row["cc_iucn"])){
-        labs(caption = paste0("Coordinates tested using iucn polygon with a buffer of ",
-                              synonym_row["buffer"], " decimal degrees"))
-      }
-    
-  } else {
-    dat[,data_type] <- as.factor(dat[, data_type])
-    species_dat <- filter(dat, species == synonym_row["GBIFName"])
-    sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
-    
-    # to make active levels bold in legend
-    curr <- unique(species_dat[, data_type])
-    new <- c(paste0("**", curr, "**"), levels(species_dat[, data_type])[!levels(species_dat[, data_type]) %in% curr])
-    curr <- c(as.character(curr), levels(species_dat[, data_type])[!levels(species_dat[, data_type]) %in% curr])
-    species_dat[, data_type] <- dplyr::recode(species_dat[, data_type], !!!deframe(data.frame(curr, new))) 
-    
-    ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
-      geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
-      
-      geom_polypath(data = sp.range.polygon, 
-                    aes(x = long, y = lat, group = group),
-                    colour = "skyblue", fill = "skyblue") +
-      
-      geom_point(data = species_dat,
-                 aes(x = decimalLongitude, y = decimalLatitude, colour = data_type),
-                 shape = 1) +
-      scale_colour_brewer(palette = "Paired", drop = FALSE) +
-      
-      theme(legend.text = element_markdown()) +
-      
-      ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
-    
-  } 
-}
 
-species_cleaner <- function(synonym_row, dat){
-  print(synonym_row["GBIFName"])
-  species_dat <- filter(dat, species == synonym_row["GBIFName"])
-  species_dat <- rename(species_dat, binomial = species)
-  
-  if(synonym_row["cc_outl"]){
-    species_dat$outlier <- cc_outl(x = species_dat,
-                                   lon = "decimalLongitude",
-                                   lat = "decimalLatitude",
-                                   method = "quantile",
-                                   species = "binomial",
-                                   mltpl = as.numeric(synonym_row["mltpl"]),
-                                   value = "flagged")
-    
-  } else if(synonym_row["cc_iucn"]){
-    sp.range.polygon <- IUCN_Data_List[[synonym_row["IUCNName"]]]
-    sp.range.polygon$binomial <- synonym_row["GBIFName"]
-    species_dat$outlier <- cc_iucn(x = species_dat,
-                                   range = sp.range.polygon,
-                                   lon = "decimalLongitude",
-                                   lat = "decimalLatitude",
-                                   species = "binomial",
-                                   buffer = as.numeric(synonym_row["buffer"]),
-                                   value = "flagged")
-  } else {
-    species_dat$outlier <- NA
-  }
-  
-  species_dat <- rename(species_dat, species = binomial)
-  return(species_dat)
-}
+# gmpd_plotter <- function(host, dat, range.polygon, legend.text = Legend_Text, plot_type){
+#   if(plot_type == "iucn"){
+#     species_dat <- filter(dat, HostCorrectedName == host)
+#     range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
+#     range.polygon$id <- rownames(range.polygon@data)
+#     sp.range.polygon <- range.polygon[range.polygon$binomial == host, ]
+#     sp.range.polygon <-  base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
+#     
+#     # to make active levels bold in legend
+#     curr <- unique(sp.range.polygon$legend)
+#     new <- c(paste0("**",curr, "**"), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+#     curr <- c(as.character(curr), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+#     sp.range.polygon$legend <- dplyr::recode(sp.range.polygon$legend, !!!deframe(data.frame(curr, new))) 
+#     
+#     # from https://sashamaps.net/docs/resources/20-colors/
+#     g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
+#                 '#f58231', '#911eb4', '#42d4f4', '#f032e6', 
+#                 '#bfef45', '#fabed4', '#469990', '#dcbeff', 
+#                 '#9A6324', '#fffac8', '#800000', '#aaffc3', 
+#                 '#808000', '#ffd8b1', '#000075', '#a9a9a9')
+#     
+#     # creating bounding box to clip plots
+#     # Blocked out for now because coord_sf is buggy
+#     # bbox <- range.polygon@bbox
+#     # dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
+#     # bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
+#     #                   min(c(bbox[2,1], dat.bbox[2,1])),
+#     #                   max(c(bbox[1,2], dat.bbox[1,2])),
+#     #                   max(c(bbox[2,2], dat.bbox[2,2]))),
+#     #                   c(2,2)) # there must be a one-liner for this..
+#     # 
+#     # # expanding bboxes that are too small to give context
+#     # if(bbox[1,2] - bbox[1,1] < 10){
+#     #   bbox[1,1] <- bbox[1,1] -5
+#     #   bbox[1,2] <- bbox[1,2] +5
+#     # }
+#     # if(bbox[2,2] - bbox[2,1] < 10){
+#     #   bbox[2,1] <- bbox[2,1] -5
+#     #   bbox[2,2] <- bbox[2,2] +5
+#     # }
+#     
+#     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+#       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+#       # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
+#       xlab("Longitude") + ylab("Latitude") +
+#       
+#       geom_polypath(data = sp.range.polygon, 
+#                     aes(x = long, y = lat, group = group, 
+#                         colour = legend, fill = legend),
+#                     size = 0.15) +
+#       
+#       scale_color_manual(values = g.cols, drop = FALSE) +
+#       scale_fill_manual(values = g.cols, drop = FALSE) +
+#       
+#       theme(legend.text = element_markdown(size = 6),
+#             legend.title = element_text(size = 6),
+#             legend.key.size = unit(0.3, "lines"),
+#             legend.position = "bottom") +
+#       
+#       geom_point(data = species_dat,
+#                  aes(x = Longitude, y = Latitude),
+#                  colour = "navy", shape = 1, alpha = 0.5) +
+#       
+#       ggtitle(host)
+#   } else if(plot_type == "base") {
+#     species_dat <- filter(dat, HostCorrectedName == host)
+#     
+#     ## Currently there's a bug from the recent crs change
+#     ## https://rgdal.r-forge.r-project.org/articles/CRS_projections_transformations.html
+#     # bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
+#     # 
+#     # #expanding smaller bboxes to give context
+#     # if(bbox[1,2] - bbox[1,1] < 15){
+#     #   bbox[1,1] <- bbox[1,1] - round((15 - (bbox[1,2] - bbox[1,1]))/2, 2)
+#     #   bbox[1,2] <- bbox[1,2] + round((15 - (bbox[1,2] - bbox[1,1]))/2, 2)
+#     # }
+#     # if(bbox[2,2] - bbox[2,1] < 15){
+#     #   bbox[2,1] <- bbox[2,1] - round((15 - (bbox[2,2] - bbox[2,1]))/2, 2)
+#     #   bbox[2,2] <- bbox[2,2] + round((15 - (bbox[2,2] - bbox[2,1]))/2, 2)
+#     # }
+#     
+#     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+#       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+#       # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
+#       xlab("Longitude") + ylab("Latitude") +
+#       
+#       geom_point(data = species_dat,
+#                  aes(x = Longitude, y = Latitude),
+#                  colour = "navy", shape = 1, alpha = 0.5) +
+#       
+#       ggtitle(host)
+#   }
+# }
+
+# iucn_test <- function(host, dat = GMPD_Data, range.polygon = IUCN_Data_List, native.df = Native_Clean){
+#   species_dat <- dat %>%
+#     filter(HostCorrectedName == host) 
+#   native.df <- filter(native.df, HostCorrectedName == host)
+#   
+#   throw <- native.df$Status
+#   range.polygon <- range.polygon[[host]]
+#   
+#   if(length(throw) > 0){
+#     removed.polygon <- range.polygon[range.polygon$legend %in% throw, ]
+#   }
+#   
+#   species_dat$out <-  cc_iucn(x = rename(species_dat, binomial = HostCorrectedName),
+#                               range = removed.polygon,
+#                               lon = "Longitude",
+#                               lat = "Latitude",
+#                               species = "binomial",
+#                               buffer = unique(native.df$buffer),
+#                               value = "flagged")
+#   species_dat <- species_dat %>% 
+#     mutate(out = case_when(out  ~ "Discarded",
+#                            !out ~ "Kept")) 
+#   species_dat$out <- factor(species_dat$out, levels = c("Kept", "Discarded"))
+#   
+#   bbox <- range.polygon@bbox
+#   dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
+#   bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
+#                    min(c(bbox[2,1], dat.bbox[2,1])),
+#                    max(c(bbox[1,2], dat.bbox[1,2])),
+#                    max(c(bbox[2,2], dat.bbox[2,2]))),
+#                  c(2,2)) # there must be a one-liner for this..
+#   
+#   ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+#     geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+#     coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
+#     xlab("Longitude") + ylab("Latitude") +
+#     
+#     geom_polypath(data = fortify(range.polygon), 
+#                   aes(x = long, y = lat, group = group),
+#                   colour = "palegreen3",
+#                   fill = "palegreen3") +
+#     
+#     geom_polypath(data = fortify(gBuffer(removed.polygon, byid = FALSE, width = 0.1)), 
+#                   aes(x = long, y = lat, group = group),
+#                   colour = NA,
+#                   fill = "firebrick",
+#                   alpha = 0.5) +
+#     
+#     geom_polypath(data = fortify(removed.polygon), 
+#                   aes(x = long, y = lat, group = group),
+#                   colour = "firebrick",
+#                   fill = "firebrick") +
+#     
+#     geom_point(data = species_dat,
+#                aes(x = Longitude, y = Latitude, colour = out)) +
+#     scale_colour_discrete(drop = FALSE) +
+#     
+#     theme(legend.position = "bottom") +
+#     ggtitle(host)
+# }
+
+# iucn_cleaning <- function(dat, native.df, range.polygon = IUCN_Data){
+#   hosts <- unique(native.df$HostCorrectedName)
+#   for(host in hosts){
+#     sp.range.polygon <- range.polygon[range.polygon$binomial == host, ]
+#     species.dat <- split(dat, dat$HostCorrectedName == host)
+#     sp.native.df <- filter(native.df, HostCorrectedName == host)
+#     
+#     throw <- sp.native.df$Status
+#     removed.polygon <- sp.range.polygon[sp.range.polygon$legend %in% throw, ]
+#     
+#     species.dat[["TRUE"]]$out <-  cc_iucn(x = rename(species.dat[["TRUE"]], binomial = HostCorrectedName),
+#                                 range = removed.polygon,
+#                                 lon = "Longitude",
+#                                 lat = "Latitude",
+#                                 species = "binomial",
+#                                 buffer = unique(sp.native.df$buffer),
+#                                 value = "flagged")
+#     
+#     species.dat[["TRUE"]] %>%
+#       filter(!out) %>%
+#       dplyr::select(-out)
+#     
+#     dat <- bind_rows(species.dat)
+#   }
+#   return(dat)
+# }
+
+# gbif_plotter <- function(synonym_row, dat, data_type, range.polygon, legend.text = Legend_Text){
+#   if (data_type == "base"){
+#     species_dat <- filter(dat, species == synonym_row["GBIFName"])
+#     
+#     # sorting out polygons to have data for legend
+#     range.polygon$legend <- factor(range.polygon$legend, levels = legend.text)
+#     range.polygon$id <- rownames(range.polygon@data)
+#     sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
+#     sp.range.polygon <- base::merge(sp.range.polygon@data[c("legend", "id")], fortify(sp.range.polygon), by = "id")
+#     
+#     # to make active levels bold in legend
+#     curr <- unique(sp.range.polygon$legend)
+#     new <- c(paste0("**", curr, "**"), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+#     curr <- c(as.character(curr), levels(sp.range.polygon$legend)[!levels(sp.range.polygon$legend) %in% curr])
+#     sp.range.polygon$legend <- dplyr::recode(sp.range.polygon$legend, !!!deframe(data.frame(curr, new))) 
+#     
+#     # from https://sashamaps.net/docs/resources/20-colors/
+#     g.cols <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', 
+#                 '#f58231', '#911eb4', '#42d4f4', '#f032e6', 
+#                 '#bfef45', '#fabed4', '#469990', '#dcbeff', 
+#                 '#9A6324', '#fffac8', '#800000', '#aaffc3', 
+#                 '#808000', '#ffd8b1', '#000075', '#a9a9a9')
+#     
+#     # bbox <- range.polygon@bbox
+#     # dat.bbox <- SpatialPoints(species_dat[c("Longitude", "Latitude")])@bbox
+#     # bbox <- matrix(c(min(c(bbox[1,1], dat.bbox[1,1])),
+#     #                  min(c(bbox[2,1], dat.bbox[2,1])),
+#     #                  max(c(bbox[1,2], dat.bbox[1,2])),
+#     #                  max(c(bbox[2,2], dat.bbox[2,2]))),
+#     #                c(2,2)) # there must be a one-liner for this..
+#     
+#     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+#       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+#       # coord_sf(xlim = bbox[1, ], ylim = bbox[2, ], expand = TRUE) +
+#       xlab("Longitude") + ylab("Latitude") +
+#       
+#       geom_polypath(data = sp.range.polygon, 
+#                     aes(x = long, y = lat, group = group, 
+#                         colour = legend, fill = legend)) +
+#       
+#       scale_color_manual(values = g.cols, drop = FALSE) +
+#       scale_fill_manual(values = g.cols, drop = FALSE) +
+#       
+#       theme(legend.text = element_markdown(size = 6),
+#             legend.title = element_text(size = 6),
+#             legend.key.size = unit(0.3, "lines"),
+#             legend.position = "bottom") +
+#       
+#       geom_point(data = species_dat,
+#                  aes(x = decimalLongitude, y = decimalLatitude),
+#                  colour = "navy", shape = 1, alpha = 0.5) +
+#       
+#       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
+#     
+#   } else if (data_type == "outlier"){
+#     species_dat <- dat[[synonym_row["GBIFName"]]] %>%
+#       mutate(outlier = case_when(is.na(outlier) ~ "untested",
+#                                  outlier        ~ "accepted",
+#                                  !outlier       ~ "rejected"))
+#     sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
+#     
+#     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+#       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+#       
+#       geom_point(data = species_dat,
+#                  aes(x = decimalLongitude, y = decimalLatitude, colour = outlier),
+#                  shape = 1, size = 1) +
+#       scale_colour_manual(values = c("firebrick", "chartreuse1")) +
+#       
+#       geom_polypath(data = sp.range.polygon, 
+#                    aes(x = long, y = lat, group = group),
+#                    colour = "skyblue", fill = NA) +
+#       
+#       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")")) +
+#       
+#       if(!as.logical(synonym_row["cc_outl"]) & !as.logical(synonym_row["cc_iucn"])){
+#         labs(caption = "Coordinates untested")
+#       } else if (as.logical(synonym_row["cc_outl"])){
+#         labs(caption = paste0("Coordinates tested using 'outlier' method from 'cc_outl' with a multiple of ",
+#                               synonym_row["mltpl"]))
+#       } else if (as.logical(synonym_row["cc_iucn"])){
+#         labs(caption = paste0("Coordinates tested using iucn polygon with a buffer of ",
+#                               synonym_row["buffer"], " decimal degrees"))
+#       }
+#     
+#   } else {
+#     dat[,data_type] <- as.factor(dat[, data_type])
+#     species_dat <- filter(dat, species == synonym_row["GBIFName"])
+#     sp.range.polygon <- range.polygon[range.polygon$binomial == synonym_row["IUCNName"], ]
+#     
+#     # to make active levels bold in legend
+#     curr <- unique(species_dat[, data_type])
+#     new <- c(paste0("**", curr, "**"), levels(species_dat[, data_type])[!levels(species_dat[, data_type]) %in% curr])
+#     curr <- c(as.character(curr), levels(species_dat[, data_type])[!levels(species_dat[, data_type]) %in% curr])
+#     species_dat[, data_type] <- dplyr::recode(species_dat[, data_type], !!!deframe(data.frame(curr, new))) 
+#     
+#     ggplot(data = ne_countries(scale = "medium", returnclass = "sf")) +
+#       geom_sf(colour = "grey65", size = 0.15) + theme_bw() +
+#       
+#       geom_polypath(data = sp.range.polygon, 
+#                     aes(x = long, y = lat, group = group),
+#                     colour = "skyblue", fill = "skyblue") +
+#       
+#       geom_point(data = species_dat,
+#                  aes(x = decimalLongitude, y = decimalLatitude, colour = data_type),
+#                  shape = 1) +
+#       scale_colour_brewer(palette = "Paired", drop = FALSE) +
+#       
+#       theme(legend.text = element_markdown()) +
+#       
+#       ggtitle(paste0(synonym_row["GBIFName"], " (", synonym_row["IUCNName"], ")"))
+#     
+#   } 
+# }
 
 # Not sure whether to keep
-quick_map <- function(c.species){
-  sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == c.species, ]
-  sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == c.species, c("Longitude", "Latitude")])
-  tm_shape(sprp) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots() 
-}
+# quick_map <- function(c.species){
+#   sprp <- IUCN_Native_Data[IUCN_Native_Data$binomial == c.species, ]
+#   sp.gmpd.points <- SpatialPoints(GMPD_Data[GMPD_Data$HostCorrectedName == c.species, c("Longitude", "Latitude")])
+#   tm_shape(sprp) + tm_polygons("subspecies") + tm_shape(sp.gmpd.points) + tm_dots() 
+# }
 
-pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
-  if("HostCorrectedName" %in% names(dat)){
-    sp.dat <- dat[dat$HostCorrectedName == host,]
-  } else if("species" %in% names(dat)){
-    sp.dat <- dat[dat$species == host,] 
-  } 
-  
-  if(subsp){
-    sg.dat <- lapply(unique(buff$subgroup), function(sg){
-      sg.polygon <- range.polygon[range.polygon$subgroup == sg,] 
-      if(buff[buff$subgroup == sg, "buff"] != 0){
-        sg.polygon <- terra::buffer(sg.polygon, buff[buff$subgroup == sg, "buff"]) 
-      }
-      
-      sg.dat <- sp.dat[sg.polygon,] 
-      if(nrow(sg.dat) > 0){
-        sg.dat@data$subgroup <- sg
-      }
-      
-      return(sg.dat)
-    })
-    
-    sg.dat <- sg.dat[which(lapply(sg.dat, function(x)nrow(x) != 0) == TRUE)] 
-    if(length(sg.dat) == 0){
-      return(NULL)
-    } else if(length(sg.dat) == 1){
-      return(sg.dat[[1]])
-    } else {
-      suppressWarnings(sg.dat <- do.call(raster::bind, sg.dat))
-      
-      if(nrow(sg.dat) > nrow(sp.dat)){
-        warning("point(s) assigned multiple subgroups")
-      } else if(nrow(sg.dat) < nrow(sp.dat)){
-        warning("not all points assigned to subgroup")
-      }
-      
-      return(sg.dat)
-      
-    }
+# pip_test <- function(host, dat, range.polygon, buff, subsp = TRUE){
+#   if("HostCorrectedName" %in% names(dat)){
+#     sp.dat <- dat[dat$HostCorrectedName == host,]
+#   } else if("species" %in% names(dat)){
+#     sp.dat <- dat[dat$species == host,] 
+#   } 
+#   
+#   if(subsp){
+#     sg.dat <- lapply(unique(buff$subgroup), function(sg){
+#       sg.polygon <- range.polygon[range.polygon$subgroup == sg,] 
+#       if(buff[buff$subgroup == sg, "buff"] != 0){
+#         sg.polygon <- terra::buffer(sg.polygon, buff[buff$subgroup == sg, "buff"]) 
+#       }
+#       
+#       sg.dat <- sp.dat[sg.polygon,] 
+#       if(nrow(sg.dat) > 0){
+#         sg.dat@data$subgroup <- sg
+#       }
+#       
+#       return(sg.dat)
+#     })
+#     
+#     sg.dat <- sg.dat[which(lapply(sg.dat, function(x)nrow(x) != 0) == TRUE)] 
+#     if(length(sg.dat) == 0){
+#       return(NULL)
+#     } else if(length(sg.dat) == 1){
+#       return(sg.dat[[1]])
+#     } else {
+#       suppressWarnings(sg.dat <- do.call(raster::bind, sg.dat))
+#       
+#       if(nrow(sg.dat) > nrow(sp.dat)){
+#         warning("point(s) assigned multiple subgroups")
+#       } else if(nrow(sg.dat) < nrow(sp.dat)){
+#         warning("not all points assigned to subgroup")
+#       }
+#       
+#       return(sg.dat)
+#       
+#     }
+# 
+#   } else{
+#     
+#     if(buff != 0){
+#       range.polygon <- terra::buffer(range.polygon, buff)
+#     }
+#     
+#     sp.dat <- sp.dat[range.polygon,]
+#     return(sp.dat)
+#   }
+# }
 
-  } else{
-    
-    if(buff != 0){
-      range.polygon <- terra::buffer(range.polygon, buff)
-    }
-    
-    sp.dat <- sp.dat[range.polygon,]
-    return(sp.dat)
-  }
-}
+# pip_test_host <- function(hostlist, dat, range.polygon, buff, subsp = TRUE){
+#   out <- lapply(hostlist, function(host){
+#     range.polygon <- range.polygon[range.polygon$binomial == host,]
+#     out <- pip.test(host, dat, range.polygon, buff, subsp)
+#   })
+#   out <- do.call(raster::bind, sg.dat)
+# }
 
-pip_test_host <- function(hostlist, dat, range.polygon, buff, subsp = TRUE){
-  out <- lapply(hostlist, function(host){
-    range.polygon <- range.polygon[range.polygon$binomial == host,]
-    out <- pip.test(host, dat, range.polygon, buff, subsp)
-  })
-  out <- do.call(raster::bind, sg.dat)
-}
+# complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
+#   # data prep
+#   sp.dat <- dat[dat$HostCorrectedName == synonym.row["IUCNName"],]
+#   sp.range.dat <- range.dat[range.dat$species == synonym.row["GBIFName"],]
+#   sp.range.pol <- range.polygon[range.polygon$binomial == synonym.row["IUCNName"],]
+#   
+#   sp.bbox <- bboxes[[synonym.row["scaling"]]]
+#   subgroups <- unique(sp.range.pol@data$subgroup)
+#   
+#   extant.group <- poly_fill[poly_fill$fill_group == "Extant", "legend"]
+#   present.group <- poly_fill[poly_fill$fill_group == "Presence Likely", "legend"]
+#   absent.group <- poly_fill[poly_fill$fill_group == "Absence Likely", "legend"]
+#   extinct.group <- poly_fill[poly_fill$fill_group == "Extinct", "legend"]
+#   
+#   border.factor <- 1
+#   if(synonym.row["scaling"] %in% c("Africa", "South", "North", "Central", "Asia", "Europe")) {border.factor <- 0.5}
+#   
+#   # plot 1, iucn range
+#   par(bg = 'powderblue')
+#   terra::plot(ne_countries(scale = "medium", returnclass = "sp"), col = "beige", border = "burlywood",
+#        xlim = sp.bbox[1,],
+#        ylim = sp.bbox[2,])
+#   
+#   for(i in 1:length(subgroups)){
+#     sp.range.pol.sub <- sp.range.pol[sp.range.pol$subgroup == subgroups[i],]
+#     terra::plot(sp.range.pol.sub, col = sub.colours[i], border = "transparent", add = TRUE)
+#     
+#     temp.border <- spTransform(sp.range.pol.sub, CRS("+init=epsg:3857"))
+#     temp.border <- try(terra::buffer(terra::buffer(temp.border, 10000), -100000*border.factor), silent = TRUE)
+# 
+#     if(class(temp.border) != "try-error") {
+#       temp.border <- spTransform(temp.border, CRS("+init=epsg:4326"))
+#       
+#       if(area(temp.border) > 100000){
+#         
+#         if(any(sp.range.pol.sub$legend %in% c(present.group, absent.group, extinct.group))){
+#           terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% c(present.group, absent.group, extinct.group),], temp.border), 
+#                col = "grey65", border = "transparent", add = TRUE)
+#         }
+#         
+#         if(any(sp.range.pol.sub$legend %in% c(absent.group, extinct.group))){
+#           terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% c(absent.group, extinct.group),], temp.border), 
+#                col = "black", density = 15, angle = 45, border = "transparent", add = TRUE)
+#         }
+#         
+#         if(any(sp.range.pol.sub$legend %in% extinct.group)){
+#           terra:plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% extinct.group,], temp.border), 
+#                col = "black", density = 15, angle = 135, border = "transparent", add = TRUE)
+#         }
+#         
+#         if(any(sp.range.pol.sub$legend %in% c(extant.group))){
+#           terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% extant.group,], temp.border), 
+#                col = "grey", border = "transparent", add = TRUE)
+#         }
+#         
+#       }
+#       
+#     }
+#     
+#     terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$RestrAll & sp.dat$RestrSub,], 
+#                 pch = 24, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+# 
+#     terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$RestrAll & !sp.dat$RestrSub,], 
+#                 pch = 25, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+#     
+#   }
+#   
+#   mtext(paste0(synonym.row["IUCNName"], " with iucn range\n"), side = 3, cex = 1.5)
+#   
+#   legend("bottomleft", 
+#          legend = subgroups, 
+#          title = "Subgroup",
+#          fill = sub.colours,
+#          border = sub.colours,
+#          cex = 1,
+#          bg = "transparent") 
+#   
+#   legend("topleft", 
+#          legend = c("", "", "", ""), 
+#          title = "",
+#          fill = c("grey", "grey65", "grey65", "grey65"),
+#          cex = 1, 
+#          bty = "n") 
+#   
+#   legend("topleft", 
+#          legend = unique(poly_fill$fill_group), 
+#          title = "Status",
+#          fill = c("transparent", "transparent", "black", "black"),
+#          density = c(0, 0, 15, 15),
+#          angle = c(0, 0, 45, 135),
+#          cex = 1,
+#          bty = "o",
+#          bg = "transparent") 
+#   
+#   legend("bottomright",
+#          legend = c("All and subgrouped", "All only"),
+#          title = "Restricted Datasets",
+#          pch = c(24, 25),
+#          cex = 1,
+#          pt.bg = sub.colours[1],
+#          pt.lwd = 2,
+#          bg = "transparent")
+#   
+#   # plot 2, gbif range
+#   par(bg = 'powderblue')
+#   terra::plot(ne_countries(scale = "medium", returnclass = "sp"), col = "beige", border = "burlywood",
+#               xlim = sp.bbox[1,],
+#               ylim = sp.bbox[2,])
+#   
+#   for(i in 1:length(subgroups)){
+#     terra::plot(sp.range.dat[sp.range.dat$subgroup == subgroups[i],], 
+#                 pch = 1, col = paste0(sub.colours[i], "FF"), add = TRUE)
+#     
+#     terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanAll & sp.dat$CleanSub,], 
+#                 pch = 22, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+# 
+#     terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanAll & !sp.dat$CleanSub,], 
+#                 pch = 23, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
+#     
+#   }
+#   
+#   mtext(paste0(synonym.row["IUCNName"], " with gbif range\n"), side = 3, cex = 1.5)
+#   
+#   legend("bottomleft", 
+#          legend = subgroups, 
+#          title = "Subgroup",
+#          fill = sub.colours,
+#          border = sub.colours,
+#          cex = 1,
+#          bg = "transparent") 
+# 
+#   legend("bottomright",
+#          legend = c("All and subgrouped", "All only"),
+#          title = "Cleaned Datasets",
+#          pch = c(22, 23),
+#          cex = 1,
+#          pt.bg = sub.colours[1],
+#          pt.lwd = 2,
+#          bg = "transparent")
+#   
+# }
 
-complete_plot <- function(synonym.row, dat, range.dat, range.polygon){
-  # data prep
-  sp.dat <- dat[dat$HostCorrectedName == synonym.row["IUCNName"],]
-  sp.range.dat <- range.dat[range.dat$species == synonym.row["GBIFName"],]
-  sp.range.pol <- range.polygon[range.polygon$binomial == synonym.row["IUCNName"],]
-  
-  sp.bbox <- bboxes[[synonym.row["scaling"]]]
-  subgroups <- unique(sp.range.pol@data$subgroup)
-  
-  extant.group <- poly_fill[poly_fill$fill_group == "Extant", "legend"]
-  present.group <- poly_fill[poly_fill$fill_group == "Presence Likely", "legend"]
-  absent.group <- poly_fill[poly_fill$fill_group == "Absence Likely", "legend"]
-  extinct.group <- poly_fill[poly_fill$fill_group == "Extinct", "legend"]
-  
-  border.factor <- 1
-  if(synonym.row["scaling"] %in% c("Africa", "South", "North", "Central", "Asia", "Europe")) {border.factor <- 0.5}
-  
-  # plot 1, iucn range
-  par(bg = 'powderblue')
-  terra::plot(ne_countries(scale = "medium", returnclass = "sp"), col = "beige", border = "burlywood",
-       xlim = sp.bbox[1,],
-       ylim = sp.bbox[2,])
-  
-  for(i in 1:length(subgroups)){
-    sp.range.pol.sub <- sp.range.pol[sp.range.pol$subgroup == subgroups[i],]
-    terra::plot(sp.range.pol.sub, col = sub.colours[i], border = "transparent", add = TRUE)
-    
-    temp.border <- spTransform(sp.range.pol.sub, CRS("+init=epsg:3857"))
-    temp.border <- try(terra::buffer(terra::buffer(temp.border, 10000), -100000*border.factor), silent = TRUE)
-
-    if(class(temp.border) != "try-error") {
-      temp.border <- spTransform(temp.border, CRS("+init=epsg:4326"))
-      
-      if(area(temp.border) > 100000){
-        
-        if(any(sp.range.pol.sub$legend %in% c(present.group, absent.group, extinct.group))){
-          terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% c(present.group, absent.group, extinct.group),], temp.border), 
-               col = "grey65", border = "transparent", add = TRUE)
-        }
-        
-        if(any(sp.range.pol.sub$legend %in% c(absent.group, extinct.group))){
-          terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% c(absent.group, extinct.group),], temp.border), 
-               col = "black", density = 15, angle = 45, border = "transparent", add = TRUE)
-        }
-        
-        if(any(sp.range.pol.sub$legend %in% extinct.group)){
-          terra:plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% extinct.group,], temp.border), 
-               col = "black", density = 15, angle = 135, border = "transparent", add = TRUE)
-        }
-        
-        if(any(sp.range.pol.sub$legend %in% c(extant.group))){
-          terra::plot(raster::intersect(sp.range.pol.sub[sp.range.pol.sub$legend %in% extant.group,], temp.border), 
-               col = "grey", border = "transparent", add = TRUE)
-        }
-        
-      }
-      
-    }
-    
-    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$RestrAll & sp.dat$RestrSub,], 
-                pch = 24, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
-
-    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$RestrAll & !sp.dat$RestrSub,], 
-                pch = 25, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
-    
-  }
-  
-  mtext(paste0(synonym.row["IUCNName"], " with iucn range\n"), side = 3, cex = 1.5)
-  
-  legend("bottomleft", 
-         legend = subgroups, 
-         title = "Subgroup",
-         fill = sub.colours,
-         border = sub.colours,
-         cex = 1,
-         bg = "transparent") 
-  
-  legend("topleft", 
-         legend = c("", "", "", ""), 
-         title = "",
-         fill = c("grey", "grey65", "grey65", "grey65"),
-         cex = 1, 
-         bty = "n") 
-  
-  legend("topleft", 
-         legend = unique(poly_fill$fill_group), 
-         title = "Status",
-         fill = c("transparent", "transparent", "black", "black"),
-         density = c(0, 0, 15, 15),
-         angle = c(0, 0, 45, 135),
-         cex = 1,
-         bty = "o",
-         bg = "transparent") 
-  
-  legend("bottomright",
-         legend = c("All and subgrouped", "All only"),
-         title = "Restricted Datasets",
-         pch = c(24, 25),
-         cex = 1,
-         pt.bg = sub.colours[1],
-         pt.lwd = 2,
-         bg = "transparent")
-  
-  # plot 2, gbif range
-  par(bg = 'powderblue')
-  terra::plot(ne_countries(scale = "medium", returnclass = "sp"), col = "beige", border = "burlywood",
-              xlim = sp.bbox[1,],
-              ylim = sp.bbox[2,])
-  
-  for(i in 1:length(subgroups)){
-    terra::plot(sp.range.dat[sp.range.dat$subgroup == subgroups[i],], 
-                pch = 1, col = paste0(sub.colours[i], "FF"), add = TRUE)
-    
-    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanAll & sp.dat$CleanSub,], 
-                pch = 22, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
-
-    terra::plot(sp.dat[sp.dat$subgroup == subgroups[i] & sp.dat$CleanAll & !sp.dat$CleanSub,], 
-                pch = 23, bg = sub.colours[i], col = "grey30", lwd = 2, add = TRUE)
-    
-  }
-  
-  mtext(paste0(synonym.row["IUCNName"], " with gbif range\n"), side = 3, cex = 1.5)
-  
-  legend("bottomleft", 
-         legend = subgroups, 
-         title = "Subgroup",
-         fill = sub.colours,
-         border = sub.colours,
-         cex = 1,
-         bg = "transparent") 
-
-  legend("bottomright",
-         legend = c("All and subgrouped", "All only"),
-         title = "Cleaned Datasets",
-         pch = c(22, 23),
-         cex = 1,
-         pt.bg = sub.colours[1],
-         pt.lwd = 2,
-         bg = "transparent")
-  
-}
-
-bboxer <- function(...){
-  x <- list(...)
-  
-  matrix(c(min(sapply(x, function(x) x[1,1])), max(sapply(x, function(x) x[1,2])),
-           min(sapply(x, function(x) x[2,1])), max(sapply(x, function(x) x[2,2]))),
-         byrow = TRUE, nrow = 2,
-         dimnames = list(c("Longitude", "Latitude"), c("min", "max")))
-}
+# bboxer <- function(...){
+#   x <- list(...)
+#   
+#   matrix(c(min(sapply(x, function(x) x[1,1])), max(sapply(x, function(x) x[1,2])),
+#            min(sapply(x, function(x) x[2,1])), max(sapply(x, function(x) x[2,2]))),
+#          byrow = TRUE, nrow = 2,
+#          dimnames = list(c("Longitude", "Latitude"), c("min", "max")))
+# }
 
 
 

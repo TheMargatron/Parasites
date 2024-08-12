@@ -49,7 +49,10 @@ IUCN_species_files/
 GBIF?cleaning/
 Getting?IUCN?ranges/
 Git?notes.txt
-Misc/
+Misc/*
+Misc images/*
 
 # Archived scripts
 *archived.R
+Discard pile/*
+Reference code/*
