@@ -39,6 +39,7 @@ Projection_String <- sf::st_crs(IUCN_Data)
 Hostlist <- sort(unique(GMPD_Data$HostCorrectedName))
 
 Already_Prepped <- TRUE
+plot_outputs <- FALSE
 
 # Adding synonymous species names not picked up by taxize
 Host_Synonyms <- data.frame("IUCNName" = Hostlist, "GBIFName" = Hostlist, stringsAsFactors = FALSE)
@@ -155,14 +156,23 @@ gc()
 # Wouldn't lose too much data and it means the true coordinates at worst will only be one raster cell over
 # Because of spatial autocorrelation this shouldn't have too much effect on analyses
 
-# GBIF_Data %>%
-#   pull(coordinateUncertaintyInMeters) %>%
-#   hist(main = "Histogram of coordinate uncertainty, no max")
-# 
-# GBIF_Data %>%
-#   filter(coordinateUncertaintyInMeters <= 18520) %>%
-#   pull(coordinateUncertaintyInMeters) %>%
-#   hist(main = "Histogram of coordinate uncertainty, max 18520m")
+if(plot_outputs){
+  GBIF_Data %>% 
+    pretty_hist(xvar = coordinateUncertaintyInMeters, 
+                breaks = seq(0, max(GBIF_Data$coordinateUncertaintyInMeters), 30)) +
+    labs(x = "Coordinate uncertainty in meters", y = "")
+  
+  coord_uncertainty_plot <- GBIF_Data %>% 
+    filter(coordinateUncertaintyInMeters <= 18520) %>%
+    pretty_hist(xvar = coordinateUncertaintyInMeters,
+                breaks = seq(0, 18520, length.out = 30)) +
+    labs(x = "Coordinate uncertainty (m)\nmax 18520m", y = "") +
+    annotate(geom = "text", x = 0.1*18520, y = 0.85* 1500000,
+             label = "A",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 1500000) 
+  
+}
 
 ### Coordinate precision ####
 
@@ -170,17 +180,35 @@ gc()
 # I could use similar reasoning as I did for coordinate uncertainty and apply 0.05 as a cut off
 # But using 0.02 only removes a marginal amount more while ensuring greater raster cell accuracy
 
-# GBIF_Data %>%
-#   pull(coordinatePrecision) %>%
-#   hist(main = "Histogram of coordinate precision, no max")
-# 
-# GBIF_Data %>%
-#   filter(coordinatePrecision <= 0.167) %>%
-#   pull(coordinatePrecision) %>%
-#   hist(main = "Histogram of coordinate precision, max 0.167") 
-# 
-# nrow(GBIF_Data[GBIF_Data$coordinatePrecision <= 0.02,]) / nrow(GBIF_Data)
-# nrow(GBIF_Data[GBIF_Data$coordinatePrecision <= 0.05,]) / nrow(GBIF_Data)
+if(plot_outputs){
+  GBIF_Data %>% 
+    pretty_hist(xvar = coordinatePrecision,
+                breaks = seq(0, max(GBIF_Data$coordinatePrecision), 30)) +
+    labs(x = "Coordinate precision", y = "")
+  
+  coord_precision_plot <- GBIF_Data %>% 
+    filter(coordinatePrecision <= 0.167) %>%
+    pretty_hist(xvar = coordinatePrecision,
+                breaks = seq(0, 0.167, length.out = 30)) +
+    labs(x = "Coordinate precision\nmax 0.167", y = "") +
+    annotate(geom = "text", x = 0.1*0.167, y = 0.85*200000,
+             label = "B",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 200000)
+  
+  GBIF_coord_hists <- coord_uncertainty_plot +
+    coord_precision_plot +
+    plot_layout(design = "
+              AB
+              ") 
+  
+  ggsave(here::here("Figures/GBIF coord hists.pdf"), GBIF_coord_hists, width = 10, height = 5, 
+         device = cairo_pdf)
+  
+}
+
+nrow(GBIF_Data[GBIF_Data$coordinatePrecision <= 0.02,]) / nrow(GBIF_Data)
+nrow(GBIF_Data[GBIF_Data$coordinatePrecision <= 0.05,]) / nrow(GBIF_Data)
 
 ### Event date ####
  ## Not sure whether to filter by date
@@ -460,7 +488,7 @@ tmap_mode("plot")
 
 ### Kobus ellipsiprymnus ####
 # IUCN SSC Antelope Specialist Group. 2016. Kobus ellipsiprymnus. The IUCN Red List of Threatened Species 2016: e.T11035A50189324. https://dx.doi.org/10.2305/IUCN.UK.2016-2.RLTS.T11035A50189324.en. Accessed on 11 March 2024.
-# Another tha's probably introduced for hunting elsewhere
+# Another that's probably introduced for hunting elsewhere
 # keep at 1
 
 ### Leopardus geoffroyi ####
@@ -824,6 +852,47 @@ Native_DF <- Native_DF %>%
                                  
                                  TRUE ~ NA_real_))
 
+IUCN_Data <- IUCN_Data %>% 
+  left_join(Native_DF[,c("sci_name", "keep", "gbif_buffer", "legend")],
+            by = join_by(sci_name, keep, legend)) %>% 
+  group_by(keep, sci_name) %>% 
+  summarise(geometry = st_union(geometry), # TODO: summarise gives a warning, reframe doesn't work. find alternative
+            gbif_buffer = gbif_buffer) 
+
+# IUCN_Data_backup <- IUCN_Data
+# IUCN_Data <- IUCN_Data_test
+
+if(plot_outputs){
+  outlier_hosts <- c(
+    "Blastocerus dichotomus",
+    "Lutra lutra",
+    "Bison bison",
+    "Canis lupus",
+    "Connochaetes gnou",
+    "Conepatus chinga",
+    "Cervus nippon",
+    "Cynictis penicillata"
+  )
+  
+  lapply(outlier_hosts, function(hostname){
+    cairo_pdf(here::here("Figures/gbif", paste0(hostname, ".pdf")), width = 10)
+    print(plot_native_gbif(hostname))
+    dev.off()
+    beepr::beep(10)
+  })
+}
+
+
+# lapply(Hostlist, function(hostname, buff = 1){
+#   pdf(here::here("GBIF cleaning", hostname, paste0(hostname, " outliers.pdf")),
+#       width = 10, height = 7)
+#   print(plot_native_gbif(hostname, buff = buff))
+#   dev.off()
+#   print(hostname)
+# })
+
+
+# TODO: have another look at this. 
 GBIF_Data_list <- lapply(Hostlist, function(host, point.data = GBIF_Data, 
                                             range.polygon = IUCN_Data){
   print(host)

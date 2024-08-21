@@ -18,6 +18,7 @@ library(geosphere)
 library(ggplot2)
 library(ggspatial)
 library(ggtext)
+library(ggcorrplot)
 library(RColorBrewer)
 # library(raster) # TODO: use terra instead
 # library(rnaturalearth) # TODO: depends on sp
@@ -25,10 +26,25 @@ library(RColorBrewer)
 library(tidyverse)
 library(tmap)
 library(extrafont)
+library(patchwork)
 # extrafont::loadfonts(device = "win")
 extrafont::loadfonts(device = "all")
 Sys.setenv(R_GSCMD = "C:/Program Files/gs/gs10.03.1/bin/gswin64c.exe")
 
+custom_theme <- theme(axis.title.x = element_text(margin = margin(t=10,r=0,b=0,l=0)),
+                      axis.title.y = element_text(angle = 90, 
+                                                  margin = margin(t=0,r=15,b=0,l=0)),
+                      axis.line = element_line(linewidth = 1, colour = "#656565", lineend = "round"),
+                      axis.ticks = element_line(linewidth = 0.7, colour = "#656565", lineend = "round"),
+                      axis.ticks.length = unit(0.3, "lines"),
+                      axis.text.x = element_text(size = 10, margin = margin(t=5,r=0,b=0,l=0)),
+                      axis.text.y = element_text(size = 10, margin = margin(t=0,r=5,b=0,l=0)),
+                      
+                      panel.background = element_rect(fill = "white", colour = "white"),
+                      plot.background = element_rect(fill = "white", colour = "white"),
+                      plot.margin = margin(t=20,r=25,b=10,l=20),
+                      text = element_text(family = "Outfit", size = 15)
+)
 
 # TODO: sort functions
 # used in 01 ############################################################
@@ -100,40 +116,150 @@ restrict_decimal <- function(dat, subsp = FALSE){
 }
 
 # used in 02 ###################################################################
-plot_native_gbif <- function(hostname, buff = 0){
+plot_native_gbif <- function(hostname){
   if(!exists("World")) data("World")
   
-  species_polygon <- IUCN_Data[IUCN_Data$sci_name == hostname, ]
+  species_polygon <- IUCN_Data[IUCN_Data$sci_name == hostname, ] 
+  species_buff <- sf::st_buffer(species_polygon, species_polygon$gbif_buffer) %>% 
+    group_by(keep) %>%
+    summarise(geometry = st_union(geometry))
   species_dots <- GBIF_Data[GBIF_Data$species == hostname, ]
   
-  bbox_polygon <- sf::st_as_sfc(sf::st_bbox(species_polygon))
+  # bbox_polygon <- sf::st_as_sfc(sf::st_bbox(species_polygon))
+  bbox_buff <- sf::st_as_sfc(sf::st_bbox(species_buff))
   bbox_dots <- sf::st_as_sfc(sf::st_bbox(species_dots))
-  bbox_plot <- sf::st_bbox(sf::st_union(bbox_polygon, bbox_dots))
+  bbox_plot <- sf::st_bbox(sf::st_union(bbox_dots, bbox_buff))
   
-  if(buff == 0){
-    
-    plot_out <- tm_shape(World, bbox = bbox_plot) + tm_fill() +
-      tm_shape(species_dots) +
-      tm_dots() +
-      tm_shape(species_polygon) +
-      tm_fill("keep", alpha = 0.4) +
-      tm_layout(title = hostname,)
-    
-  } else {
-    
-    plot_out <- tm_shape(World, bbox = bbox_plot) + tm_fill() +
-      tm_shape(species_polygon) +
-      tm_fill("keep") +
-      tm_shape(species_dots) +
-      tm_dots() +
-      tm_layout(title = hostname) +
-      tm_shape(sf::st_buffer(species_polygon, buff)) +
-      tm_fill("keep", alpha = 0.3, legend.show = FALSE)
-    
+  # legend prep
+  # buffer_label <- species_polygon %>% 
+  #   group_by(keep) %>% 
+  #   summarise(buffer = unique(gbif_buffer))
+  buffer_label <- species_polygon %>% 
+    select(keep, gbif_buffer) %>% 
+    distinct() %>% 
+    mutate(keep = case_when(keep ~ "Keep",
+                            !keep ~ "Discard"), 
+           gbif_buffer = paste0(keep, " (", gbif_buffer, ")")) %>% 
+    pull(gbif_buffer)
+  
+  buffer_label <- species_polygon %>% 
+    # group_by(keep) %>% 
+    # summarise(geometry = st_union(geometry))
+    st_drop_geometry(species_polygon) %>% 
+    distinct()
+  
+  if(!any(!buffer_label$keep)){
+    buffer_label <- buffer_label %>% 
+      ungroup() %>% 
+      add_row(keep = FALSE, 
+              sci_name = hostname,
+              gbif_buffer = 0) %>% 
+      arrange(keep) %>% 
+      pull(gbif_buffer)
   }
+  
+  # for when I can overlay legends
+  # buffer_label <- c(
+  #   buffer_temp[buffer_temp$keep, "gbif_buffer"],
+  #   buffer_temp[!buffer_temp$keep, "gbif_buffer"]
+  # )
+  
+  plot_out <- tm_shape(World, bbox = bbox_plot) + tm_fill() +
+    tm_grid(x = seq(-180,180,10), y = seq(-90,90,10), 
+            alpha = 0, ticks = TRUE, 
+            labels.show = TRUE) +
+    # tm_graticules(n.x = 3, n.y = 3, alpha = 0) +
+    tm_shape(species_polygon) +
+    tm_fill("keep", palette = c("#D1495B", "#EDAE49") ,
+            # title = "IUCN polygon",
+            # labels = c("remove", "keep"),
+            # legend.is.portrait = FALSE
+            legend.show = FALSE
+            ) +
+    
+    tm_shape(species_dots) +
+    tm_dots(col = "#222E50") +
+    
+    tm_shape(species_buff) +
+    tm_fill("keep", palette = c("#D1495B", "#EDAE49"), 
+            alpha = 0.3,
+            # title = "Buffer (degrees)",
+            # labels = buffer_label,
+            # legend.width = 10,
+            # legend.is.portrait = FALSE
+            legend.show = FALSE
+            ) +
+    tm_shape(species_buff) +
+    tm_borders(col = "#656565", lwd = 0.5, alpha = 0.5) +
+    
+    
+    # TODO: figure out how to overlap legends??
+    # tm_add_legend("symbol", labels = c("1", "2"), 
+    #               col = "#656565",
+    #               size = 1,
+    #               alpha = 0.5,
+    #               shape = 0,
+    #               title = "",
+    #               border.lwd = 6, z=1
+    # ) +
+    
+    # tm_add_legend("symbol", labels = buffer_label, 
+    #               col = "white",  
+    #               title = "helpp",
+    #               size = 1,
+    #               shape = 0,
+    #               border.lwd = 5, z=1
+    # ) +
+    
+    tm_add_legend("symbol", labels = c("Remove", "Keep"), 
+                  c("#D1495B", "#EDAE49"), 
+                  title = "Range polygon",
+                  size = 1,
+                  shape = 15
+    ) +
+    
+    tm_add_legend("symbol", labels = buffer_label, 
+                  c("#D1495B", "#EDAE49"),  
+                  title = "Buffer (degrees)",
+                  size = 1,
+                  alpha = 0.3,
+                  shape = 22,
+                  border.lwd = 1,
+                  border.col = "#656565",
+                  border.alpha = 0.5
+    ) +
+    
+    
+    # tm_add_legend("fill", labels = c("\n", "\n"), 
+    #               c("#D1495B", "#EDAE49"), 
+    #               alpha = 0.3,
+    #               title = "",
+    #               border.col = "#656565",
+    #               border.alpha = 0
+    # ) +
+    # tm_add_legend("fill", labels = buffer_label, 
+    #               c("#D1495B", "#EDAE49"), 
+    #               title = "Range polygon (buffer in degrees)",
+    #               border.alpha = 0,
+    #               border.lwd = 4
+    #               ) +
+    
+    tm_add_legend("symbol", "", col = "#222E50", title = "GBIF occurrence") +
+    tm_layout(main.title = hostname,
+              fontfamily = "Outfit",
+              legend.outside = TRUE,
+              legend.stack = "horizontal",
+              legend.outside.position = "bottom") +
+    tm_compass(color.dark = "#656565") 
+  
   return(plot_out)
 }
 
+pretty_hist <- function(dat, xvar, breaks){
+  ggplot(dat, aes({{xvar}})) +
+    geom_histogram(color = "#222E50", fill = "#8E8DBE", breaks = breaks) +
+    custom_theme
+}
 
 # used in 03 ###################################################################
 
@@ -169,6 +295,7 @@ range_distances_host <- function(host, dat, range.object, method){
   return(out)
 }
 
+{
 # range_distances_subsp <- function(host, dat, range.pol, method){
 #   
 #   dat <- dat %>% filter(HostCorrectedName == host)
@@ -232,6 +359,7 @@ range_distances_host <- function(host, dat, range.object, method){
 #   return(list("DistanceMetrics" = out, "RangeTraits" = range.traits))
 #   
 # }
+}
 
 range_distances_method <- function(dat, range.object){
   
@@ -658,63 +786,54 @@ distangles <- function(loci, origin){
 }
 
 # used in 05 ###################################################################
-basic_barplot <- function(dat = GMPD_Climate_Data, xvar = ParClass, yvar = Prevalence){
-  
+
+
+basic_barplot <- function(dat = GMPD_Climate_Data, xvar, yvar, jitter = TRUE){
   dat <- dat %>% 
     dplyr::mutate(AbsLatitude = abs(Latitude))
-  
-  # summarise for error bars
+    
   plot_data <- dat %>% 
     dplyr::group_by({{xvar}}) %>% 
     dplyr::summarise(
-      SampleSizeMax = mean(SampleSize) + sd(SampleSize),
-      LatitudeMax     = mean(Latitude) + sd(Latitude),
-      AbsLatitudeMax  = mean(AbsLatitude) + sd(AbsLatitude),
-      PrevalenceMax   = mean(Prevalence) + sd(Prevalence),
+      mean_var = mean({{yvar}}),
+      upper_var = (mean_var) + sd({{yvar}}),
+      lower_var = (mean_var) - sd({{yvar}}),
       
-      SampleSizeMin = mean(SampleSize) - sd(SampleSize),
-      LatitudeMin     = mean(Latitude) - sd(Latitude),
-      AbsLatitudeMin  = mean(AbsLatitude) - sd(AbsLatitude),
-      PrevalenceMin   = mean(Prevalence) - sd(Prevalence),
-      
-      SampleSize    = mean(SampleSize),
-      Latitude        = mean(Latitude),
-      AbsLatitude     = mean(AbsLatitude),
-      Prevalence      = mean(Prevalence),
-      
-      TotalSampleSize = sum(SampleSize), 
+      TotalSampleSize = sum(SampleSize),
       n = n()
-    ) %>% 
+    )  %>% 
     dplyr::mutate(xvar2 = paste0({{xvar}}, " (", n, ")"),
                   xvar3 = paste0({{xvar}}, " (", TotalSampleSize, ")"))
   
-  # data for points
+  
   jitter_data <- plot_data %>% 
     dplyr::select({{xvar}}, xvar2) %>% 
     right_join(dat, by = join_by({{xvar}}))
   
-  # Trying to get around "glue-tunelling"
-  yvarmin <- paste0(as_label(enquo(yvar)), "Min")
-  yvarmax <- paste0(as_label(enquo(yvar)), "Max")
+  plot_out <- ggplot(plot_data, aes(x = {{xvar}}, y = mean_var)) +
+    geom_bar(stat = "identity", fill =  "#EDAE49") 
   
-  # shit plot  
-  plot_out <- ggplot(plot_data, aes(x = xvar2, y = {{yvar}})) +
-    geom_bar(stat = "identity", fill =  "#3C6E71") +
-    
+  plot_out <- plot_out +
     geom_jitter(data = jitter_data,
-                col = "#B7CECE",
-                width = 0.25) +
-    
-    geom_errorbar(aes(ymin = !! sym(yvarmin),
-                      ymax = !! sym(yvarmax)),
+                aes(x = {{xvar}}, y = {{yvar}}),
+                col = "#f6d6a4",
+                width = 0.25)
+  
+  plot_out <- plot_out +
+    geom_errorbar(aes(ymin = lower_var,
+                      ymax = upper_var),
                   width = .2,
-                  col = "#1C0F13") +
+                  linewidth = 0.8,
+                  col = "#656565") +
     
     xlab(as_label(enquo(xvar))) +
     
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    custom_theme +
+    scale_x_discrete(labels = plot_data$xvar2)
   
   return(plot_out)
+  
 }
 
 relative_likelihood <- function(model1, model2){
@@ -985,29 +1104,39 @@ plot_latitude <- function(model_list,
                        starts_with("CorrectedDistProp"))
   
   plot_data <- plot_data %>% 
-    mutate(BothSpecies = predict(model_list$Host_IO[[model_name]], 
+    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
                                  plot_data, 
                                  re.form = NA, 
                                  type = "response"),
-           HostSpecies = predict(model_list$Parasite_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           ParasiteSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
-                                     plot_data, 
-                                     re.form = NA, 
-                                     type = "response"))
-  
+           model_name = "Host species",
+           model_colour = "#D1495B") %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Parasite species",
+                       model_colour = "#EDAE49")
+              ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Both host and parasite",
+                       model_colour = "#222E50")
+    )
   
   # plot 
-  ggplot(plot_data) +
-    geom_line(aes(x = Latitude, y = BothSpecies),     col = "#222E50", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = Latitude, y = HostSpecies),     col = "#D1495B", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = Latitude, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+  ggplot(plot_data, aes(x = Latitude, y = model_out, color = model_name)) +
+    geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Latitude", y = "Parasite prevalence") +
     scale_x_continuous(breaks = c(0, 45, 90), limits = c(0,90)) +
-    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
+    theme(legend.position = "bottom") +
+    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+                       name = "Random intercepts")
   
 }
 
@@ -1023,39 +1152,49 @@ plot_medianprop <- function(model_list,
   fixed_lat.sc <- (fixed_lat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
   
   # prep data
-  plot_data <- data.frame(MedianProp = seq(0, 1, length.out = 2000),
+  plot_data <- data.frame(MedianProp = seq(-1, 1, length.out = 2000),
                           LatitudeScaled = rep(fixed_lat.sc, 2000),
-                          MedianPropSquared = seq(0, 1, length.out = 2000),
+                          MedianPropSquared = seq(-1, 1, length.out = 2000),
                           CorrectedDistPropSquared = rep(0, 2000)) %>% 
     dplyr::rename_with(~ paste0(.x, raster_res, recycle0 = TRUE), 
                        starts_with("CorrectedDistProp"))
   
   plot_data <- plot_data %>% 
-    mutate(BothSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           HostSpecies = predict(model_list$Host_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           ParasiteSpecies = predict(model_list$Parasite_IO[[model_name]], 
-                                     plot_data, 
-                                     re.form = NA, 
-                                     type = "response"))
+    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+                               plot_data, 
+                               re.form = NA, 
+                               type = "response"),
+           model_name = "Host species",
+           model_colour = "#D1495B") %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Parasite species",
+                       model_colour = "#EDAE49")
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Both host and parasite",
+                       model_colour = "#222E50")
+    )
   
-  
-  ggplot(plot_data) +
-    geom_line(aes(x = MedianProp, y = BothSpecies), col = "#222E50", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = MedianProp, y = HostSpecies), col = "#D1495B", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = MedianProp, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+  # plot 
+  ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) +
+    geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Range position", y = "Parasite prevalence") +
-    scale_x_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
-    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+    scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
+    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+                       name = "Random intercepts") +
+    theme(legend.position = "none")
   
 }
-
 
 plot_medianprop_asym <- function(model_list,
                                  model_name = "LatQMedAsym", 
@@ -1074,31 +1213,41 @@ plot_medianprop_asym <- function(model_list,
                           CorrectedDistPropSquared = rep(0, 2000)) 
   
   plot_data <- plot_data %>% 
-    mutate(BothSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           HostSpecies = predict(model_list$Host_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           ParasiteSpecies = predict(model_list$Parasite_IO[[model_name]], 
-                                     plot_data, 
-                                     re.form = NA, 
-                                     type = "response"))
+    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+                               plot_data, 
+                               re.form = NA, 
+                               type = "response"),
+           model_name = "Host species",
+           model_colour = "#D1495B") %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Parasite species",
+                       model_colour = "#EDAE49")
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Both host and parasite",
+                       model_colour = "#222E50")
+    )
   
   
-  ggplot(plot_data) +
-    geom_line(aes(x = MedianProp, y = BothSpecies), col = "#222E50", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = MedianProp, y = HostSpecies), col = "#D1495B", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = MedianProp, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+  ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) +
+    geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Range position", y = "Parasite prevalence") +
     scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
-    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
+    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+                       name = "Random intercepts") +
+    theme(legend.position = "bottom")
   
 }
-
 
 plot_distprop <- function(model_list,
                           model_name = "LatQIMedQIProp",
@@ -1111,36 +1260,47 @@ plot_distprop <- function(model_list,
   fixed_lat.sc <- (fixed_lat - meanLat)/(sd(abs(model_data$Latitude) - meanLat))
   
   # prep data
-  plot_data <- data.frame(CorrectedDist = seq(0, 1, length.out = 2000),
+  plot_data <- data.frame(CorrectedDist = seq(-1, 1, length.out = 2000),
                           LatitudeScaled = rep(fixed_lat.sc, 2000),
                           MedianPropSquared = rep(0, 2000),
-                          CorrectedDistPropSquared = seq(0, 1, length.out = 2000)) %>% 
+                          CorrectedDistPropSquared = seq(-1, 1, length.out = 2000)) %>% 
     dplyr::rename_with(~ paste0(.x, raster_res, recycle0 = TRUE), 
                        starts_with("CorrectedDistProp"))
   
   plot_data <- plot_data %>% 
-    mutate(BothSpecies = predict(model_list$BothSpecies_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           HostSpecies = predict(model_list$Host_IO[[model_name]], 
-                                 plot_data, 
-                                 re.form = NA, 
-                                 type = "response"),
-           ParasiteSpecies = predict(model_list$Parasite_IO[[model_name]], 
-                                     plot_data, 
-                                     re.form = NA, 
-                                     type = "response"))
+    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+                               plot_data, 
+                               re.form = NA, 
+                               type = "response"),
+           model_name = "Host species",
+           model_colour = "#D1495B") %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Parasite species",
+                       model_colour = "#EDAE49")
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "Both host and parasite",
+                       model_colour = "#222E50")
+    )
   
   # plot
-  ggplot(plot_data) +
-    geom_line(aes(x = CorrectedDist, y = BothSpecies), col = "#222E50", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = CorrectedDist, y = HostSpecies), col = "#D1495B", linewidth = 2, lineend = "round") +
-    geom_line(aes(x = CorrectedDist, y = ParasiteSpecies), col = "#EDAE49", linewidth = 2, lineend = "round") +
+  ggplot(plot_data, aes(x = CorrectedDist, y = model_out, color = model_name)) +
+    geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Niche position", y = "Parasite prevalence") +
-    scale_x_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
-    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) 
+    scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
+    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+                       name = "Random intercepts") +
+    theme(legend.position = "none")
   
 }
 

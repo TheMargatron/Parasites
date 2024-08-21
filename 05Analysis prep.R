@@ -11,6 +11,9 @@ library(patchwork)
 library(cowplot)
 library(lme4)
 library(DHARMa)
+library(grid)
+library(gridExtra)
+library(cowplot)
 
 source(here::here("Functions.R"))
 
@@ -22,111 +25,177 @@ plot_outputs <- FALSE
 rerun_models <- FALSE
 
 # Prep and data exploration ####################################################
-GMPD_Climate_Data_IUCN <- GMPD_Climate_Data %>% filter(RestrAll)
-GMPD_Climate_Data_GBIF <- GMPD_Climate_Data %>% filter(CleanAll)
+GMPD_Climate_Data_IUCN <- GMPD_Climate_Data %>% filter(RestrAll) %>% 
+  mutate(MedianPropSquared_iucn = dplyr::case_when(!AboveMedn_iucn ~ MedianProp_iucn * -1,
+                                                                         TRUE       ~ MedianProp_iucn),
+  ) %>%   
+  dplyr::arrange(desc(pmax(CorrectedDistProp, CorrectedAngle))) %>%
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistPropSquared = case_when(!TopHalf ~ CorrectedDistProp * -1,
+                                                     TRUE ~ CorrectedDistProp))
+  
+GMPD_Climate_Data_GBIF <- GMPD_Climate_Data %>% filter(CleanAll) %>% 
+  mutate(MedianPropSquared_gbif = dplyr::case_when(!AboveMedn_gbif ~ MedianProp_gbif * -1,
+                                                   TRUE       ~ MedianProp_gbif),
+  ) %>% 
+  dplyr::arrange(desc(pmax(CorrectedDistProp, CorrectedAngle))) %>%
+  dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                CorrectedDistPropSquared = case_when(!TopHalf ~ CorrectedDistProp * -1,
+                                                     TRUE ~ CorrectedDistProp))
 
 ## Hosts ####
 # Check whether there are any host groups which should be removed 
 
 if(plot_outputs) {
-  pdf(here::here("Figures/Host Group.pdf"), width = 8, height = 6)
+  cairo_pdf(here::here("Figures/Host Group.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = Prevalence) +
-      ggtitle("Host data restricted by polygons"))
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Host group", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = Latitude) +
+      labs(x = "Host group", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = AbsLatitude) +
+      labs(x = "Host group", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = MedianProp_iucn) +
+      labs(x = "Host group", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = Group, yvar = CorrectedDistProp) +
+      labs(x = "Host group", y = "Niche position"))
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = Prevalence) +
-      ggtitle("Host data cleaned"))
+      ggtitle("Host data cleaned") +
+      labs(x = "Host group", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = Latitude) +
+      labs(x = "Host group", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = AbsLatitude) +
+      labs(x = "Host group", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = MedianProp_gbif) +
+      labs(x = "Host group", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = Group, yvar = CorrectedDistProp) +
+      labs(x = "Host group", y = "Niche position"))
   
   dev.off()
   
-  pdf(here::here("Figures/Host Order.pdf"), width = 8, height = 6)
-  
-  print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostOrder, yvar = Prevalence) +
-      ggtitle("Host data restricted by polygons"))
-  print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostOrder, yvar = Latitude))
-  print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostOrder, yvar = AbsLatitude))
-  
-  print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostOrder, yvar = Prevalence) +
-      ggtitle("Host data cleaned"))
-  print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostOrder, yvar = Latitude))
-  print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostOrder, yvar = AbsLatitude))
-  
-  dev.off()
-  
-  pdf(here::here("Figures/Host Family.pdf"), width = 8, height = 6)
+  cairo_pdf(here::here("Figures/Host Family.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = Prevalence) +
-      ggtitle("Host data restricted by polygons"))
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Host family", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = Latitude) +
+      labs(x = "Host family", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = AbsLatitude) +
+      labs(x = "Host family", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = MedianProp_iucn) +
+      labs(x = "Host family", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostFamily, yvar = CorrectedDistProp) +
+      labs(x = "Host family", y = "Niche position"))
+  
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = Prevalence) +
-      ggtitle("Host data cleaned"))
+      ggtitle("Host data cleaned") +
+    labs(x = "Host family", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = Latitude) +
+      labs(x = "Host family", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = AbsLatitude) +
+      labs(x = "Host family", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = MedianProp_gbif) +
+      labs(x = "Host family", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostFamily, yvar = CorrectedDistProp) +
+      labs(x = "Host family", y = "Niche position"))
   
   dev.off()
   
-  pdf(here::here("Figures/Host Species.pdf"), width = 10, height = 25)
+  cairo_pdf(here::here("Figures/Host Species.pdf"), 
+            width = 10, height = 25, onefile = TRUE)
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = Prevalence) +
       coord_flip() +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("Host data restricted by polygons"))
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Host species", y = "Prevalence"))
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = Latitude) +
       coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)))
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Latitude"))
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = AbsLatitude) +
       coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)))
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = MedianProp_iucn) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = CorrectedDistProp) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Niche position"))
+  
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = HostCorrectedName, yvar = SampleSize) +
       coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)))
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Sample size"))
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = Prevalence) +
       coord_flip() +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("Host data cleaned"))
+      ggtitle("Host data cleaned") +
+      labs(x = "Host species", y = "Prevalence"))
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = Latitude) +
       coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)))
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Latitude"))
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = AbsLatitude) +
       coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)))
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = MedianProp_gbif) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = CorrectedDistProp) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Niche position"))
   
-  print(basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = SampleSize) +
-          coord_flip() +
-          theme(axis.text.x = element_text(angle = 0, hjust = 0.5)))
+  
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = HostCorrectedName, yvar = SampleSize) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      labs(x = "Host species", y = "Sample size"))
   
   dev.off()
 } # end if
@@ -140,59 +209,109 @@ if(plot_outputs) {
 # Check whether there are any parasite groups which should be removed
 
 if(plot_outputs){
-  pdf(here::here("Figures/Parasite Type.pdf"), width = 8, height = 6)
+  cairo_pdf(here::here("Figures/Parasite Type.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = Prevalence) +
-    ggtitle("Host data restricted by polygons"))
+    ggtitle("Host data restricted by polygons") +
+      labs(x = "Parasite type", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = Latitude) +
+      labs(x = "Parasite type", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = AbsLatitude) +
+      labs(x = "Parasite type", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = MedianProp_iucn) +
+      labs(x = "Parasite type", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = CorrectedDistProp) +
+      labs(x = "Parasite type", y = "Niche position"))
+  
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = Prevalence) +
-    ggtitle("Host data cleaned"))
+    ggtitle("Host data cleaned") +
+      labs(x = "Parasite type", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = Latitude) +
+      labs(x = "Parasite type", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = AbsLatitude) +
+      labs(x = "Parasite type", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = MedianProp_gbif) +
+      labs(x = "Parasite type", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParType, yvar = CorrectedDistProp) +
+      labs(x = "Parasite type", y = "Niche position"))
+  
   
   dev.off()
   
-  pdf(here::here("Figures/Parasite Phylum.pdf"), width = 8, height = 6)
+  cairo_pdf(here::here("Figures/ParType Latitude.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParType, yvar = AbsLatitude)+
+      labs(x = "Parasite type", y = "Absolute latitude"))
+  dev.off()
+  
+  cairo_pdf(here::here("Figures/Parasite Phylum.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = Prevalence) +
-    ggtitle("Host data restricted by polygons"))
+    ggtitle("Host data restricted by polygons") +
+      labs(x = "Parasite phylum", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = Latitude) +
+      labs(x = "Parasite phylum", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = AbsLatitude) +
+      labs(x = "Parasite phylum", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = MedianProp_iucn) +
+      labs(x = "Parasite phylum", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParPhylum, yvar = CorrectedDistProp) +
+      labs(x = "Parasite phylum", y = "Niche position"))
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = Prevalence) +
-    ggtitle("Host data cleaned"))
+      ggtitle("Host data cleaned") +
+      labs(x = "Parasite phylum", y = "Prevalence"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = Latitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = Latitude) +
+      labs(x = "Parasite phylum", y = "Latitude"))
   print(
-    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = AbsLatitude))
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = AbsLatitude) +
+      labs(x = "Parasite phylum", y = "Absolute latitude"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = MedianProp_gbif) +
+      labs(x = "Parasite phylum", y = "Range position"))
+  print(
+    basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParPhylum, yvar = CorrectedDistProp) +
+      labs(x = "Parasite phylum", y = "Niche position"))
   
   dev.off()
   
-  pdf(here::here("Figures/Parasite Species.pdf"), width = 8, height = 6)
+  cairo_pdf(here::here("Figures/Parasite Species.pdf"), 
+            width = 10, height = 50, onefile = TRUE)
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_IUCN, xvar = ParasiteCorrectedName, yvar = SampleSize) +
-    coord_flip() +
-    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-    ggtitle("Host data restricted by polygons"))
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Parasite species", y = "Sample size"))
   
   print(
     basic_barplot(dat = GMPD_Climate_Data_GBIF, xvar = ParasiteCorrectedName, yvar = SampleSize) +
-    coord_flip() +
-    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-    ggtitle("Host data cleaned"))
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      ggtitle("Host data cleaned") +
+      labs(x = "Parasite species", y = "Sample size"))
   
   dev.off()
 } #end if
@@ -380,52 +499,73 @@ summary(test_model_ss$BothSpecies_IO$LatQIMedQIProp)
 
 if(plot_outputs){
   # plots
-  # plot_latitude(model_list = test_model, model_data = test_data)
-  # plot_latitude(model_list = test_model_tb, model_data = test_data_tb)
   Latitude_all <- plot_latitude(model_list = test_model, model_data = test_data) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) + theme(legend.position = "none") +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "A",
+             family = "Outfit", size = 5, hjust = 0)
   Latitude_tb <- plot_latitude(model_list = test_model_tb, model_data = test_data_tb) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) + theme(legend.position = "none") +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "B",
+             family = "Outfit", size = 5, hjust = 0)
   Latitude_ss <- plot_latitude(model_list = test_model_ss, model_data = test_data_ss) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) + theme(legend.position = "none") +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "C",
+             family = "Outfit", size = 5, hjust = 0)
   # ss is the most closely clustered and full the most different
   
-  # plot_medianprop(model_list = test_model, model_data = test_data, fixed_lat = 0)
-  # plot_medianprop(model_list = test_model_tb, model_data = test_data_tb, fixed_lat = 0)
   MedianProp_all <- plot_medianprop(model_list = test_model, model_data = test_data, fixed_lat = 40) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "D",
+             family = "Outfit", size = 5, hjust = 0)
   MedianProp_tb <- plot_medianprop(model_list = test_model_tb, model_data = test_data_tb, fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "E",
+             family = "Outfit", size = 5, hjust = 0)
   MedianProp_ss <- plot_medianprop(model_list = test_model_ss, model_data = test_data_ss, fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "F",
+             family = "Outfit", size = 5, hjust = 0)
   # full is most different
   
-  # plot_distprop(model_list = test_model, model_data = test_data, fixed_lat = 0)
-  # plot_distprop(model_list = test_model_tb, model_data = test_data_tb, fixed_lat = 0)
   DistProp_all <- plot_distprop(model_list = test_model, model_data = test_data, fixed_lat = 40) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "G",
+             family = "Outfit", size = 5, hjust = 0)
   DistProp_tb <- plot_distprop(model_list = test_model_tb, model_data = test_data_tb, fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "H",
+             family = "Outfit", size = 5, hjust = 0)
   DistProp_ss <- plot_distprop(model_list = test_model_ss, model_data = test_data_ss, fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "I",
+             family = "Outfit", size = 5, hjust = 0)
   # full is most different
   
   gg_lat_axis <- cowplot::get_plot_component(ggplot() + 
@@ -446,6 +586,7 @@ if(plot_outputs){
                                              labs(y = "Parasite prevalence"), 
                                            "ylab-l")
   
+  gg_legend <- cowplot::get_plot_component(Latitude_main, 'guide-box-bottom', return_all = TRUE)                    
   
   
   tb_ss_plots <- Latitude_all +  Latitude_tb + Latitude_ss +
@@ -454,7 +595,8 @@ if(plot_outputs){
     gg_range_axis +
     DistProp_all + DistProp_tb + DistProp_ss +
     gg_niche_axis +
-    gg_y_axis +
+    gg_y_axis + 
+    gg_legend +
     plot_layout(
       design = "
                #ABC
@@ -463,8 +605,9 @@ if(plot_outputs){
                ##H#
                #IJK
                ##L#
+               #NNN
                ",
-      heights = c(20,2,20,2,20,2),
+      heights = c(20,2,20,2,20,2, 2),
       widths = c(2,40,40,40))
   
   
@@ -477,64 +620,95 @@ if(plot_outputs){
 # but it does have quite a big impact on the coefficients
 
 if(plot_outputs){
-  pdf(here::here("Figures/Parasite sample size.pdf"), width = 8, height = 20)
+  cairo_pdf(here::here("Figures/Parasite sample size.pdf"), 
+            width = 10, height = 50, onefile = TRUE)
   
   print(
     basic_barplot(dat = test_data, xvar = ParasiteCorrectedName, yvar = SampleSize) +
       coord_flip() +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("All data"))
+      ggtitle("All data") +
+      labs(x = "Parasite species", y = "Sample size") +
+      geom_hline(yintercept = 4000, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+      scale_y_continuous(breaks = c(0, 4000, 20000, 40000, 60000), 
+                         labels = expression(0, 4000, 20000, 40000, 60000))
+  )
   
   print(
     basic_barplot(dat = test_data_ss, xvar = ParasiteCorrectedName, yvar = SampleSize) +
       coord_flip() +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("filtered by sample size"))
+      ggtitle("Filtered by sample size") +
+      labs(x = "Parasite species", y = "Sample size"))
   
   dev.off()
   
-  pdf(here::here("Figures/Host sample size.pdf"), width = 8, height = 20)
+  cairo_pdf(here::here("Figures/Host sample size.pdf"), 
+            width = 10, height = 25, onefile = TRUE)
   
   print(
-    basic_barplot(dat = test_data, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+    basic_barplot(dat = test_data, xvar = HostCorrectedName, yvar = SampleSize) +
       coord_flip() +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("All data"))
+      ggtitle("All data") +
+      labs(x = "Host species", y = "Sample size") +
+      geom_hline(yintercept = 4000, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+      scale_y_continuous(breaks = c(0, 4000, 20000, 40000, 60000), 
+                         labels = expression(0, 4000, 20000, 40000, 60000))
+    )
   
   print(
-    basic_barplot(dat = test_data_ss, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+    basic_barplot(dat = test_data_ss, xvar = HostCorrectedName, yvar = SampleSize) +
       coord_flip() +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("filtered by sample size"))
+      ggtitle("Filtered by sample size") +
+      labs(x = "Host species", y = "Sample size")
+    )
   
   dev.off()
 }
 
 
 ## Correlations ####
-test_data %>% 
-  dplyr::select(Prevalence, SampleSize, Latitude, 
-                MedianProp_iucn, MedianProp_gbif,
-                CorrectedDensity, CorrectedDistance, CorrectedDistProp, CorrectedAngle,
-                Axis1, Axis2, 
-                wc2.1_10m_bio_5, wc2.1_10m_bio_6, wc2.1_10m_bio_12) %>% 
-  cor() %>% 
-  corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
-
-test_data_ss %>% 
-  dplyr::select(Prevalence, SampleSize, Latitude, 
-                MedianProp_iucn, MedianProp_gbif,
-                CorrectedDensity, CorrectedDistance, CorrectedDistProp, CorrectedAngle,
-                Axis1, Axis2, 
-                wc2.1_10m_bio_5, wc2.1_10m_bio_6, wc2.1_10m_bio_12) %>% 
-  cor() %>% 
-  corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
+if(plot_outputs){
+  test_data %>% 
+    dplyr::select(Prevalence, SampleSize, Latitude, 
+                  MedianProp_iucn, MedianProp_gbif,
+                  CorrectedDensity, CorrectedDistance, CorrectedDistProp, CorrectedAngle,
+                  Axis1, Axis2, 
+                  wc2.1_10m_bio_5, wc2.1_10m_bio_6, wc2.1_10m_bio_12) %>% 
+    cor() %>% 
+    corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
+  
+  test_data_ss %>% 
+    dplyr::select(Prevalence, SampleSize, Latitude, 
+                  MedianProp_iucn, MedianProp_gbif,
+                  CorrectedDensity, CorrectedDistance, CorrectedDistProp, CorrectedAngle,
+                  Axis1, Axis2, 
+                  wc2.1_10m_bio_5, wc2.1_10m_bio_6, wc2.1_10m_bio_12) %>% 
+    cor() %>% 
+    corrplot::corrplot.mixed(diag = "n", tl.pos = "lt")
+  
+  corr_plot <- test_data_ss %>% 
+    dplyr::rename(`Range position` = MedianProp_iucn,
+                  `Niche position` = CorrectedDistProp) %>% 
+    dplyr::select(Prevalence, SampleSize, Latitude,
+                  `Range position`, `Niche position`) %>% 
+    cor() %>% .[,5:1] %>% 
+    ggcorrplot(outline.col = "white", 
+               colors = c("#222E50", "white", "#D1495B"))  +
+    theme(text = element_text(family = "Outfit", size = 15)) + 
+    geom_text(aes(label = value), family = "Outfit")
+  
+  ggsave(here::here("Figures/correlation plot.pdf"), corr_plot, width = 10, height = 9, 
+         device = cairo_pdf)
+  
+}
 
 # https://doi.org/10.1111/j.1600-0587.2012.07348.x
 # None of the variables I plan on modelling 
 # (Latitude, MedianProp, CorrectedDistance)
-# have particularly high collinearity
-# TODO: better notes on this
+# have particularly high collinearity (above 0.7)
 
 
 ## Non-normal distributions ####
@@ -542,6 +716,36 @@ test_data_ss %>%
 hist(test_data$Latitude)
 hist(abs(test_data$Latitude))
 hist(abs(test_data_ss$Latitude))
+if(plot_outputs){
+  Latitude_hist <- test_data_ss %>% 
+    pretty_hist(xvar = Latitude, 
+                breaks = seq(-80, 80, length.out = 40)) +
+    scale_x_continuous(limits = c(-80,80), 
+                       breaks = c(-80,-40,0,40,80)) +
+    labs(x = "Absolute latitude", y = "") +
+    annotate(geom = "text", x = -80, y = 0.85*600,
+             label = "A",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 600) 
+  
+  abslatitude_hist <- test_data_ss %>% 
+    pretty_hist(xvar = abs(Latitude), 
+                breaks = seq(0, 80, length.out = 40)) +
+    labs(x = "Absolute latitude", y = "") +
+    annotate(geom = "text", x = 0, y = 0.85*600,
+             label = "B",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 600) 
+  
+  Latitude_hists <- Latitude_hist +
+    abslatitude_hist +
+    plot_layout(design = "
+              AB
+              ") 
+  
+  # ggsave(here::here("Figures/Latitude hists.pdf"), Latitude_hists, width = 10, height = 4, 
+  #        device = cairo_pdf)
+}
 
 # MedianProp
 hist(test_data$MedianProp_iucn)
@@ -567,6 +771,37 @@ test_data_ss %>%
                                                           TRUE       ~ MedianProp_gbif)) %>% 
   dplyr::pull(MedianPropSquared_gbif) %>% 
   hist()
+
+if(plot_outputs){
+  MedianProp_hist <- test_data_ss %>% 
+    pretty_hist(xvar = MedianProp_iucn, 
+                breaks = seq(0, 1, length.out = 20)) +
+    labs(x = "Range position", y = "") +
+    annotate(geom = "text", x = 0, y = 0.85*600,
+             label = "C",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 600) 
+  
+  MedianProp_s_hist <- test_data_ss %>% 
+    dplyr::mutate(MedianPropSquared_iucn = dplyr::case_when(!AboveMedn_iucn ~ MedianProp_iucn * -1,
+                                                            TRUE       ~ MedianProp_iucn)) %>% 
+    pretty_hist(xvar = MedianPropSquared_iucn, 
+                breaks = seq(-1, 1, length.out = 20)) +
+    labs(x = "Range position", y = "") +
+    annotate(geom = "text", x = -1, y = 0.85*600,
+             label = "D",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 600) 
+  
+  MedianProp_hists <- MedianProp_hist +
+    MedianProp_s_hist +
+    plot_layout(design = "
+              AB
+              ") 
+  
+  # ggsave(here::here("Figures/Range position hists.pdf"), MedianProp_hists, width = 10, height = 4, 
+  #        device = cairo_pdf)
+}
 
 # CorrectedDistance
 hist(test_data$CorrectedDistance)
@@ -603,6 +838,51 @@ test_data_ss %>%
   dplyr::pull(CorrectedDistPropSquared) %>% 
   hist()
 
+if(plot_outputs){
+  DistProp_hist <- test_data_ss %>% 
+    pretty_hist(xvar = CorrectedDistProp, 
+                breaks = seq(0, 1, length.out = 20)) +
+    labs(x = "Niche position", y = "") +
+    annotate(geom = "text", x = 0, y = 0.85*900,
+             label = "E",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 900)
+  
+  DistProp_s_hist <- test_data_ss %>% 
+    dplyr::arrange(desc(pmax(CorrectedDistProp, CorrectedAngle))) %>% 
+    dplyr::mutate(TopHalf = rep(c(TRUE, FALSE), length.out = nrow(.)),
+                  CorrectedDistPropSquared = case_when(!TopHalf ~ CorrectedDistProp * -1,
+                                                       TRUE ~ CorrectedDistProp)) %>% 
+    pretty_hist(xvar = CorrectedDistPropSquared, 
+                breaks = seq(-1, 1, length.out = 20)) +
+    labs(x = "Niche position", y = "") +
+    annotate(geom = "text", x = -1, y = 0.85*900,
+             label = "F",
+             family = "Outfit", size = 5, hjust = 0) +
+    ylim(0, 900)
+  
+  DistProp_hists <- DistProp_hist +
+    DistProp_s_hist +
+    plot_layout(design = "
+              AB
+              ") 
+  
+  # ggsave(here::here("Figures/Niche position hists.pdf"), DistProp_hists, width = 10, height = 4, 
+  #        device = cairo_pdf)
+
+  all_hists <- Latitude_hist + abslatitude_hist +
+    MedianProp_hist + MedianProp_s_hist +
+    DistProp_hist + DistProp_s_hist +
+    plot_layout(design = "
+              AB
+              CD
+              EF
+              ") 
+
+  ggsave(here::here("Figures/all hists.pdf"), all_hists, width = 10, height = 9, 
+         device = cairo_pdf)
+  
+}
 
 # I think the last is the most appropriate given that it's a true half-normal 
 # distribution that was calculated from a 2d space
@@ -875,10 +1155,14 @@ anova(LM_IUCN_Species_SS$ParType$Null, LM_IUCN_Species_SS$Type$Null)
 anova(LM_IUCN_Species_SS$BothSpecies$Null, LM_IUCN_Species_SS$Parasite$Null)
 anova(LM_IUCN_Species_SS$BothSpecies$Null, LM_IUCN_Species_SS$Host$Null)
 # Host adds more on top of parasite, parasite adds more on top of host
+anova(LM_IUCN_Species_SS$BothSpecies$Null, LM_IUCN_Species_SS$ParType$Null)
+anova(LM_IUCN_Species_SS$BothSpecies$Null, LM_IUCN_Species_SS$HostGroup$Null)
+# Both species better than either of parasite + type or host + group
 
 anova(LM_IUCN_Species_SS$CrossSpecies$Null, LM_IUCN_Species_SS$BothSpecies$Null)
 # crossing host and parasite does nothing (unless I specified it wrong)
 
+# will compare fixed effects with BothSpecies
 ### Fixed effects ####
 
 #### Geographic ####
@@ -946,7 +1230,7 @@ compare_models(LM_GBIF_Species_SS$BothSpecies_IO$LatQMedAsym,
 #### Latitude * Quadratic MedianProp
 # ______________________________________________________________________________
 # Testing out the interaction term without the asymmetry first 
-# No support for an interaction with random ID but there is with both species
+# There is support for an interaction
 
 compare_models(LM_IUCN_Species_SS$BothSpecies_IO$LatQMedInt,
                LM_IUCN_Species_SS$BothSpecies_IO$LatQMed,
@@ -980,7 +1264,7 @@ compare_models(LM_GBIF_Species_SS$BothSpecies_IO$LatQMedInt,
 #### Distance
 # ______________________________________________________________________________
 # Distance from niche centre
-# Yes
+# no
 # But it should be modelled as a quadratic
 
 compare_models(LM_IUCN_Species_SS$BothSpecies_IO$LatQIMedProp,
@@ -995,7 +1279,7 @@ compare_models(LM_GBIF_Species_SS$BothSpecies_IO$LatQIMedProp,
 #### Quadratic Distance
 # ______________________________________________________________________________
 # Distance from niche centre as quadratic
-# accept
+# reject
 
 compare_models(LM_IUCN_Species_SS$BothSpecies_IO$LatQIMedQProp,
                LM_IUCN_Species_SS$BothSpecies_IO$LatQMedInt,
@@ -1008,7 +1292,6 @@ compare_models(LM_GBIF_Species_SS$BothSpecies_IO$LatQIMedQProp,
 #### Latitude * (Quadratic MedianProp + Quadratic Distance)
 # ______________________________________________________________________________
 # Distance from niche centre interacting with latitude 
-# Accept the second interaction term
 
 compare_models(LM_IUCN_Species_SS$BothSpecies_IO$LatQIMedQIProp,
                LM_IUCN_Species_SS$BothSpecies_IO$LatQIMedQProp,
@@ -1029,11 +1312,11 @@ summary(LM_GBIF_Species_SS$BothSpecies_IO$LatQIMedQIProp)
 plot_latitude(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS)
 plot_latitude(model_list = LM_GBIF_Species_SS, model_data = GMPD_Both_Species_SS)
 
-plot_medianprop(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 40)
-plot_medianprop(model_list = LM_GBIF_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 40)
+plot_medianprop(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 25)
+plot_medianprop(model_list = LM_GBIF_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 25)
 
-plot_distprop(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 40)
-plot_distprop(model_list = LM_GBIF_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 40)
+plot_distprop(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 25)
+plot_distprop(model_list = LM_GBIF_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 25)
 
 # basically the same across raster resolutions 
 summary(LM_IUCN_Species_SS$BothSpecies_IO$LatQIMedQIProp)
@@ -1100,10 +1383,14 @@ sim_LatQIMedQIProp_Host_IO <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Sp
 sim_LatQIMedQIProp_Fixed <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Species_SS$Fixed$LatQIMedQIProp)
 
 plot(sim_LatQIMedQIProp_Fixed)
+testOverdispersion(sim_LatQIMedQIProp_Fixed)
+
 plot(sim_LatQIMedQIProp_Host_IO)
-# Pretty strong trend with host
+testOverdispersion(sim_LatQIMedQIProp_Host_IO)
+# Pretty strong residual trend with host
 
 ##### Group
+{
 summary(LM_IUCN_Species_SS$Group_IO$LatQIMedQIProp)
 anova(LM_IUCN_Species_SS$Group_IO$LatQIMedQIProp, LM_IUCN_Species_SS$Fixed$LatQIMedQIProp)
 # Also better than nothing
@@ -1125,7 +1412,7 @@ sim_LatQIMedQIProp_HostGroup_IO <- DHARMa::simulateResiduals(fittedModel = LM_IU
 
 plot(sim_LatQIMedQIProp_Host_IO)
 plot(sim_LatQIMedQIProp_HostGroup_IO)
-
+}
 
 #### Parasite focus ####
 ##### Parasite species
@@ -1137,11 +1424,14 @@ sim_LatQIMedQIProp_Parasite_IO <- DHARMa::simulateResiduals(fittedModel = LM_IUC
 
 plot(sim_LatQIMedQIProp_Host_IO)
 plot(sim_LatQIMedQIProp_Parasite_IO)
+testOverdispersion(sim_LatQIMedQIProp_Parasite_IO)
+
 # Much better with parasite
 # The slope doesn't show up
 
 ##### Parasite Type
-summary(LM_IUCN_Species_SS$Type_IO$LatQIMedQIProp)
+{
+  summary(LM_IUCN_Species_SS$Type_IO$LatQIMedQIProp)
 anova(LM_IUCN_Species_SS$Type_IO$LatQIMedQIProp, LM_IUCN_Species_SS$Fixed$LatQIMedQIProp)
 # better than nothing
 
@@ -1166,7 +1456,7 @@ plot(sim_LatQIMedQIProp_ParType_IO)
 plot(sim_LatQIMedQIProp_Parasite_IO)
 plot(sim_LatQIMedQIProp_Type_IO)
 # Looks nice, barely different from parasite
-
+}
 
 #### Host and Parasite ####
 ##### Host + Parasite
@@ -1184,10 +1474,10 @@ plot(sim_LatQIMedQIProp_Host_IO)
 plot(sim_LatQIMedQIProp_Parasite_IO)
 plot(sim_LatQIMedQIProp_BothSpecies_IO)
 testDispersion(sim_LatQIMedQIProp_BothSpecies_IO)
-testZeroInflation(sim_LatQIMedQIProp_BothSpecies_IO)
 # Doesn't fully get rid of the slope this time!
 
 ##### Host:Parasite Type
+{
 summary(LM_IUCN_Species_SS$CrossSpecies_IO$LatQIMedQIProp)
 summary(LM_IUCN_Species_SS$Parasite_IO$LatQIMedQIProp)
 summary(LM_IUCN_Species_SS$Host_IO$LatQIMedQIProp)
@@ -1205,7 +1495,33 @@ plot(sim_LatQIMedQIProp_Parasite_IO)
 plot(sim_LatQIMedQIProp_BothSpecies_IO)
 plot(sim_LatQIMedQIProp_CrossSpecies_IO)
 # Looks okay
+# TODO: tidy up models that don't exist anymore
+}
 
+#### Random effect conclusions ####
+if(plot_outputs){
+  # Fixed
+  sim_LatQIMedQIProp_Fixed <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Species_SS$Fixed$LatQIMedQIProp)
+  # Host
+  sim_LatQIMedQIProp_Host_IO <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Species_SS$Host_IO$LatQIMedQIProp)
+  # Parasite 
+  sim_LatQIMedQIProp_Parasite_IO <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Species_SS$Parasite_IO$LatQIMedQIProp)
+  # Both
+  sim_LatQIMedQIProp_BothSpecies_IO <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Species_SS$BothSpecies_IO$LatQIMedQIProp)
+  # Doesn't fully get rid of the slope this time!
+  
+
+  pdf(here::here("Figures/random effect diagnostics.pdf"), width = 10, height = 7)
+  plot(sim_LatQIMedQIProp_Fixed)
+  mtext("A, no random terms", side=3, line = 0.5, adj = 0.43)
+  plot(sim_LatQIMedQIProp_Host_IO)
+  mtext("B, host random intercept", side=3, line = 0.5, adj = 0.43)
+  plot(sim_LatQIMedQIProp_Parasite_IO)
+  mtext("C, parasite random intercept", side=3, line = 0.5, adj = 0.43)
+  plot(sim_LatQIMedQIProp_BothSpecies_IO)
+  mtext("D, both random intercept", side=3, line = 0.5, adj = 0.43)
+  dev.off()
+}
 ### Host Phylogeny ####
 # TODO: source Host Phylo script separately
 
@@ -1260,7 +1576,7 @@ phylo_models$Host_IO$hostrecalc <- DHARMa::recalculateResiduals(phylo_models$Hos
 if(plot_outputs){
   pdf(here::here("Figures/phylogeny host.pdf"), width = 10, height = 7)
   plot(phylo_models$Host_IO$hostrecalc)
-  mtext("Host", side=3, line = 0.5, adj = 0.43)
+  mtext("Host random intercepts", side=3, line = 0.5, adj = 0.43)
   dev.off()
 }
 DHARMa::testSpatialAutocorrelation(simulationOutput = phylo_models$Host_IO$hostrecalc, distMat = phyloMat)
@@ -1272,7 +1588,7 @@ phylo_models$Parasite_IO$hostrecalc <- DHARMa::recalculateResiduals(phylo_models
 if(plot_outputs){
   pdf(here::here("Figures/phylogeny parasite.pdf"), width = 10, height = 7)
   plot(phylo_models$Parasite_IO$hostrecalc)
-  mtext("Parasite", side=3, line = 0.5, adj = 0.43)
+  mtext("Parasite random intercepts", side=3, line = 0.5, adj = 0.43)
   dev.off()
 }
 DHARMa::testSpatialAutocorrelation(simulationOutput = phylo_models$Parasite_IO$hostrecalc, distMat = phyloMat)
@@ -1285,7 +1601,7 @@ phylo_models$BothSpecies_IO$hostrecalc <- DHARMa::recalculateResiduals(phylo_mod
 if(plot_outputs){
   pdf(here::here("Figures/phylogeny both.pdf"), width = 10, height = 7)
   plot(phylo_models$BothSpecies_IO$hostrecalc)
-  mtext("Both", side=3, line = 0.5, adj = 0.43)
+  mtext("Both random intercepts", side=3, line = 0.5, adj = 0.43)
   dev.off()
 }
 DHARMa::testSpatialAutocorrelation(simulationOutput = phylo_models$BothSpecies_IO$hostrecalc, distMat = phyloMat)
@@ -1324,9 +1640,10 @@ if(plot_outputs){
                                 coords = c("Longitude", "Latitude"),
                                 crs = Projection_String) 
   
-  cairo_pdf(here::here("Figures/map.pdf"), width = 10, height = 7)
+  cairo_pdf(here::here("Figures/map.pdf"), width = 10, height = 5)
   tm_shape(World) + tm_fill() +
-    tm_layout(bg.color = "white", fontfamily = "Outfit") +
+    tm_layout(bg.color = "white", fontfamily = "Outfit",
+              legend.position = c("left", "center")) +
     tm_shape(IUCN_Map_Data) + tm_fill(col = "Group", palette = c("#8E8DBE", "#81F495"), alpha = 0.3) +
     tm_shape(GMPD_Map_Data) + tm_dots(col = "SampleSize", 
                                       palette = c("#222E50", 
@@ -1349,17 +1666,16 @@ if(plot_outputs){
 
   Latitude_main <- plot_latitude(model_list = LM_IUCN_Species_SS, 
                                  model_data = GMPD_Both_Species_SS) +
-    labs(x = "Latitude", y = "Parasite prevalence") +
     scale_x_continuous(breaks = c(0,25,40,45,55,90), labels = c("0","25","40","45","55","90")) +
     theme(axis.text.x = element_text(color = c("#656565", "black", "black", "#656565", "black", "#656565")),
           axis.ticks.x = element_line(color = c("#656565", "black", "black", "#656565", "black", "#656565"),
                                       linewidth = c(.5,1,1,.5,1,.5)))
-  
-  ggsave(here::here("Figures/latitude main.pdf"), Latitude_main, width = 10, height = 8, 
+
+  ggsave(here::here("Figures/latitude main.pdf"), Latitude_main, width = 10, height = 7, 
          device = cairo_pdf)
 }
-  
- 
+
+
 ## Fig 3, main ####
 if(plot_outputs){
   MedianProp_25  <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
@@ -1367,7 +1683,7 @@ if(plot_outputs){
                                     fixed_lat = 25) +
     theme(axis.text.x = element_blank()) +
     labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = 0.1, y = 0.85,
+    annotate(geom = "text", x = -0.8, y = 0.85,
              label = "A, latitude = 25",
              family = "Outfit", size = 5, hjust = 0)
   MedianProp_40 <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
@@ -1375,7 +1691,7 @@ if(plot_outputs){
                                    fixed_lat = 40) +
     theme(axis.text.x = element_blank()) +
     labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = 0.1, y = 0.85,
+    annotate(geom = "text", x = -0.8, y = 0.85,
              label = "C, latitude = 40",
              family = "Outfit", size = 5, hjust = 0)
   MedianProp_55 <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
@@ -1383,7 +1699,7 @@ if(plot_outputs){
                                    fixed_lat = 55) +
     # theme(axis.text.x = element_blank()) +
     labs(x = "Range position", y = NULL) +
-    annotate(geom = "text", x = 0.1, y = 0.85,
+    annotate(geom = "text", x = -0.8, y = 0.85,
              label = "E, latitude = 55",
              family = "Outfit", size = 5, hjust = 0)
   
@@ -1394,7 +1710,7 @@ if(plot_outputs){
     theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
     labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = 0.1, y = 0.85,
+    annotate(geom = "text", x = -0.8, y = 0.85,
              label = "B",
              family = "Outfit", size = 5, hjust = 0)
   DistProp_40 <- plot_distprop(model_list = LM_IUCN_Species_SS, 
@@ -1403,7 +1719,7 @@ if(plot_outputs){
     theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
     labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = 0.1, y = 0.85,
+    annotate(geom = "text", x = -0.8, y = 0.85,
              label = "D",
              family = "Outfit", size = 5, hjust = 0)
   DistProp_55 <- plot_distprop(model_list = LM_IUCN_Species_SS, 
@@ -1412,25 +1728,30 @@ if(plot_outputs){
     # theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
     labs(x = "Niche position", y = NULL) +
-    annotate(geom = "text", x = 0.1, y = 0.85,
+    annotate(geom = "text", x = -0.8, y = 0.85,
              label = "F",
              family = "Outfit", size = 5, hjust = 0)
   
   gg_y_axis <- cowplot::get_plot_component(ggplot() + 
-                                           theme(text = element_text(family = "Outfit", size = 15)) + 
-                                           labs(y = "Parasite prevalence"), 
-                                         "ylab-l")
+                                             theme(text = element_text(family = "Outfit", size = 15)) + 
+                                             labs(y = "Parasite prevalence"), 
+                                           "ylab-l")
+  gg_legend <- cowplot::get_plot_component(Latitude_main, 'guide-box-bottom', return_all = TRUE)                    
+
 
   range_niche_plots <- MedianProp_25 + DistProp_25 +
     MedianProp_40 + DistProp_40 +
     MedianProp_55 + DistProp_55 +
     gg_y_axis +
+    gg_legend +
     plot_layout(design = "
               #AB
               GCD
               #EF
+              #HH
               ",
-              widths = c(1, 20, 20)) 
+              widths = c(1, 20, 20),
+              heights = c(20,20,20,1)) 
   
   ggsave(here::here("Figures/range niche position.pdf"), range_niche_plots, width = 10, height = 10, 
          device = cairo_pdf)
@@ -1439,74 +1760,70 @@ if(plot_outputs){
 ## Supp fig 1, asym ####
 # Range position asymmetry
 if(plot_outputs) {
-MedianProp_asym_25  <- plot_medianprop_asym(model_list = LM_GBIF_Species_SS, 
-                                            model_data = GMPD_Both_Species_SS, 
-                                            fixed_lat = 25) +
-  labs(x = NULL, y = "Parasite prevalence") 
-MedianProp_asym_40  <- plot_medianprop_asym(model_list = LM_GBIF_Species_SS, 
-                                            model_data = GMPD_Both_Species_SS, 
-                                            fixed_lat = 40) +
-  theme(axis.text.y = element_blank()) +
-  labs(x = NULL, y = NULL) 
-MedianProp_asym_55  <- plot_medianprop_asym(model_list = LM_GBIF_Species_SS, 
-                                            model_data = GMPD_Both_Species_SS, 
-                                            fixed_lat = 55) +
-  theme(axis.text.y = element_blank()) +
-  labs(x = NULL, y = NULL) 
-
-gg_x_axis <- cowplot::get_plot_component(ggplot() + 
-                                         theme(text = element_text(family = "Outfit", size = 15)) + 
-                                         labs(x = "Range position"), 
-                                       "xlab-b")
-
-asym_plots <- MedianProp_asym_25 + MedianProp_asym_40 +
-  MedianProp_asym_55 +
-  gg_x_axis +
-  plot_layout(design = "
-              ABC
-              #D#"
-              ) 
-
-ggsave(here::here("Figures/range asymmetry.pdf"), asym_plots, width = 10, height = 5, 
-       device = cairo_pdf)
+  MedianProp_asym_40  <- plot_medianprop_asym(model_list = LM_GBIF_Species_SS, 
+                                              model_data = GMPD_Both_Species_SS, 
+                                              fixed_lat = 40) 
+  ggsave(here::here("Figures/range asymmetry.pdf"), MedianProp_asym_40, width = 10, height = 7, 
+         device = cairo_pdf)
+  
 }
 
 ## Supp fig 2, gbif ####
 # GBIF vs IUCN
 if(plot_outputs){
+  Latitude_IUCN <- plot_latitude(model_list = LM_IUCN_Species_SS, 
+                                 model_data = GMPD_Both_Species_SS) +
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "A",
+             family = "Outfit", size = 5, hjust = 0) +
+    theme(legend.position = "none")
   Latitude_GBIF  <- plot_latitude(model_list = LM_GBIF_Species_SS, 
                                   model_data = GMPD_Both_Species_SS) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
-  Latitude_IUCN <- plot_latitude(model_list = LM_IUCN_Species_SS, 
-                                 model_data = GMPD_Both_Species_SS) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "B",
+             family = "Outfit", size = 5, hjust = 0) +
+    theme(legend.position = "none")
   
+  MedianProp_IUCN <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
+                                     model_data = GMPD_Both_Species_SS, 
+                                     fixed_lat = 40) +
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "C",
+             family = "Outfit", size = 5, hjust = 0)
   MedianProp_GBIF  <- plot_medianprop(model_list = LM_GBIF_Species_SS, 
                                       model_data = GMPD_Both_Species_SS, 
                                       fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
-  MedianProp_IUCN <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
-                                     model_data = GMPD_Both_Species_SS, 
-                                     fixed_lat = 40) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "D",
+             family = "Outfit", size = 5, hjust = 0) 
   
+  DistProp_IUCN <- plot_distprop(model_list = LM_IUCN_Species_SS, 
+                                 model_data = GMPD_Both_Species_SS, 
+                                 fixed_lat = 40) +
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "E",
+             family = "Outfit", size = 5, hjust = 0)
   DistProp_GBIF  <- plot_distprop(model_list = LM_GBIF_Species_SS, 
                                   model_data = GMPD_Both_Species_SS, 
                                   fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
-  DistProp_IUCN <- plot_distprop(model_list = LM_IUCN_Species_SS, 
-                                 model_data = GMPD_Both_Species_SS, 
-                                 fixed_lat = 40) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "F",
+             family = "Outfit", size = 5, hjust = 0)
   
   gg_lat_axis <- cowplot::get_plot_component(ggplot() + 
                                                theme(text = element_text(family = "Outfit", size = 15)) + 
@@ -1526,6 +1843,7 @@ if(plot_outputs){
                                              labs(y = "Parasite prevalence"), 
                                            "ylab-l")
   
+  gg_legend <- cowplot::get_plot_component(Latitude_main, 'guide-box-bottom', return_all = TRUE)                    
   
   
   gbif_iucn_plots <- Latitude_IUCN +  Latitude_GBIF +
@@ -1535,6 +1853,7 @@ if(plot_outputs){
     DistProp_IUCN + DistProp_GBIF +
     gg_niche_axis +
     gg_y_axis +
+    gg_legend +
     plot_layout(
       design = "
                #AB
@@ -1543,8 +1862,9 @@ if(plot_outputs){
                #FF
                #GH
                #II
+               #KK
                ",
-      heights = c(20,2,20,2,20,2),
+      heights = c(20,2,20,2,20,2,2),
     widths = c(2,40,40))
 
 
@@ -1559,12 +1879,20 @@ if(plot_outputs){
                                model_name = "LatQIMedQIProp_5", 
                                model_data = GMPD_Both_Species_SS,
                                raster_res = "_5") +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "A",
+             family = "Outfit", size = 5, hjust = 0) +
+    theme(legend.position = "none")
   Latitude_10 <- plot_latitude(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "B",
+             family = "Outfit", size = 5, hjust = 0) +
+    theme(legend.position = "none")
   Latitude_20 <- plot_latitude(model_list = LM_IUCN_Species_SS, 
                                model_name = "LatQIMedQIProp_20", 
                                model_data = GMPD_Both_Species_SS,
@@ -1572,19 +1900,29 @@ if(plot_outputs){
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = 0.1*90, y = 0.85,
+             label = "C",
+             family = "Outfit", size = 5, hjust = 0) +
+    theme(legend.position = "none")
   
   MedianProp_5  <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
                                    model_name = "LatQIMedQIProp_5", 
                                    model_data = GMPD_Both_Species_SS, 
                                    fixed_lat = 40,
                                    raster_res = "_5") +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "D",
+             family = "Outfit", size = 5, hjust = 0)
   MedianProp_10 <- plot_medianprop(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "E",
+             family = "Outfit", size = 5, hjust = 0)
   MedianProp_20 <- plot_medianprop(model_list = LM_IUCN_Species_SS, 
                                    model_name = "LatQIMedQIProp_20", 
                                    model_data = GMPD_Both_Species_SS, 
@@ -1593,19 +1931,28 @@ if(plot_outputs){
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "F",
+             family = "Outfit", size = 5, hjust = 0)
   
   DistProp_5  <- plot_distprop(model_list = LM_IUCN_Species_SS, 
                                model_name = "LatQIMedQIProp_5", 
                                model_data = GMPD_Both_Species_SS, 
                                fixed_lat = 40,
                                raster_res = "_5") +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "G",
+             family = "Outfit", size = 5, hjust = 0)
   DistProp_10 <- plot_distprop(model_list = LM_IUCN_Species_SS, model_data = GMPD_Both_Species_SS, fixed_lat = 40) +
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "H",
+             family = "Outfit", size = 5, hjust = 0)
   DistProp_20 <- plot_distprop(model_list = LM_IUCN_Species_SS, 
                                model_name = "LatQIMedQIProp_20", 
                                model_data = GMPD_Both_Species_SS, 
@@ -1614,7 +1961,10 @@ if(plot_outputs){
     theme(          
       axis.text.y = element_blank()
     ) +
-    labs(x = NULL, y = NULL) 
+    labs(x = NULL, y = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "I",
+             family = "Outfit", size = 5, hjust = 0)
   
   gg_lat_axis <- cowplot::get_plot_component(ggplot() + 
                                                theme(text = element_text(family = "Outfit", size = 15)) + 
@@ -1634,6 +1984,7 @@ if(plot_outputs){
                                              labs(y = "Parasite prevalence"), 
                                            "ylab-l")
   
+  gg_legend <- cowplot::get_plot_component(Latitude_main, 'guide-box-bottom', return_all = TRUE)
   
   
   raster_res_plots <- Latitude_5 +  Latitude_10 + Latitude_20 +
@@ -1643,6 +1994,7 @@ if(plot_outputs){
     DistProp_5 + DistProp_10 + DistProp_20 +
     gg_niche_axis +
     gg_y_axis +
+    gg_legend +
     plot_layout(
       design = "
                #ABC
@@ -1651,6 +2003,7 @@ if(plot_outputs){
                ##H#
                #IJK
                ##L#
+               #NNN
                ",
       heights = c(20,2,20,2,20,2),
       widths = c(2,40,40,40))
@@ -1659,4 +2012,3 @@ if(plot_outputs){
   ggsave(here::here("Figures/raster res.pdf"), raster_res_plots, width = 10, height = 9, 
          device = cairo_pdf)
 }
-
