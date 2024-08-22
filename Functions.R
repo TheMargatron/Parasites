@@ -115,6 +115,54 @@ restrict_decimal <- function(dat, subsp = FALSE){
   enough <- bind_rows(enough)
 }
 
+basic_barplot <- function(dat = GMPD_Climate_Data, xvar, yvar, jitter = TRUE){
+  dat <- dat %>% 
+    dplyr::mutate(AbsLatitude = abs(Latitude))
+  
+  plot_data <- dat %>% 
+    dplyr::group_by({{xvar}}) %>% 
+    dplyr::summarise(
+      mean_var = mean({{yvar}}),
+      upper_var = (mean_var) + sd({{yvar}}),
+      lower_var = (mean_var) - sd({{yvar}}),
+      
+      TotalSampleSize = sum(SampleSize),
+      n = n()
+    )  %>% 
+    dplyr::mutate(xvar2 = paste0({{xvar}}, " (", n, ")"),
+                  xvar3 = paste0({{xvar}}, " (", TotalSampleSize, ")"))
+  
+  
+  jitter_data <- plot_data %>% 
+    dplyr::select({{xvar}}, xvar2) %>% 
+    right_join(dat, by = join_by({{xvar}}))
+  
+  plot_out <- ggplot(plot_data, aes(x = {{xvar}}, y = mean_var)) +
+    geom_bar(stat = "identity", fill =  "#EDAE49") 
+  
+  plot_out <- plot_out +
+    geom_jitter(data = jitter_data,
+                aes(x = {{xvar}}, y = {{yvar}}),
+                col = "#f6d6a4",
+                width = 0.25)
+  
+  plot_out <- plot_out +
+    geom_errorbar(aes(ymin = lower_var,
+                      ymax = upper_var),
+                  width = .2,
+                  linewidth = 0.8,
+                  col = "#656565") +
+    
+    xlab(as_label(enquo(xvar))) +
+    
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    custom_theme +
+    scale_x_discrete(labels = plot_data$xvar2)
+  
+  return(plot_out)
+  
+}
+
 # used in 02 ###################################################################
 plot_native_gbif <- function(hostname){
   if(!exists("World")) data("World")
@@ -788,53 +836,6 @@ distangles <- function(loci, origin){
 # used in 05 ###################################################################
 
 
-basic_barplot <- function(dat = GMPD_Climate_Data, xvar, yvar, jitter = TRUE){
-  dat <- dat %>% 
-    dplyr::mutate(AbsLatitude = abs(Latitude))
-    
-  plot_data <- dat %>% 
-    dplyr::group_by({{xvar}}) %>% 
-    dplyr::summarise(
-      mean_var = mean({{yvar}}),
-      upper_var = (mean_var) + sd({{yvar}}),
-      lower_var = (mean_var) - sd({{yvar}}),
-      
-      TotalSampleSize = sum(SampleSize),
-      n = n()
-    )  %>% 
-    dplyr::mutate(xvar2 = paste0({{xvar}}, " (", n, ")"),
-                  xvar3 = paste0({{xvar}}, " (", TotalSampleSize, ")"))
-  
-  
-  jitter_data <- plot_data %>% 
-    dplyr::select({{xvar}}, xvar2) %>% 
-    right_join(dat, by = join_by({{xvar}}))
-  
-  plot_out <- ggplot(plot_data, aes(x = {{xvar}}, y = mean_var)) +
-    geom_bar(stat = "identity", fill =  "#EDAE49") 
-  
-  plot_out <- plot_out +
-    geom_jitter(data = jitter_data,
-                aes(x = {{xvar}}, y = {{yvar}}),
-                col = "#f6d6a4",
-                width = 0.25)
-  
-  plot_out <- plot_out +
-    geom_errorbar(aes(ymin = lower_var,
-                      ymax = upper_var),
-                  width = .2,
-                  linewidth = 0.8,
-                  col = "#656565") +
-    
-    xlab(as_label(enquo(xvar))) +
-    
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    custom_theme +
-    scale_x_discrete(labels = plot_data$xvar2)
-  
-  return(plot_out)
-  
-}
 
 relative_likelihood <- function(model1, model2){
   aics <- c(AIC(model1), AIC(model2))

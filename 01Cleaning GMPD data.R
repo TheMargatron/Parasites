@@ -38,10 +38,13 @@ source(here::here("Functions.R"))
 GMPD_Raw_Data <- read.csv(here::here("Data/GMPD_datafiles/GMPD_main.csv"), 
                           header = TRUE, 
                           stringsAsFactors = FALSE) 
-nrow(GMPD_Raw_Data); length(unique(GMPD_Raw_Data$HostCorrectedName)) #Beginning with 24323 rows and 462 hosts
+nrow(GMPD_Raw_Data); length(unique(GMPD_Raw_Data$HostCorrectedName)) 
+# Beginning with 24323 rows and 462 hosts
 
 IUCN_Mammals <- sf::read_sf(dsn = here::here("Data/IUCN/MAMMALS"), layer = "MAMMALS")
 Projection_String <- sf::st_crs(IUCN_Mammals)
+
+plot_outputs <- FALSE
 
 # River_Data50 <- rnaturalearth::ne_load(scale = 50,
 #                                        type = "rivers_lake_centerlines",
@@ -2744,6 +2747,7 @@ Legend_Text <- sort(unique(IUCN_Data$legend))
 # GMPD_plots_01
 # dev.off()
 
+# TODO: confusing section, lay it out better
 # removing unwanted polygons
 # Justifications for exceptions based on IUCN Geographic Range descriptions
 # Cervus elaphus
@@ -2773,8 +2777,10 @@ re-introduced), and Viet Nam (probably now extinct)."
 GMPD_Data <- sf::st_as_sf(GMPD_Data,
                           coords = c("Longitude", "Latitude"),
                           crs = Projection_String)
-tm_shape(GMPD_Data[GMPD_Data$HostCorrectedName == "Lynx lynx",]) +
-  tm_dots("countrycode")
+if(plot_outputs){
+  tm_shape(GMPD_Data[GMPD_Data$HostCorrectedName == "Lynx lynx",]) +
+    tm_dots("countrycode")
+}
 
 GMPD_Data <- GMPD_Data %>% 
   mutate(HostCorrectedName = case_when(HostCorrectedName == "Lynx lynx" &
@@ -2866,14 +2872,14 @@ overlooked distinct species, the African Wolf, Canis lupaster (see Rueness et al
 # Although caribou in North America are hunted, they remain undomesticated
 
 
-# come back to after gbif:
-c("Antilocapra americana",
-  "Bison bison",
-  "Bison bonasus",
-  "Equus quagga,",
-  "Hippotragus niger",
-  "Lynx pardinus", 
-  "Lynx rufus")
+# poor code practice but it's easiest to just refer to the plots made in script 02 (gbif)
+c("Antilocapra americana",  # used 1 in gbif which would include all gmpd points ~ NA
+  "Bison bison",            # used 1 in gbif, which seems fair enough here       ~ 1
+  "Bison bonasus",          # same as Bison bison
+  "Equus quagga,",          # same
+  "Hippotragus niger",      # same
+  "Lynx pardinus",          # same, except buffer of 3
+  "Lynx rufus")             # same, except buffer of 3
 
 Native_DF <- Native_DF %>% 
   mutate(gmpd_buffer = case_when(sci_name %in% c("Genetta genetta",
@@ -2886,8 +2892,14 @@ Native_DF <- Native_DF %>%
                                  sci_name %in% c("Canis aureus",
                                                  "Neovison vison",
                                                  "Ovis ammon")               & keep  ~ 0,
+                                 sci_name %in% c("Bison bison",
+                                                 "Bison bonasus",
+                                                 "Equus quagga", 
+                                                 "Hippotragus niger")        & keep  ~ 1,
                                  sci_name %in% c("Rangifer tarandus",
                                                  "Cervus elaphus")           & keep  ~ 1.5,
+                                 sci_name %in% c("Lynx pardinus",
+                                                 "Lynx rufus")               & keep  ~ 3,
                                  sci_name %in% c("Phacochoerus aethiopicus",
                                                  "Procyon lotor")            & keep  ~ 6.5,
                                  TRUE ~ NA_real_))
@@ -2945,7 +2957,7 @@ GMPD_Data_cln_all <- GMPD_Data_cln_all %>%
   group_by(ParasiteCorrectedName, HostCorrectedName) %>%
   filter(n() > 1) %>% 
   ungroup()
-nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5367 and 106
+nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5353 and 105
 
 # GMPD_plots_native_clean_03 <- lapply(sort(Hostlist), FUN = gmpd_plotter, dat = GMPD_Data_cln, range.polygon = IUCN_Native_Data, plot_type = "iucn")
 # names(GMPD_plots_native_clean_03) <- sort(Hostlist)
@@ -3037,7 +3049,7 @@ GMPD_Data_cln_all <- GMPD_Data_cln_all %>%
   group_by(HostCorrectedName, ParasiteCorrectedName) %>%
   filter(n() > 1) %>%
   ungroup()
-nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5276 and 96
+nrow(GMPD_Data_cln_all); length(unique(GMPD_Data_cln_all$HostCorrectedName)) # 5262 and 95
 
 rm(Res_Temp)
 
@@ -3064,6 +3076,73 @@ GMPD_Data <- GMPD_Data %>%
   # mutate(CleanSub = case_when(is.na(CleanSub) ~  FALSE, TRUE ~ CleanSub)) %>%
   # mutate(RestrSub = case_when(is.na(RestrSub) ~  FALSE, TRUE ~ RestrSub)) %>% 
   mutate(RestrAll = case_when(is.na(RestrAll) ~  FALSE, TRUE ~ RestrAll)) 
+
+# Sample size filter ####
+# very large sample sizes indicate a very large area has been covered 
+# which reduces resolution and relevance of abiotic variables
+# and very small sample sizes (<5) are bias towards higher prevalence
+
+
+  if(plot_outputs){
+    GMPD_Data_ss <- GMPD_Data %>% 
+      filter(SampleSize < 4501,
+             SampleSize > 4)
+    
+    # TODO: figure out why it's squished
+    cairo_pdf(here::here("Figures/Parasite sample size.pdf"), 
+              width = 10, height = 60, onefile = TRUE)
+    
+    print(
+      basic_barplot(dat = GMPD_Data, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+        ggtitle("All data") +
+        labs(x = "Parasite species", y = "Sample size") +
+        geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+        coord_flip() +
+        scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
+                           labels = expression(0, 4500, 20000, 40000, 60000)) + 
+        theme(aspect.ratio = 12)
+    )
+    
+    print(
+      basic_barplot(dat = GMPD_Data_ss, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+        coord_flip() +
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+        ggtitle("Filtered by sample size") +
+        labs(x = "Parasite species", y = "Sample size") + 
+        theme(aspect.ratio = 12)
+    )
+    
+    dev.off()
+    
+    cairo_pdf(here::here("Figures/Host sample size.pdf"), 
+              width = 10, height = 20, onefile = TRUE)
+    
+    print(
+      basic_barplot(dat = GMPD_Data, xvar = HostCorrectedName, yvar = SampleSize) +
+        coord_flip() +
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+        ggtitle("All data") +
+        labs(x = "Host species", y = "Sample size") +
+        geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+        scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
+                           labels = expression(0, 4500, 20000, 40000, 60000)) + 
+        theme(aspect.ratio = 5)
+    )
+    
+    print(
+      basic_barplot(dat = GMPD_Data_ss, xvar = HostCorrectedName, yvar = SampleSize) +
+        coord_flip() +
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+        ggtitle("Filtered by sample size") +
+        labs(x = "Host species", y = "Sample size") + 
+        theme(aspect.ratio = 5)
+    )
+    
+    dev.off()
+    GMPD_Data <- GMPD_Data_ss
+    rm(GMPD_Data_ss)
+  }
 
 # Write files #################################################################################################
 # narrowing down IUCN_Mammals to a more manageable size

@@ -32,7 +32,9 @@ sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 #                 -PopulationType)
 
 GBIF_Data <- GBIF_Data %>%
-  dplyr::select(species, decimalLongitude, decimalLatitude) 
+  dplyr::select(species, decimalLongitude, decimalLatitude) %>% 
+  sf::st_as_sf(coords = c("decimalLongitude", "decimalLatitude"),
+               crs = Projection_String)
 
 # Distance metrics and range traits ####
 # IUCN
@@ -59,7 +61,8 @@ GMPD_Distances_Data <- lapply(Distances_Data_cln_all, function(x){x[[1]]}) %>%
             by = names(.)[!grepl("Prop|Dist|Above", names(.), ignore.case = TRUE)],
             suffix = c("_gbif", "_iucn")) %>% 
   mutate(CleanAll = case_when(is.na(AboveMedn_gbif) ~ FALSE,
-                              TRUE ~ CleanAll))
+                              TRUE ~ CleanAll)) %>% 
+  drop_na(HostCorrectedName)
 
 Range_Traits <- lapply(Distances_Data_cln_all, function(x){x[[2]]}) %>% 
   bind_rows() %>% 

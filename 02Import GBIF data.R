@@ -1072,9 +1072,4 @@ write.csv(GBIF_Data, here::here("Data/Data back ups/GBIF_Data_02.csv"), row.name
 # put iucn and gbif next to each other
 
 
-# look for mathematica trainign courses
-# ask bram for mathematica code
-# bes, bob o hara
-
-
 
