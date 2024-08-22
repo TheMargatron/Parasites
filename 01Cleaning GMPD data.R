@@ -3083,66 +3083,218 @@ GMPD_Data <- GMPD_Data %>%
 # and very small sample sizes (<5) are bias towards higher prevalence
 
 
-  if(plot_outputs){
-    GMPD_Data_ss <- GMPD_Data %>% 
-      filter(SampleSize < 4501,
-             SampleSize > 4)
-    
-    # TODO: figure out why it's squished
-    cairo_pdf(here::here("Figures/Parasite sample size.pdf"), 
-              width = 10, height = 60, onefile = TRUE)
-    
-    print(
-      basic_barplot(dat = GMPD_Data, xvar = ParasiteCorrectedName, yvar = SampleSize) +
-        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-        ggtitle("All data") +
-        labs(x = "Parasite species", y = "Sample size") +
-        geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
-        coord_flip() +
-        scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
-                           labels = expression(0, 4500, 20000, 40000, 60000)) + 
-        theme(aspect.ratio = 12)
-    )
-    
-    print(
-      basic_barplot(dat = GMPD_Data_ss, xvar = ParasiteCorrectedName, yvar = SampleSize) +
-        coord_flip() +
-        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-        ggtitle("Filtered by sample size") +
-        labs(x = "Parasite species", y = "Sample size") + 
-        theme(aspect.ratio = 12)
-    )
-    
-    dev.off()
-    
-    cairo_pdf(here::here("Figures/Host sample size.pdf"), 
-              width = 10, height = 20, onefile = TRUE)
-    
-    print(
-      basic_barplot(dat = GMPD_Data, xvar = HostCorrectedName, yvar = SampleSize) +
-        coord_flip() +
-        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-        ggtitle("All data") +
-        labs(x = "Host species", y = "Sample size") +
-        geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
-        scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
-                           labels = expression(0, 4500, 20000, 40000, 60000)) + 
-        theme(aspect.ratio = 5)
-    )
-    
-    print(
-      basic_barplot(dat = GMPD_Data_ss, xvar = HostCorrectedName, yvar = SampleSize) +
-        coord_flip() +
-        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-        ggtitle("Filtered by sample size") +
-        labs(x = "Host species", y = "Sample size") + 
-        theme(aspect.ratio = 5)
-    )
-    
-    dev.off()
-    GMPD_Data <- GMPD_Data_ss
-    rm(GMPD_Data_ss)
-  }
+if(plot_outputs){
+  GMPD_Data_ss <- GMPD_Data %>% 
+    filter(SampleSize < 4501,
+           SampleSize > 4)
+  
+  # TODO: figure out why it's squished
+  cairo_pdf(here::here("Figures/Parasite sample size.pdf"), 
+            width = 10, height = 60, onefile = TRUE)
+  
+  print(
+    basic_barplot(dat = GMPD_Data, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      ggtitle("All data") +
+      labs(x = "Parasite species", y = "Sample size") +
+      geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+      coord_flip() +
+      scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
+                         labels = expression(0, 4500, 20000, 40000, 60000)) + 
+      theme(aspect.ratio = 12)
+  )
+  
+  print(
+    basic_barplot(dat = GMPD_Data_ss, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      ggtitle("Filtered by sample size") +
+      labs(x = "Parasite species", y = "Sample size") + 
+      theme(aspect.ratio = 12)
+  )
+  
+  dev.off()
+  
+  cairo_pdf(here::here("Figures/Host sample size.pdf"), 
+            width = 10, height = 20, onefile = TRUE)
+  
+  print(
+    basic_barplot(dat = GMPD_Data, xvar = HostCorrectedName, yvar = SampleSize) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      ggtitle("All data") +
+      labs(x = "Host species", y = "Sample size") +
+      geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+      scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
+                         labels = expression(0, 4500, 20000, 40000, 60000)) + 
+      theme(aspect.ratio = 5)
+  )
+  
+  print(
+    basic_barplot(dat = GMPD_Data_ss, xvar = HostCorrectedName, yvar = SampleSize) +
+      coord_flip() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+      ggtitle("Filtered by sample size") +
+      labs(x = "Host species", y = "Sample size") + 
+      theme(aspect.ratio = 5)
+  )
+  
+  dev.off()
+  GMPD_Data <- GMPD_Data_ss
+  rm(GMPD_Data_ss)
+}
+
+# Latitude/Prevalence filter ####
+## Hosts ####
+# Check whether there are any host groups which should be removed 
+
+if(plot_outputs) {
+  GMPD_IUCN <- GMPD_Data %>% filter(RestrAll)
+  GMPD_GBIF <- GMPD_Data %>% filter(CleanAll)
+  
+  cairo_pdf(here::here("Figures/Host Group.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
+  
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = Group, yvar = Prevalence) +
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Host group", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = Group, yvar = Latitude) +
+      labs(x = "Host group", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = Group, yvar = AbsLatitude) +
+      labs(x = "Host group", y = "Absolute latitude"))
+  
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = Group, yvar = Prevalence) +
+      ggtitle("Host data cleaned") +
+      labs(x = "Host group", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = Group, yvar = Latitude) +
+      labs(x = "Host group", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = Group, yvar = AbsLatitude) +
+      labs(x = "Host group", y = "Absolute latitude"))
+  
+  dev.off()
+  
+  cairo_pdf(here::here("Figures/Host Family.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
+  
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = HostFamily, yvar = Prevalence) +
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Host family", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = HostFamily, yvar = Latitude) +
+      labs(x = "Host family", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = HostFamily, yvar = AbsLatitude) +
+      labs(x = "Host family", y = "Absolute latitude"))
+  
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = HostFamily, yvar = Prevalence) +
+      ggtitle("Host data cleaned") +
+      labs(x = "Host family", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = HostFamily, yvar = Latitude) +
+      labs(x = "Host family", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = HostFamily, yvar = AbsLatitude) +
+      labs(x = "Host family", y = "Absolute latitude"))
+  
+  dev.off()
+  
+} # end if
+
+## Group: might give useful coarse info on diet
+## Order: Doesn't give much more than Group. Arguably could remove Perissodactyla because of few rows, 
+# but it's geographically restricted to regions where data is already lacking and will be accounted for in phylogeny
+## Family: Too many factor levels to make much sense of it, and better to account for it in phylogeny if needed
+
+## Parasites ####
+# Check whether there are any parasite groups which should be removed
+
+if(plot_outputs){
+  GMPD_IUCN <- GMPD_Data %>% filter(RestrAll)
+  GMPD_GBIF <- GMPD_Data %>% filter(CleanAll)
+  
+  cairo_pdf(here::here("Figures/Parasite Type.pdf"), 
+            width = 10, height = 7, onefile = TRUE)
+  
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = ParType, yvar = Prevalence) +
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Parasite type", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = ParType, yvar = Latitude) +
+      labs(x = "Parasite type", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = ParType, yvar = AbsLatitude) +
+      labs(x = "Parasite type", y = "Absolute latitude"))
+  
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = ParType, yvar = Prevalence) +
+      ggtitle("Host data cleaned") +
+      labs(x = "Parasite type", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = ParType, yvar = Latitude) +
+      labs(x = "Parasite type", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = ParType, yvar = AbsLatitude) +
+      labs(x = "Parasite type", y = "Absolute latitude"))
+  
+  
+  dev.off()
+  
+  # cairo_pdf(here::here("Figures/ParType Latitude.pdf"), 
+  #           width = 10, height = 7, onefile = TRUE)
+  # print(
+  #   basic_barplot(dat = GMPD_IUCN, xvar = ParType, yvar = AbsLatitude)+
+  #     labs(x = "Parasite type", y = "Absolute latitude"))
+  # dev.off()
+  # 
+  # cairo_pdf(here::here("Figures/Parasite Phylum.pdf"), 
+  #           width = 10, height = 7, onefile = TRUE)
+  
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = ParPhylum, yvar = Prevalence) +
+      ggtitle("Host data restricted by polygons") +
+      labs(x = "Parasite phylum", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = ParPhylum, yvar = Latitude) +
+      labs(x = "Parasite phylum", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_IUCN, xvar = ParPhylum, yvar = AbsLatitude) +
+      labs(x = "Parasite phylum", y = "Absolute latitude"))
+  
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = ParPhylum, yvar = Prevalence) +
+      ggtitle("Host data cleaned") +
+      labs(x = "Parasite phylum", y = "Prevalence"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = ParPhylum, yvar = Latitude) +
+      labs(x = "Parasite phylum", y = "Latitude"))
+  print(
+    basic_barplot(dat = GMPD_GBIF, xvar = ParPhylum, yvar = AbsLatitude) +
+      labs(x = "Parasite phylum", y = "Absolute latitude"))
+  
+  dev.off()
+  
+  rm(GMPD_IUCN, GMPD_GBIF)
+} #end if
+
+GMPD_Data <- GMPD_Data %>% 
+  dplyr::filter(!ParType %in% c("Prion", "Fungus"))
+
+## Class: too many to make sense of
+## Type: Fungi and prions are a bit sketchy. Both have relatively few rows and are geographically restricted
+# Fungi are all in Finland, UK, and Czechia/Slovakia. Prions are all in USA in one area
+# removing these two groups from all analyses
+## Phylum: Ascomycota and prions are removed above. 
+# Sarcomastigophora is a bit more acceptable because it's within Protozoa, and
+# because it has a broader geographic spread
 
 # Write files #################################################################################################
 # narrowing down IUCN_Mammals to a more manageable size

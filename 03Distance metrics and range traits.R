@@ -31,7 +31,7 @@ sf::sf_use_s2(FALSE) # For "invalid spherical geometry" errors
 #                 -HostEnvironment,
 #                 -PopulationType)
 
-GBIF_Data <- GBIF_Data %>%
+GBIF_basic_Data <- GBIF_Data %>%
   dplyr::select(species, decimalLongitude, decimalLatitude) %>% 
   sf::st_as_sf(coords = c("decimalLongitude", "decimalLatitude"),
                crs = Projection_String)
@@ -52,7 +52,7 @@ Distances_Data_res_all_range <- lapply(Distances_Data_res_all, function(x){x[[2]
 Distances_Data_cln_all <- lapply(unique(GMPD_Data[GMPD_Data$CleanAll, "HostCorrectedName"]),
                                  range_distances_host,
                                  dat = GMPD_Data[GMPD_Data$CleanAll,],
-                                 range.object = GBIF_Data, 
+                                 range.object = GBIF_basic_Data, 
                                  method = "gbif")
 
 GMPD_Distances_Data <- lapply(Distances_Data_cln_all, function(x){x[[1]]}) %>% 
@@ -67,6 +67,8 @@ GMPD_Distances_Data <- lapply(Distances_Data_cln_all, function(x){x[[1]]}) %>%
 Range_Traits <- lapply(Distances_Data_cln_all, function(x){x[[2]]}) %>% 
   bind_rows() %>% 
   bind_rows(Distances_Data_res_all_range)
+
+rm(GBIF_basic_Data)
 
 write.csv(GMPD_Distances_Data, file = here::here("Data/Data back ups/GMPD_Distances_Data_03.csv"), row.names = FALSE)
 write.csv(Range_Traits, file = here::here("Data/Data back ups/Range_Traits_03.csv"), row.names = FALSE)
