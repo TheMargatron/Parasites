@@ -3080,7 +3080,7 @@ GMPD_Data <- GMPD_Data %>%
 # Sample size filter ####
 # very large sample sizes indicate a very large area has been covered 
 # which reduces resolution and relevance of abiotic variables
-# and very small sample sizes (<5) are bias towards higher prevalence
+# and very small sample sizes (<5) are biased towards higher prevalence
 
 
 if(plot_outputs){
@@ -3088,57 +3088,120 @@ if(plot_outputs){
     filter(SampleSize < 4501,
            SampleSize > 4)
   
-  # TODO: figure out why it's squished
-  cairo_pdf(here::here("Figures/Parasite sample size.pdf"), 
-            width = 10, height = 60, onefile = TRUE)
-  
-  print(
-    basic_barplot(dat = GMPD_Data, xvar = ParasiteCorrectedName, yvar = SampleSize) +
+  # Parasites first
+  # TODO: think of a better way to do this
+  # do the pre-filtered data
+  parasite_list_temp <- sort(unique(GMPD_Data$ParasiteCorrectedName))
+  GMPD_Data_split <- GMPD_Data %>% 
+    mutate(parasite_group = case_when(ParasiteCorrectedName %in% parasite_list_temp[1:94] ~ "a",
+                                      ParasiteCorrectedName %in% parasite_list_temp[95:188] ~ "b",
+                                      ParasiteCorrectedName %in% parasite_list_temp[189:282] ~ "c",
+                                      ParasiteCorrectedName %in% parasite_list_temp[283:376] ~ "d",
+                                      ParasiteCorrectedName %in% parasite_list_temp[377:467] ~ "e",)) %>% 
+    group_by(parasite_group) %>% 
+    group_split()
+    
+  plot_list <- lapply(1:5, FUN = function(page){
+    basic_barplot(dat = GMPD_Data_split[[page]], xvar = ParasiteCorrectedName, yvar = SampleSize) +
       theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("All data") +
-      labs(x = "Parasite species", y = "Sample size") +
+      ggtitle(paste0("All data (page ", page, ")")) +
+      labs(x = "Parasite species (number of samples)", y = "Sample size") +
       geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
       coord_flip() +
       scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
-                         labels = expression(0, 4500, 20000, 40000, 60000)) + 
-      theme(aspect.ratio = 12)
-  )
+                         labels = expression(0, 4500, 20000, 40000, 60000),
+                         limits = c(0, 62700)) + 
+      theme(aspect.ratio = 3)
+  })
   
-  print(
-    basic_barplot(dat = GMPD_Data_ss, xvar = ParasiteCorrectedName, yvar = SampleSize) +
-      coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("Filtered by sample size") +
-      labs(x = "Parasite species", y = "Sample size") + 
-      theme(aspect.ratio = 12)
-  )
+  plot_list <- cowplot::align_plots(plot_list[[1]], 
+                                    plot_list[[2]],
+                                    plot_list[[3]],
+                                    plot_list[[4]],
+                                    plot_list[[5]],
+                                    align = "v")
+  
+  cairo_pdf(here::here("Figures/Parasite pre-sample size.pdf"), 
+            width = 10, height = 15, onefile = TRUE)
+
+  ggdraw(plot_list[[1]])
+  ggdraw(plot_list[[2]])
+  ggdraw(plot_list[[3]])
+  ggdraw(plot_list[[4]])
+  ggdraw(plot_list[[5]])
   
   dev.off()
   
-  cairo_pdf(here::here("Figures/Host sample size.pdf"), 
-            width = 10, height = 20, onefile = TRUE)
+  # do the post-filtered data
+  parasite_list_temp <- sort(unique(GMPD_Data_ss$ParasiteCorrectedName))
+  GMPD_Data_ss_split <- GMPD_Data_ss %>% 
+    mutate(parasite_group = case_when(ParasiteCorrectedName %in% parasite_list_temp[1:94] ~ "a",
+                                      ParasiteCorrectedName %in% parasite_list_temp[95:188] ~ "b",
+                                      ParasiteCorrectedName %in% parasite_list_temp[189:282] ~ "c",
+                                      ParasiteCorrectedName %in% parasite_list_temp[283:376] ~ "d",
+                                      ParasiteCorrectedName %in% parasite_list_temp[377:464] ~ "e",)) %>% 
+    group_by(parasite_group) %>% 
+    group_split()
   
-  print(
-    basic_barplot(dat = GMPD_Data, xvar = HostCorrectedName, yvar = SampleSize) +
-      coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("All data") +
-      labs(x = "Host species", y = "Sample size") +
-      geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
-      scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
-                         labels = expression(0, 4500, 20000, 40000, 60000)) + 
-      theme(aspect.ratio = 5)
-  )
+  plot_list <- lapply(1:5, FUN = function(page){
+      basic_barplot(dat = GMPD_Data_ss_split[[page]], xvar = ParasiteCorrectedName, yvar = SampleSize) +
+        coord_flip() +
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+        ggtitle(paste0("Data filtered by sample size (page ", page, ")")) +
+        labs(x = "Parasite species (number of samples)", y = "Sample size") + 
+        ylim(0, 4350) +
+        theme(aspect.ratio = 3)
+  })
   
-  print(
-    basic_barplot(dat = GMPD_Data_ss, xvar = HostCorrectedName, yvar = SampleSize) +
-      coord_flip() +
-      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
-      ggtitle("Filtered by sample size") +
-      labs(x = "Host species", y = "Sample size") + 
-      theme(aspect.ratio = 5)
-  )
+  plot_list <- cowplot::align_plots(plot_list[[1]], 
+                                    plot_list[[2]],
+                                    plot_list[[3]],
+                                    plot_list[[4]],
+                                    plot_list[[5]],
+                                    align = "v")
+  cairo_pdf(here::here("Figures/Parasite post-sample size.pdf"), 
+            width = 10, height = 15, onefile = TRUE)
   
+  ggdraw(plot_list[[1]])
+  ggdraw(plot_list[[2]])
+  ggdraw(plot_list[[3]])
+  ggdraw(plot_list[[4]])
+  ggdraw(plot_list[[5]])
+  
+  dev.off()
+  
+  # Then hosts
+  plot_list <- list(basic_barplot(dat = GMPD_Data, xvar = HostCorrectedName, yvar = SampleSize) +
+                      coord_flip() +
+                      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+                      ggtitle("All data") +
+                      labs(x = "Host species (number of samples)", y = "Sample size") +
+                      geom_hline(yintercept = 4500, linetype = "dashed", color = "#656565", linewidth = 0.8) +
+                      scale_y_continuous(breaks = c(0, 4500, 20000, 40000, 60000), 
+                                         labels = expression(0, 4500, 20000, 40000, 60000),
+                                         limits = c(0, 62700)) + 
+                      theme(aspect.ratio = 3),
+                    basic_barplot(dat = GMPD_Data_ss, xvar = HostCorrectedName, yvar = SampleSize) +
+                      coord_flip() +
+                      theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+                      ggtitle("Data filtered by sample size") +
+                      labs(x = "Host species (number of samples)", y = "Sample size") + 
+                      ylim(0, 4350) +
+                      theme(aspect.ratio = 3)
+                    )
+  
+  plot_list <- cowplot::align_plots(plot_list[[1]], 
+                                    plot_list[[2]],
+                                    align = "v")
+  
+  cairo_pdf(here::here("Figures/Host pre-sample size.pdf"), 
+            width = 10, height = 15, onefile = TRUE)
+  ggdraw(plot_list[[1]])  
+  dev.off()
+  
+  cairo_pdf(here::here("Figures/Host post-sample size.pdf"), 
+            width = 10, height = 15, onefile = TRUE)
+  ggdraw(plot_list[[2]])  
   dev.off()
   GMPD_Data <- GMPD_Data_ss
   rm(GMPD_Data_ss)

@@ -852,217 +852,138 @@ compare_models <- function(model1, model2, text_out = ""){
                text_out))
 }
 
-all_models <- function(model_data, method){
-  
+model_df <- c("Null", "1", "")
+
+all_models <- function(model_data, method, 
+                       fixef = c("Null", "Prevalence ~ 1"), ranef = c("Fixed", NA)){
   model_list <- list()
-  
   model_data <- rename_with(model_data, 
                             ~ gsub(paste0("_", method), "", .),
                             ends_with(method))
-  
-  
-  ## Geographic niche ############################################################
-  #///////////////////////////////////////////////////////////////////////////////
-  ### Null 
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$Null       <-         glm(formula = Prevalence ~ 1,             data = model_data, family = binomial, weights = SampleSize)
-  
-  # Host focus
-  #_______________________________________________________________________________
-  model_list$Host$Null        <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$Group$Null       <- lme4::glmer(formula = Prevalence ~ (1|Group), data = model_data, family = binomial, weights = SampleSize)
-  model_list$HostGroup$Null   <- lme4::glmer(formula = Prevalence ~ 1 + (1|Group/HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  # Parasite focus
-  #_______________________________________________________________________________
-  model_list$Parasite$Null    <- lme4::glmer(formula = Prevalence ~ 1 + (1|ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$Type$Null        <- lme4::glmer(formula = Prevalence ~ 1 + (1|ParType), data = model_data, family = binomial, weights = SampleSize)
-  model_list$ParType$Null     <- lme4::glmer(formula = Prevalence ~ 1 + (1|ParType/ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  # Both
-  #_______________________________________________________________________________
-  model_list$BothType$Null     <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName) + (1|ParType), data = model_data, family = binomial, weights = SampleSize)
-  model_list$BothSpecies$Null  <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName) + (1|ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$CrossType$Null    <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName:ParType), data = model_data, family = binomial, weights = SampleSize)
-  model_list$CrossSpecies$Null <- lme4::glmer(formula = Prevalence ~ 1 + (1|HostCorrectedName:ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  ### Latitude 
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Host_IO$Lat        <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + (1 |HostCorrectedName),     data = model_data, family = binomial, weights = SampleSize)
-  model_list$Parasite_IO$Lat    <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$BothSpecies_IO$Lat <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  ### Latitude + MedianProp 
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatMed <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + MedianPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  ### Latitude + Quadratic MedianProp 
-  #///////////////////////////////////////////////////////////////////////////////
-  # Host focus
-  #_______________________________________________________________________________
-  model_list$Host_IO$LatQMed       <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$Group_IO$LatQMed      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|Group),                                                    data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$HostGroup_IO$LatQMed  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|Group/HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  
-  # Parasite focus
-  #_______________________________________________________________________________
-  model_list$Parasite_IO$LatQMed  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$Type_IO$LatQMed      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|ParType),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$ParType_IO$LatQMed   <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|ParType/ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  
-  # Both
-  #_______________________________________________________________________________
-  model_list$BothType_IO$LatQMed     <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName) + (1|ParType),               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$BothSpecies_IO$LatQMed  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName) + (1|ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$CrossType_IO$LatQMed    <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName:ParType),                     data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$CrossSpecies_IO$LatQMed <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + (1|HostCorrectedName:ParasiteCorrectedName),       data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  
-  ### Latitude + Asymmetric Quadratic MedianProp 
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Host_IO$LatQMedAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) * AboveMedn + (1 |HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$Parasite_IO$LatQMedAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) * AboveMedn + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$BothSpecies_IO$LatQMedAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) * AboveMedn + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  ### Latitude * Quadratic MedianProp 
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedInt <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  ### Latitude * Asymmetric Quadratic MedianProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedIntAsym <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) * AboveMedn + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  ## Climatic niche ##############################################################
-  #///////////////////////////////////////////////////////////////////////////////
-  ### PCA axes ###################################################################
-  #///////////////////////////////////////////////////////////////////////////////
-  #### Axis1
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$Axis1       <-         glm(formula = Prevalence ~ Axis1Scaled,             data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Axis2
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$Axis2       <-         glm(formula = Prevalence ~ Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Axes
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$Axes       <-         glm(formula = Prevalence ~ Axis1Scaled + Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude + Axis1
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$LatAxis1       <-         glm(formula = Prevalence ~ LatitudeScaled + Axis1Scaled ,             data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude + Axis2Scaled
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$LatAxis2       <-         glm(formula = Prevalence ~ LatitudeScaled + Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude + Axes
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$LatAxes       <-         glm(formula = Prevalence ~ LatitudeScaled + Axis1Scaled + Axis2Scaled,             data = model_data, family = binomial, weights = SampleSize)
-  
-  ### Kernel Density #############################################################
-  #///////////////////////////////////////////////////////////////////////////////
-  #### Latitude + Quadratic MedianProp + DistProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + CorrectedDistPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * Quadratic MedianProp + DistProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQIMedProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude + Quadratic MedianProp + DistProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedQProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * Quadratic MedianProp + DistProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQIMedQProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * DistProp + Quadratic MedianProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedQIProp <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(CorrectedDistPropSquared, 2) + poly(MedianPropSquared, 2) + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * (Quadratic MedianProp + DistProp)
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Fixed$LatQIMedQIProp <- glm(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)), data = model_data, family = binomial, weights = SampleSize)
-  
-  # Host focus
-  #_______________________________________________________________________________
-  model_list$Host_IO$LatQIMedQIProp       <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$Group_IO$LatQIMedQIProp      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|Group),                                                    data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$HostGroup_IO$LatQIMedQIProp  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|Group/HostCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  
-  # Parasite focus
-  #_______________________________________________________________________________
-  model_list$Parasite_IO$LatQIMedQIProp  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$Type_IO$LatQIMedQIProp      <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|ParType),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$ParType_IO$LatQIMedQIProp   <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|ParType/ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  
-  # Both
-  #_______________________________________________________________________________
-  model_list$BothType_IO$LatQIMedQIProp     <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName) + (1|ParType),                                                                                             data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$BothSpecies_IO$LatQIMedQIProp  <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName) + (1|ParasiteCorrectedName),                                                                                             data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$CrossType_IO$LatQIMedQIProp    <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName:ParType),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  model_list$CrossSpecies_IO$LatQIMedQIProp <- try(lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)) + (1|HostCorrectedName:ParasiteCorrectedName),                                               data = model_data, family = binomial, weights = SampleSize), silent = TRUE)
-  
-  #### Latitude + Quadratic MedianProp * DistProp
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatMedPropI <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + MedianPropSquScaled * CorrectedDistPropSquScaled + (1 |HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  
-  
-  
-  ### Kernel density 5 ####
-  #///////////////////////////////////////////////////////////////////////////////
-  #### Latitude + Quadratic MedianProp + DistProp 5
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + CorrectedDistPropSquared_5 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude + Quadratic MedianProp + Quadratic DistProp 5
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedQProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * Quadratic MedianProp + DistProp 5
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQIMedProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquared_5 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * Quadratic MedianProp + Quadratic DistProp 5
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQIMedQProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * (Quadratic MedianProp + Quadratic DistProp 5)
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Host_IO$LatQIMedQIProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2)) + (1|HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$Parasite_IO$LatQIMedQIProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2)) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$BothSpecies_IO$LatQIMedQIProp_5     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2)) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  
-  ### Kernel density 20 ##########################################################
-  #///////////////////////////////////////////////////////////////////////////////
-  #### Latitude + Quadratic MedianProp + DistProp 5
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + CorrectedDistPropSquared_20 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude + Quadratic MedianProp + Quadratic DistProp 20
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQMedQProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * Quadratic MedianProp + DistProp 5
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQIMedProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquared_20 + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * Quadratic MedianProp + Quadratic DistProp 20
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$BothSpecies_IO$LatQIMedQProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  
-  #### Latitude * (Quadratic MedianProp + Quadratic DistProp 20)
-  #///////////////////////////////////////////////////////////////////////////////
-  model_list$Host_IO$LatQIMedQIProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2)) + (1|HostCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$Parasite_IO$LatQIMedQIProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2)) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
-  model_list$BothSpecies_IO$LatQIMedQIProp_20     <- lme4::glmer(formula = Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2)) + (1|HostCorrectedName) + (1 |ParasiteCorrectedName), data = model_data, family = binomial, weights = SampleSize)
 
-  return(model_list)  
+  if(is.na(ranef[[2]])){
+    model_formula <- fixef[[2]]
+    print(model_formula)
+    model_list[[ranef[[1]]]][[fixef[[1]]]] <-         glm(formula = as.formula(model_formula), data = model_data, family = binomial, weights = SampleSize)
+  } else{
+    model_formula <- paste(fixef[[2]], ranef[[2]], sep = " + ")
+    print(model_formula)
+    model_list[[ranef[[1]]]][[fixef[[1]]]] <- lme4::glmer(formula = as.formula(model_formula), data = model_data, family = binomial, weights = SampleSize)
+  }
+  
+  return(model_list)
 }
 
+# TODO: use e.g. "Fixed" or "Lat" in case_when instead of naming all here for flexibility
+run_models <- function(model_data, method){
+  ranef_list <- list(c("Fixed",      NA),
+                     c("Host",      "(1|HostCorrectedName)"),
+                     c("Group",     "(1|Group)"),
+                     c("HostGroup", "(1|Group/HostCorrectedName)"),
+                     c("Parasite",  "(1|ParasiteCorrectedName)"),
+                     c("Type",      "(1|ParType)"),
+                     c("ParType",   "(1|ParType/ParasiteCorrectedName)"),
+                     c("Both",      "(1|HostCorrectedName) + (1|ParasiteCorrectedName)"),
+                     c("Cross",     "(1|HostCorrectedName) + (1|ParasiteCorrectedName) + (1|HostCorrectedName:ParasiteCorrectedName)"))
+  fixef_list <- list(c("Lat",               "Prevalence ~ LatitudeScaled"),
+                     c("LatMed",            "Prevalence ~ LatitudeScaled + MedianPropSquScaled"),
+                     c("LatQMed",           "Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2)"),
+                     c("LatQIMed",          "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2)"),
+                     c("LatQAMed",          "Prevalence ~ LatitudeScaled + poly(MedianPropSquared, 2):AboveMedn"),
+                     c("LatQIAMed",         "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2):AboveMedn"),
+                     c("LatQIMedDist",      "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + CorrectedDistPropSquScaled"),
+                     c("LatQIMedQDist",     "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2)"),
+                     
+                     c("LatQIMedDist_5",    "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2)  + CorrectedDistPropSquScaled_5"),
+                     c("LatQIMedQDist_5",   "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2)  + poly(CorrectedDistPropSquared_5, 2)"),
+                     c("LatQIMedQIDist_5",  "Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_5, 2))"),
+                     c("LatQIMedDist_20",   "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2)  + CorrectedDistPropSquScaled_20"),
+                     c("LatQIMedQDist_20",  "Prevalence ~ LatitudeScaled * poly(MedianPropSquared, 2)  + poly(CorrectedDistPropSquared_20, 2)"),
+                     c("LatQIMedQIDist_20", "Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared_20, 2))"))
+  
+  null_models     <- flatten(lapply(ranef_list,
+                                    function(ranef) all_models(model_data = model_data,
+                                                               method = method,
+                                                               ranef = ranef)))
+  
+  full_models     <- flatten(lapply(ranef_list,
+                                    function(ranef) all_models(model_data = model_data,
+                                                               method = method,
+                                                               fixef = c("LatQIMedQIDist",    "Prevalence ~ LatitudeScaled * (poly(MedianPropSquared, 2) + poly(CorrectedDistPropSquared, 2))"),
+                                                               ranef = ranef)))
+  
+  fixed_models    <- flatten(flatten(lapply(fixef_list,
+                                            function(fixef) all_models(model_data = model_data,
+                                                                       method = method,
+                                                                       ranef = c("Fixed", NA),
+                                                                       fixef = fixef))))
+  host_models     <- flatten(flatten(lapply(fixef_list,
+                                            function(fixef) all_models(model_data = model_data,
+                                                                       method = method,
+                                                                       ranef = c("Host", "(1|HostCorrectedName)"),
+                                                                       fixef = fixef))))
+  
+  parasite_models <- flatten(flatten(lapply(fixef_list,
+                                            function(fixef) all_models(model_data = model_data,
+                                                                       method = method,
+                                                                       ranef = c("Parasite", "(1|ParasiteCorrectedName)"),
+                                                                       fixef = fixef))))
+  
+  both_models     <- flatten(flatten(lapply(fixef_list,
+                                            function(fixef) all_models(model_data = model_data,
+                                                                       method = method,
+                                                                       ranef = c("Both", "(1|HostCorrectedName) + (1|ParasiteCorrectedName)"),
+                                                                       fixef = fixef))))
+  
+  cross_models    <- flatten(flatten(lapply(fixef_list,
+                                            function(fixef) all_models(model_data = model_data,
+                                                                       method = method,
+                                                                       ranef = c("Cross", "(1|HostCorrectedName) + (1|ParasiteCorrectedName) + (1|HostCorrectedName:ParasiteCorrectedName)"),
+                                                                       fixef = fixef))))
+  
+  name_key <- names(null_models)
+  
+  final_models <- setNames(mapply(c, 
+                                  null_models[name_key], 
+                                  full_models[name_key], SIMPLIFY = FALSE), 
+                           name_key)
+  final_models[["Fixed"]]    <- append(final_models[["Fixed"]],    fixed_models)
+  final_models[["Host"]]     <- append(final_models[["Host"]],     host_models)
+  final_models[["Parasite"]] <- append(final_models[["Parasite"]], parasite_models)
+  final_models[["Both"]]     <- append(final_models[["Both"]],     both_models)
+  final_models[["Cross"]]    <- append(final_models[["Cross"]],    cross_models)
+  
+  return(final_models)
+}
+
+record_fixef <- function(df = fixed_effects, m1, m2, random = "Cross", 
+                         model_list = LM_IUCN_Species, method = "iucn"){
+  model_formula <- formula(model_list[[random]][[m2]], fixed.only = TRUE) %>% 
+    deparse() %>% 
+    paste0(collapse = "") %>% 
+    str_replace_all("\\s+", " ") %>% 
+    str_split_i(" ~ ", 2)
+  
+  rellik <- relative_likelihood(model_list[[random]][[m1]], model_list[[random]][[m2]])
+  if(rellik < 0.001) {rellik = "< 0.001"} else {rellik = as.character(round(rellik, 3))}
+  
+  df <- df %>% 
+    add_row(model1     = m1,
+            model2     = m2,
+            formula_m2 = model_formula, 
+            AIC_m2     = AIC(model_list[[random]][[m2]]),
+            delta_AIC  = AIC(model_list[[random]][[m1]]) - AIC(model_list[[random]][[m2]]),
+            # rellik     = relative_likelihood(model_list[[random]][[m1]], model_list[[random]][[m2]]),
+            rellik     = rellik,
+            random     = random,
+            method     = method,
+            pseudor2m  = r.squaredGLMM(model_list[[random]][[m2]], model_list[[random]][[m1]])[1,1],
+            pseudor2c  = r.squaredGLMM(model_list[[random]][[m2]], model_list[[random]][[m1]])[1,2],
+            included   = NA)
+  return(df)
+}
+
+# plotted in 05 ####
 custom_theme <- theme(axis.title.x = element_text(margin = margin(t=10,r=0,b=0,l=0)),
                       axis.title.y = element_text(angle = 90, 
                                                   margin = margin(t=0,r=15,b=0,l=0)),
@@ -1079,8 +1000,33 @@ custom_theme <- theme(axis.title.x = element_text(margin = margin(t=10,r=0,b=0,l
                       aspect.ratio = 0.7
                       )
 
+mix_colours <- function(fg, bg, amount){
+  fg.rgb <- col2rgb(fg)
+  fg.R = fg.rgb[1,]/255
+  fg.G = fg.rgb[2,]/255
+  fg.B = fg.rgb[3,]/255
+  bg.rgb <- col2rgb(bg)
+  bg.R = bg.rgb[1,]/255
+  bg.G = bg.rgb[2,]/255
+  bg.B = bg.rgb[3,]/255
+  
+  fg.A = amount
+  bg.A = 1-amount
+  r.A = 1 - (1 - fg.A) * (1 - bg.A)
+  
+  r.R = fg.R * fg.A / r.A + bg.R * bg.A * (1 - fg.A) / r.A
+  r.G = fg.G * fg.A / r.A + bg.G * bg.A * (1 - fg.A) / r.A
+  r.B = fg.B * fg.A / r.A + bg.B * bg.A * (1 - fg.A) / r.A
+  
+  hex.out <- rgb(r.R, r.G, r.B)
+  
+  return(hex.out)
+  # return(c(fg.rgb, r.R*255, r.G*255, r.B*255))
+  
+}
+
 plot_latitude <- function(model_list,
-                          model_name = "LatQIMedQIProp", 
+                          model_name = "LatQIMedQIDist", 
                           model_data,
                           raster_res = ""){
   # Prep fixed values
@@ -1105,28 +1051,40 @@ plot_latitude <- function(model_list,
                        starts_with("CorrectedDistProp"))
   
   plot_data <- plot_data %>% 
-    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+    mutate(model_out = predict(model_list$Host[[model_name]], 
                                  plot_data, 
                                  re.form = NA, 
                                  type = "response"),
            model_name = "Host species",
            model_colour = "#D1495B") %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Both[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Parasite species",
+                       model_name = "Host + parasite",
                        model_colour = "#EDAE49")
-              ) %>% 
+    ) %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Cross[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Both host and parasite",
+                       model_name = "Host x parasite",
                        model_colour = "#222E50")
-    )
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Fixed[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "None",
+                       model_colour = "#52B788")
+    ) %>% 
+    mutate(model_name = factor(model_name, levels = c("None", 
+                                                      "Host species",
+                                                      "Host + parasite",
+                                                      "Host x parasite")))
   
   # plot 
   ggplot(plot_data, aes(x = Latitude, y = model_out, color = model_name)) +
@@ -1136,14 +1094,17 @@ plot_latitude <- function(model_list,
     scale_x_continuous(breaks = c(0, 45, 90), limits = c(0,90)) +
     scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
     theme(legend.position = "bottom") +
-    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+    scale_color_manual(values = c("Host x parasite"  = "#222E50", 
+                                  "Host species"     = "#D1495B", 
+                                  "Host + parasite"  = "#EDAE49",
+                                  "None"             = "#52B788"),
                        name = "Random intercepts")
   
 }
 
 
 plot_medianprop <- function(model_list,
-                            model_name = "LatQIMedQIProp", 
+                            model_name = "LatQIMedQIDist", 
                             model_data,
                             fixed_lat, 
                             raster_res = ""){
@@ -1161,28 +1122,40 @@ plot_medianprop <- function(model_list,
                        starts_with("CorrectedDistProp"))
   
   plot_data <- plot_data %>% 
-    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+    mutate(model_out = predict(model_list$Host[[model_name]], 
                                plot_data, 
                                re.form = NA, 
                                type = "response"),
            model_name = "Host species",
            model_colour = "#D1495B") %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Both[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Parasite species",
+                       model_name = "Host + parasite",
                        model_colour = "#EDAE49")
     ) %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Cross[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Both host and parasite",
+                       model_name = "Host x parasite",
                        model_colour = "#222E50")
-    )
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Fixed[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "None",
+                       model_colour = "#52B788")
+    ) %>% 
+    mutate(model_name = factor(model_name, levels = c("None", 
+                                                      "Host species",
+                                                      "Host + parasite",
+                                                      "Host x parasite")))
   
   # plot 
   ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) +
@@ -1191,14 +1164,17 @@ plot_medianprop <- function(model_list,
     labs(x = "Range position", y = "Parasite prevalence") +
     scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
     scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
-    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+    scale_color_manual(values = c("Host x parasite"  = "#222E50", 
+                                  "Host species"     = "#D1495B", 
+                                  "Host + parasite"  = "#EDAE49",
+                                  "None"             = "#52B788"),
                        name = "Random intercepts") +
     theme(legend.position = "none")
   
 }
 
 plot_medianprop_asym <- function(model_list,
-                                 model_name = "LatQMedAsym", 
+                                 model_name = "LatQAMed", 
                                  model_data,
                                  fixed_lat){
   # Prep fixed values
@@ -1214,28 +1190,40 @@ plot_medianprop_asym <- function(model_list,
                           CorrectedDistPropSquared = rep(0, 2000)) 
   
   plot_data <- plot_data %>% 
-    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+    mutate(model_out = predict(model_list$Host[[model_name]], 
                                plot_data, 
                                re.form = NA, 
                                type = "response"),
            model_name = "Host species",
            model_colour = "#D1495B") %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Both[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Parasite species",
+                       model_name = "Host + parasite",
                        model_colour = "#EDAE49")
     ) %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Cross[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Both host and parasite",
+                       model_name = "Host x parasite",
                        model_colour = "#222E50")
-    )
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Fixed[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "None",
+                       model_colour = "#52B788")
+    ) %>% 
+    mutate(model_name = factor(model_name, levels = c("None", 
+                                                      "Host species",
+                                                      "Host + parasite",
+                                                      "Host x parasite")))
   
   
   ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) +
@@ -1244,14 +1232,17 @@ plot_medianprop_asym <- function(model_list,
     labs(x = "Range position", y = "Parasite prevalence") +
     scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
     scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
-    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+    scale_color_manual(values = c("Host x parasite"  = "#222E50", 
+                                  "Host species"     = "#D1495B", 
+                                  "Host + parasite"  = "#EDAE49",
+                                  "None"             = "#52B788"),
                        name = "Random intercepts") +
-    theme(legend.position = "bottom")
+    theme(legend.position = "none")
   
 }
 
 plot_distprop <- function(model_list,
-                          model_name = "LatQIMedQIProp",
+                          model_name = "LatQIMedQIDist",
                           model_data,
                           fixed_lat,
                           raster_res = ""){
@@ -1269,28 +1260,40 @@ plot_distprop <- function(model_list,
                        starts_with("CorrectedDistProp"))
   
   plot_data <- plot_data %>% 
-    mutate(model_out = predict(model_list$Host_IO[[model_name]], 
+    mutate(model_out = predict(model_list$Host[[model_name]], 
                                plot_data, 
                                re.form = NA, 
                                type = "response"),
            model_name = "Host species",
            model_colour = "#D1495B") %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$Parasite_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Both[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Parasite species",
+                       model_name = "Host + parasite",
                        model_colour = "#EDAE49")
     ) %>% 
     bind_rows(plot_data %>% 
-                mutate(model_out = predict(model_list$BothSpecies_IO[[model_name]], 
+                mutate(model_out = predict(model_list$Cross[[model_name]], 
                                            plot_data, 
                                            re.form = NA, 
                                            type = "response"),
-                       model_name = "Both host and parasite",
+                       model_name = "Host x parasite",
                        model_colour = "#222E50")
-    )
+    ) %>% 
+    bind_rows(plot_data %>% 
+                mutate(model_out = predict(model_list$Fixed[[model_name]], 
+                                           plot_data, 
+                                           re.form = NA, 
+                                           type = "response"),
+                       model_name = "None",
+                       model_colour = "#52B788")
+    ) %>% 
+    mutate(model_name = factor(model_name, levels = c("None", 
+                                                      "Host species",
+                                                      "Host + parasite",
+                                                      "Host x parasite")))
   
   # plot
   ggplot(plot_data, aes(x = CorrectedDist, y = model_out, color = model_name)) +
@@ -1299,13 +1302,14 @@ plot_distprop <- function(model_list,
     labs(x = "Niche position", y = "Parasite prevalence") +
     scale_x_continuous(breaks = c(-1, 0, 1), limits = c(-1,1)) +
     scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(0,1)) +
-    scale_color_manual(values = c("#222E50", "#D1495B", "#EDAE49"),
+    scale_color_manual(values = c("Host x parasite"  = "#222E50", 
+                                  "Host species"     = "#D1495B", 
+                                  "Host + parasite"  = "#EDAE49",
+                                  "None"             = "#52B788"),
                        name = "Random intercepts") +
     theme(legend.position = "none")
   
 }
-
-
 
 # used in script ? ############################################################
 
