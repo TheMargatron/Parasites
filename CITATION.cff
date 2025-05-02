@@ -1,0 +1,12 @@
+cff-version: 1.0-alpha
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Bolton
+    given-names: Margaret
+    orcid: https://orcid.org/1234-5678-9101-1121
+title: "Parasite prevalence biogeography"
+version: 1.0-alpha
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.15322845
+date-released: 2025-May-02
