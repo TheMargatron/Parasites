@@ -983,6 +983,18 @@ record_fixef <- function(df = fixed_effects, m1, m2, random = "Cross",
   return(df)
 }
 
+capture.dispersion <- function(test_x){
+  output <- capture.output(test_x)
+  output <- output[str_detect(output, "^dispersion")]
+  return(output)
+}
+
+capture.zeroInflation <- function(test_x){
+  output <- capture.output(test_x)
+  output <- output[str_detect(output, "^ratioObsSim")]
+  return(output)
+}
+
 # plotted in 05 ####
 custom_theme <- theme(axis.title.x = element_text(margin = margin(t=10,r=0,b=0,l=0)),
                       axis.title.y = element_text(angle = 90, 

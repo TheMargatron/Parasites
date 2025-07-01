@@ -562,8 +562,9 @@ null_random_stdev <- null_random_effects %>%
   distinct() %>% 
   mutate(model1 = factor(model1, levels = unique(model1))) %>%
   group_by(model1) %>% 
-  summarise(term = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$Null))$grp,
+  reframe(term = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$Null))$grp,
             sdcor_null = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$Null))$sdcor) %>% 
+  group_by(model1) %>% 
   arrange(nchar(term), .by_group = TRUE)
   
 
@@ -867,46 +868,6 @@ plot_medianprop(model_list = LM_GBIF_Species, model_data = GMPD_GBIF_Species, fi
 plot_distprop(model_list = LM_IUCN_Species, model_data = GMPD_IUCN_Species, fixed_lat = 25)
 plot_distprop(model_list = LM_GBIF_Species, model_data = GMPD_GBIF_Species, fixed_lat = 25)
 
-# basically the same across raster resolutions 
-summary(LM_IUCN_Species$Both$LatQIMedQIDist)
-summary(LM_IUCN_Species$Both$LatQIMedQIDist_5)
-summary(LM_IUCN_Species$Both$LatQIMedQIDist_20)
-
-
-plot_latitude(model_list = LM_IUCN_Species, 
-              model_name = "LatQIMedQIDist_5", 
-              model_data = GMPD_Both_Species,
-              raster_res = "_5")
-plot_latitude(model_list = LM_IUCN_Species, model_data = GMPD_Both_Species)
-plot_latitude(model_list = LM_IUCN_Species, 
-              model_name = "LatQIMedQIDist_20", 
-              model_data = GMPD_Both_Species,
-              raster_res = "_20")
-
-plot_medianprop(model_list = LM_IUCN_Species, 
-                model_name = "LatQIMedQIDist_5", 
-                model_data = GMPD_Both_Species, 
-                fixed_lat = 40,
-                raster_res = "_5")
-plot_medianprop(model_list = LM_IUCN_Species, model_data = GMPD_Both_Species, fixed_lat = 40)
-plot_medianprop(model_list = LM_IUCN_Species, 
-                model_name = "LatQIMedQIDist_20", 
-                model_data = GMPD_Both_Species, 
-                fixed_lat = 40,
-                raster_res = "_20")
-
-plot_distprop(model_list = LM_IUCN_Species, 
-              model_name = "LatQIMedQIDist_5", 
-              model_data = GMPD_Both_Species, 
-              fixed_lat = 40,
-              raster_res = "_5")
-plot_distprop(model_list = LM_IUCN_Species, model_data = GMPD_Both_Species, fixed_lat = 40)
-plot_distprop(model_list = LM_IUCN_Species, 
-              model_name = "LatQIMedQIDist_20", 
-              model_data = GMPD_Both_Species, 
-              fixed_lat = 40,
-              raster_res = "_20")
-
 # diagnostics
 sim_LatQIMedQIDist_Both    <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_Species$Both$LatQIMedQIDist)
 
@@ -957,30 +918,30 @@ sim_LatQIMedQIDist$Cross     <- DHARMa::simulateResiduals(fittedModel = LM_IUCN_
 
 full_random_diagnostics <- list()
 
-full_random_diagnostics$Dispersion$Fixed      <- capture.output(testDispersion(sim_LatQIMedQIDist$Fixed, alternative = "greater"))[[5]]
-full_random_diagnostics$Dispersion$Host       <- capture.output(testDispersion(sim_LatQIMedQIDist$Host, alternative = "greater"))[[5]]
+full_random_diagnostics$Dispersion$Fixed      <- capture.dispersion(testDispersion(sim_LatQIMedQIDist$Fixed, alternative = "greater"))
+full_random_diagnostics$Dispersion$Host       <- capture.dispersion(testDispersion(sim_LatQIMedQIDist$Host,  alternative = "greater"))
 # full_random_diagnostics$Dispersion$Group      <- capture.output(testDispersion(sim_LatQIMedQIDist$Group))[[5]]
 # full_random_diagnostics$Dispersion$HostGroup  <- capture.output(testDispersion(sim_LatQIMedQIDist$HostGroup))[[5]]
 
-full_random_diagnostics$Dispersion$Parasite   <- capture.output(testDispersion(sim_LatQIMedQIDist$Parasite, alternative = "greater"))[[5]]
+full_random_diagnostics$Dispersion$Parasite   <- capture.dispersion(testDispersion(sim_LatQIMedQIDist$Parasite, alternative = "greater"))
 # full_random_diagnostics$Dispersion$Type       <- capture.output(testDispersion(sim_LatQIMedQIDist$Type))[[5]]
 # full_random_diagnostics$Dispersion$ParType    <- capture.output(testDispersion(sim_LatQIMedQIDist$ParType))[[5]]
 
-full_random_diagnostics$Dispersion$Both       <- capture.output(testDispersion(sim_LatQIMedQIDist$Both, alternative = "greater"))[[5]]
-full_random_diagnostics$Dispersion$Cross      <- capture.output(testDispersion(sim_LatQIMedQIDist$Cross, alternative = "greater"))[[5]]
+full_random_diagnostics$Dispersion$Both       <- capture.dispersion(testDispersion(sim_LatQIMedQIDist$Both, alternative = "greater"))
+full_random_diagnostics$Dispersion$Cross      <- capture.dispersion(testDispersion(sim_LatQIMedQIDist$Cross, alternative = "greater"))
 
 #-
-full_random_diagnostics$ZeroInflation$Fixed      <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Fixed))[[5]]
-full_random_diagnostics$ZeroInflation$Host       <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Host))[[5]]
+full_random_diagnostics$ZeroInflation$Fixed      <- capture.zeroInflation(testZeroInflation(sim_LatQIMedQIDist$Fixed))
+full_random_diagnostics$ZeroInflation$Host       <- capture.zeroInflation(testZeroInflation(sim_LatQIMedQIDist$Host))
 # full_random_diagnostics$ZeroInflation$Group      <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Group))[[5]]
 # full_random_diagnostics$ZeroInflation$HostGroup  <- capture.output(testZeroInflation(sim_LatQIMedQIDist$HostGroup))[[5]]
 
-full_random_diagnostics$ZeroInflation$Parasite   <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Parasite))[[5]]
+full_random_diagnostics$ZeroInflation$Parasite   <- capture.zeroInflation(testZeroInflation(sim_LatQIMedQIDist$Parasite))
 # full_random_diagnostics$ZeroInflation$Type       <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Type))[[5]]
 # full_random_diagnostics$ZeroInflation$ParType    <- capture.output(testZeroInflation(sim_LatQIMedQIDist$ParType))[[5]]
 
-full_random_diagnostics$ZeroInflation$Both       <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Both))[[5]]
-full_random_diagnostics$ZeroInflation$Cross      <- capture.output(testZeroInflation(sim_LatQIMedQIDist$Cross))[[5]]
+full_random_diagnostics$ZeroInflation$Both       <- capture.zeroInflation(testZeroInflation(sim_LatQIMedQIDist$Both))
+full_random_diagnostics$ZeroInflation$Cross      <- capture.zeroInflation(testZeroInflation(sim_LatQIMedQIDist$Cross))
 
 # general notes for planned reshuffle:
 # overdispersion is bad at the start, then evens out and is okay once random effects are added
@@ -1142,8 +1103,9 @@ full_random_stdev <- null_random_stdev %>%
   select(model1) %>% 
   distinct() %>% 
   group_by(model1) %>% 
-  summarise(term = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$LatQIMedQIDist))$grp,
-            sdcor_full = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$LatQIMedQIDist))$sdcor) 
+  reframe(term = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$LatQIMedQIDist))$grp,
+          sdcor_full = as.data.frame(VarCorr(LM_IUCN_Species[[as.character(model1)]]$LatQIMedQIDist))$sdcor) %>% 
+  group_by(model1)
 
 all_random_stdev <- full_join(null_random_stdev, full_random_stdev, by = c("model1", "term"))
 all_random_stdev[match(unique(all_random_stdev$model1), all_random_stdev$model1), 
@@ -1265,6 +1227,7 @@ if(plot_outputs){
 ##### Cross
 # no strong phylogenetic signal
 # although there appears to be a slope in the plot
+# TODO: Check function
 
 full_diagnostics <- data.frame(model = c("Fixed", "Host", "Parasite", "Both", "Cross")) %>% 
   group_by(model) %>% 
