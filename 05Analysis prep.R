@@ -1363,7 +1363,8 @@ if(plot_outputs){
 if(plot_outputs){
 
   Latitude_main <- plot_latitude(model_list = LM_IUCN_Species, 
-                                 model_data = GMPD_IUCN_Species) +
+                                 model_data = GMPD_IUCN_Species,
+                                 add_points = TRUE) +
     scale_x_continuous(breaks = c(0,25,40,45,55,90), labels = c("0","25","40","45","55","90")) +
     theme(axis.text.x = element_text(color = c("#656565", "black", "black", "#656565", "black", "#656565")),
           axis.ticks.x = element_line(color = c("#656565", "black", "black", "#656565", "black", "#656565"),
@@ -1371,61 +1372,114 @@ if(plot_outputs){
 
   ggsave(here::here("Figures/latitude main.pdf"), Latitude_main, width = 10, height = 7, 
          device = cairo_pdf)
+  
+  ggsave(here::here("Figures/latitude main small.pdf"), Latitude_main + theme(legend.position = "right"), 
+         width = 12/1.5, height = 7/1.5, 
+         device = cairo_pdf)
 }
 
 
 ## Fig 3, main ####
 if(plot_outputs){
+  ## first do individual plots for slides
   MedianProp_25  <- plot_medianprop(model_list = LM_IUCN_Species, 
                                     model_data = GMPD_IUCN_Species, 
-                                    fixed_lat = 25) +
+                                    fixed_lat = 25,
+                                    add_points = TRUE) +
+    labs(x = "Range position", y = "Prevalence",
+         title = "Latitude = 25")
+  
+  
+  MedianProp_40 <- plot_medianprop(model_list = LM_IUCN_Species, 
+                                   model_data = GMPD_IUCN_Species, 
+                                   fixed_lat = 40,
+                                   add_points = TRUE) +
+    labs(x = "Range position", y = "Prevalence",
+         title = "Latitude = 40")
+  
+  MedianProp_55 <- plot_medianprop(model_list = LM_IUCN_Species, 
+                                   model_data = GMPD_IUCN_Species, 
+                                   fixed_lat = 55,
+                                   add_points = TRUE) +
+    labs(x = "Range position", y = "Prevalence",
+         title = "Latitude = 55")
+  
+  ggsave(here::here("Figures/MedianProp25.pdf"), MedianProp_25, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  ggsave(here::here("Figures/MedianProp40.pdf"), MedianProp_40, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  ggsave(here::here("Figures/MedianProp55.pdf"), MedianProp_55, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  
+  DistProp_25  <- plot_distprop(model_list = LM_IUCN_Species, 
+                                model_data = GMPD_IUCN_Species, 
+                                fixed_lat = 25,
+                                add_points = TRUE) +
+    labs(x = "Niche position", y = "Prevalence",
+         title = "Latitude = 25")
+  
+  
+  DistProp_40  <- plot_distprop(model_list = LM_IUCN_Species, 
+                                model_data = GMPD_IUCN_Species, 
+                                fixed_lat = 40,
+                                add_points = TRUE) +
+    labs(x = "Niche position", y = "Prevalence",
+         title = "Latitude = 40")
+  
+  DistProp_55  <- plot_distprop(model_list = LM_IUCN_Species, 
+                                model_data = GMPD_IUCN_Species, 
+                                fixed_lat = 55,
+                                add_points = TRUE) +
+    labs(x = "Niche position", y = "Prevalence",
+         title = "Latitude = 55")
+  
+  ggsave(here::here("Figures/DistProp25.pdf"), DistProp_25, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  ggsave(here::here("Figures/DistProp40.pdf"), DistProp_40, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  ggsave(here::here("Figures/DistProp55.pdf"), DistProp_55, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  
+  ## then do panel figure
+  
+  MedianProp_25  <- MedianProp_25 +
     theme(axis.text.x = element_blank()) +
-    labs(x = NULL, y = NULL) +
+    labs(x = NULL, y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "A, latitude = 25",
              family = "Outfit", size = 5, hjust = 0)
-  MedianProp_40 <- plot_medianprop(model_list = LM_IUCN_Species, 
-                                   model_data = GMPD_IUCN_Species, 
-                                   fixed_lat = 40) +
+  MedianProp_40 <- MedianProp_40 +
     theme(axis.text.x = element_blank()) +
-    labs(x = NULL, y = NULL) +
+    labs(x = NULL, y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "C, latitude = 40",
              family = "Outfit", size = 5, hjust = 0)
-  MedianProp_55 <- plot_medianprop(model_list = LM_IUCN_Species, 
-                                   model_data = GMPD_IUCN_Species, 
-                                   fixed_lat = 55) +
+  MedianProp_55 <- MedianProp_55 +
     # theme(axis.text.x = element_blank()) +
-    labs(x = "Range position", y = NULL) +
+    labs(x = "Range position", y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "E, latitude = 55",
              family = "Outfit", size = 5, hjust = 0)
   
   
-  DistProp_25  <- plot_distprop(model_list = LM_IUCN_Species, 
-                                model_data = GMPD_IUCN_Species, 
-                                fixed_lat = 25) +
+  DistProp_25  <- DistProp_25 +
     theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
-    labs(x = NULL, y = NULL) +
+    labs(x = NULL, y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "B",
              family = "Outfit", size = 5, hjust = 0)
-  DistProp_40 <- plot_distprop(model_list = LM_IUCN_Species, 
-                               model_data = GMPD_IUCN_Species, 
-                               fixed_lat = 40) +
+  DistProp_40 <- DistProp_40 +
     theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
-    labs(x = NULL, y = NULL) +
+    labs(x = NULL, y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "D",
              family = "Outfit", size = 5, hjust = 0)
-  DistProp_55 <- plot_distprop(model_list = LM_IUCN_Species, 
-                               model_data = GMPD_IUCN_Species, 
-                               fixed_lat = 55) +
+  DistProp_55 <- DistProp_55 +
     # theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
-    labs(x = "Niche position", y = NULL) +
+    labs(x = "Niche position", y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "F",
              family = "Outfit", size = 5, hjust = 0)
@@ -1457,59 +1511,72 @@ if(plot_outputs){
 
 ## Fig 4, range position ####
 if(plot_outputs){
-  MedianProp_25  <- plot_medianprop(model_list = LM_IUCN_Species, 
-                                    model_data = GMPD_IUCN_Species, 
-                                    fixed_lat = 25) +
+  ## reuse old plots
+  MedianProp_25  <- MedianProp_25 +
     theme(axis.text.x = element_blank()) +
-    labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = -0.8, y = 0.85,
-             label = "A, latitude = 25",
-             family = "Outfit", size = 5, hjust = 0)
-  MedianProp_40 <- plot_medianprop(model_list = LM_IUCN_Species, 
-                                   model_data = GMPD_IUCN_Species, 
-                                   fixed_lat = 40) +
+    labs(x = NULL, y = NULL, title = NULL) 
+  MedianProp_40 <- MedianProp_40 +
     theme(axis.text.x = element_blank()) +
-    labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = -0.8, y = 0.85,
-             label = "C, latitude = 40",
-             family = "Outfit", size = 5, hjust = 0)
-  MedianProp_55 <- plot_medianprop(model_list = LM_IUCN_Species, 
-                                   model_data = GMPD_IUCN_Species, 
-                                   fixed_lat = 55) +
+    labs(x = NULL, y = NULL, title = NULL) 
+  MedianProp_55 <- MedianProp_55 +
     # theme(axis.text.x = element_blank()) +
-    labs(x = "Range position, full model", y = NULL) +
-    annotate(geom = "text", x = -0.8, y = 0.85,
-             label = "E, latitude = 55",
-             family = "Outfit", size = 5, hjust = 0)
+    labs(x = "Range position, full model", y = NULL, title = NULL) 
   
+  
+  ## make base plots for model without niche position
   
   MedianProp_25_2  <- plot_medianprop(model_list = LM_IUCN_Species,
                                       "LatQIMed",
                                       model_data = GMPD_IUCN_Species, 
-                                      fixed_lat = 25) +
-    theme(axis.text.x = element_blank()) +
-    theme(axis.text.y = element_blank()) +
-    labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = -0.8, y = 0.85,
-             label = "B",
-             family = "Outfit", size = 5, hjust = 0)
+                                      fixed_lat = 25,
+                                      add_points = TRUE)  +
+    labs(x = "Range position", y = "Prevalence",
+         title = "Latitude = 25, no niche position")
+  
   MedianProp_40_2 <- plot_medianprop(model_list = LM_IUCN_Species, 
                                      "LatQIMed",
                                      model_data = GMPD_IUCN_Species, 
-                                     fixed_lat = 40) +
-    theme(axis.text.x = element_blank()) +
-    theme(axis.text.y = element_blank()) +
-    labs(x = NULL, y = NULL) +
-    annotate(geom = "text", x = -0.8, y = 0.85,
-             label = "D",
-             family = "Outfit", size = 5, hjust = 0)
+                                     fixed_lat = 40,
+                                     add_points = TRUE) +
+    labs(x = "Range position", y = "Prevalence",
+         title = "Latitude = 40, no niche position")
+  
   MedianProp_55_2 <- plot_medianprop(model_list = LM_IUCN_Species, 
                                      "LatQIMed",
                                      model_data = GMPD_IUCN_Species, 
-                                     fixed_lat = 55) +
+                                     fixed_lat = 55,
+                                     add_points = TRUE) +
+    labs(x = "Range position", y = "Prevalence",
+         title = "Latitude = 55, no niche position")
+  
+  
+  ggsave(here::here("Figures/MedianProp25_2.pdf"), MedianProp_25_2, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  ggsave(here::here("Figures/MedianProp40_2.pdf"), MedianProp_40_2, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  ggsave(here::here("Figures/MedianProp55_2.pdf"), MedianProp_55_2, width = 10/1.5, height = 8/1.5, 
+         device = cairo_pdf)
+  
+  MedianProp_25_2 <- MedianProp_25_2 +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.text.y = element_blank()) +
+    labs(x = NULL, y = NULL, title = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "B",
+             family = "Outfit", size = 5, hjust = 0)
+  
+  MedianProp_40_2 <- MedianProp_40_2 +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.text.y = element_blank()) +
+    labs(x = NULL, y = NULL, title = NULL) +
+    annotate(geom = "text", x = -0.8, y = 0.85,
+             label = "D",
+             family = "Outfit", size = 5, hjust = 0)
+  
+  MedianProp_55_2 <- MedianProp_55_2 +
     # theme(axis.text.x = element_blank()) +
     theme(axis.text.y = element_blank()) +
-    labs(x = "Range position, no niche position", y = NULL) +
+    labs(x = "Range position, no niche position", y = NULL, title = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "F",
              family = "Outfit", size = 5, hjust = 0)
@@ -1545,7 +1612,8 @@ if(plot_outputs){
 if(plot_outputs) {
   MedianProp_asym_40  <- plot_medianprop_asym(model_list = LM_IUCN_Species, 
                                               model_data = GMPD_IUCN_Species, 
-                                              fixed_lat = 40) 
+                                              fixed_lat = 40,
+                                              add_points = TRUE) 
   ggsave(here::here("Figures/range asymmetry.pdf"), MedianProp_asym_40, width = 10, height = 7, 
          device = cairo_pdf)
   
@@ -1555,14 +1623,16 @@ if(plot_outputs) {
 # GBIF vs IUCN
 if(plot_outputs){
   Latitude_IUCN <- plot_latitude(model_list = LM_IUCN_Species, 
-                                 model_data = GMPD_Both_Species) +
+                                 model_data = GMPD_Both_Species,
+                                 add_points = TRUE) +
     labs(x = NULL, y = NULL) +
     annotate(geom = "text", x = 0.1*90, y = 0.85,
              label = "A",
              family = "Outfit", size = 5, hjust = 0) +
     theme(legend.position = "none")
   Latitude_GBIF  <- plot_latitude(model_list = LM_GBIF_Species, 
-                                  model_data = GMPD_Both_Species) +
+                                  model_data = GMPD_Both_Species,
+                                  add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1574,14 +1644,16 @@ if(plot_outputs){
   
   MedianProp_IUCN <- plot_medianprop(model_list = LM_IUCN_Species, 
                                      model_data = GMPD_Both_Species, 
-                                     fixed_lat = 40) +
+                                     fixed_lat = 40,
+                                     add_points = TRUE) +
     labs(x = NULL, y = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "C",
              family = "Outfit", size = 5, hjust = 0)
   MedianProp_GBIF  <- plot_medianprop(model_list = LM_GBIF_Species, 
                                       model_data = GMPD_Both_Species, 
-                                      fixed_lat = 40) +
+                                      fixed_lat = 40,
+                                      add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1592,14 +1664,16 @@ if(plot_outputs){
   
   DistProp_IUCN <- plot_distprop(model_list = LM_IUCN_Species, 
                                  model_data = GMPD_Both_Species, 
-                                 fixed_lat = 40) +
+                                 fixed_lat  = 40,
+                                 add_points = TRUE) +
     labs(x = NULL, y = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "E",
              family = "Outfit", size = 5, hjust = 0)
   DistProp_GBIF  <- plot_distprop(model_list = LM_GBIF_Species, 
                                   model_data = GMPD_Both_Species, 
-                                  fixed_lat = 40) +
+                                  fixed_lat  = 40,
+                                  add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1661,14 +1735,16 @@ if(plot_outputs){
   Latitude_5  <- plot_latitude(model_list = LM_IUCN_Species, 
                                model_name = "LatQIMedQIDist_5", 
                                model_data = GMPD_IUCN_Species,
-                               raster_res = "_5") +
+                               raster_res = "_5",
+                               add_points = TRUE) +
     labs(x = NULL, y = NULL) +
     annotate(geom = "text", x = 0.1*90, y = 0.85,
              label = "A",
              family = "Outfit", size = 5, hjust = 0) +
     theme(legend.position = "none")
   Latitude_10 <- plot_latitude(model_list = LM_IUCN_Species, 
-                               model_data = GMPD_IUCN_Species) +
+                               model_data = GMPD_IUCN_Species,
+                               add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1680,7 +1756,8 @@ if(plot_outputs){
   Latitude_20 <- plot_latitude(model_list = LM_IUCN_Species, 
                                model_name = "LatQIMedQIDist_20", 
                                model_data = GMPD_IUCN_Species,
-                               raster_res = "_20") +
+                               raster_res = "_20",
+                               add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1694,14 +1771,16 @@ if(plot_outputs){
                                    model_name = "LatQIMedQIDist_5", 
                                    model_data = GMPD_IUCN_Species, 
                                    fixed_lat = 40,
-                                   raster_res = "_5") +
+                                   raster_res = "_5",
+                                   add_points = TRUE) +
     labs(x = NULL, y = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "D",
              family = "Outfit", size = 5, hjust = 0)
   MedianProp_10 <- plot_medianprop(model_list = LM_IUCN_Species, 
                                    model_data = GMPD_IUCN_Species, 
-                                   fixed_lat = 40) +
+                                   fixed_lat = 40,
+                                   add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1713,7 +1792,8 @@ if(plot_outputs){
                                    model_name = "LatQIMedQIDist_20", 
                                    model_data = GMPD_IUCN_Species, 
                                    fixed_lat = 40,
-                                   raster_res = "_20") +
+                                   raster_res = "_20",
+                                   add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1726,14 +1806,16 @@ if(plot_outputs){
                                model_name = "LatQIMedQIDist_5", 
                                model_data = GMPD_IUCN_Species, 
                                fixed_lat = 40,
-                               raster_res = "_5") +
+                               raster_res = "_5",
+                               add_points = TRUE) +
     labs(x = NULL, y = NULL) +
     annotate(geom = "text", x = -0.8, y = 0.85,
              label = "G",
              family = "Outfit", size = 5, hjust = 0)
   DistProp_10 <- plot_distprop(model_list = LM_IUCN_Species, 
                                model_data = GMPD_IUCN_Species, 
-                               fixed_lat = 40) +
+                               fixed_lat = 40,
+                               add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +
@@ -1745,7 +1827,8 @@ if(plot_outputs){
                                model_name = "LatQIMedQIDist_20", 
                                model_data = GMPD_IUCN_Species, 
                                fixed_lat = 40,
-                               raster_res = "_20") +
+                               raster_res = "_20",
+                               add_points = TRUE) +
     theme(          
       axis.text.y = element_blank()
     ) +

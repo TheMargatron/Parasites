@@ -1040,7 +1040,8 @@ mix_colours <- function(fg, bg, amount){
 plot_latitude <- function(model_list,
                           model_name = "LatQIMedQIDist", 
                           model_data,
-                          raster_res = ""){
+                          raster_res = "",
+                          add_points = FALSE){
   # Prep fixed values
   meanLat   <- mean(abs(model_data$Latitude))
   midLat    <- 45
@@ -1099,7 +1100,15 @@ plot_latitude <- function(model_list,
                                                       "Host x parasite")))
   
   # plot 
-  ggplot(plot_data, aes(x = Latitude, y = model_out, color = model_name)) +
+  plot_out <- ggplot(plot_data, aes(x = Latitude, y = model_out, color = model_name)) 
+  
+  if(add_points){
+    plot_out <- plot_out +
+      geom_point(data = model_data, aes(x = abs(Latitude), y = Prevalence), 
+                 alpha = 0.2, colour = "#b1b3c1")
+  }
+  
+  plot_out <- plot_out +
     geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Latitude", y = "Parasite prevalence") +
@@ -1119,7 +1128,8 @@ plot_medianprop <- function(model_list,
                             model_name = "LatQIMedQIDist", 
                             model_data,
                             fixed_lat, 
-                            raster_res = ""){
+                            raster_res = "",
+                            add_points = FALSE){
   # Prep fixed values
   meanLat   <- mean(abs(model_data$Latitude))
   
@@ -1170,7 +1180,24 @@ plot_medianprop <- function(model_list,
                                                       "Host x parasite")))
   
   # plot 
-  ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) +
+  plot_out <- ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name))
+  if(add_points){
+      latitude_subset <- model_data %>% 
+        filter(abs(Latitude) >= fixed_lat-7.5, abs(Latitude) <= fixed_lat+7.5)
+      
+    if(str_detect(deparse(substitute(model_list)), regex('IUCN', ignore_case = T))){
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = MedianPropSquared_iucn, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+    } else if(str_detect(deparse(substitute(model_list)), regex('GBIF', ignore_case = T))){
+      
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = MedianPropSquared_gbif, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+    }
+  }
+  
+  plot_out <- plot_out +
     geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Range position", y = "Parasite prevalence") +
@@ -1188,7 +1215,8 @@ plot_medianprop <- function(model_list,
 plot_medianprop_asym <- function(model_list,
                                  model_name = "LatQAMed", 
                                  model_data,
-                                 fixed_lat){
+                                 fixed_lat,
+                                 add_points = FALSE){
   # Prep fixed values
   meanLat   <- mean(abs(model_data$Latitude))
   
@@ -1238,7 +1266,24 @@ plot_medianprop_asym <- function(model_list,
                                                       "Host x parasite")))
   
   
-  ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) +
+  plot_out <- ggplot(plot_data, aes(x = MedianPropSquared, y = model_out, color = model_name)) 
+  if(add_points){
+    if(str_detect(deparse(substitute(model_data)), regex('IUCN', ignore_case = T))){
+      latitude_subset <- model_data %>% 
+        filter(abs(Latitude) >= fixed_lat-7.5, abs(Latitude) <= fixed_lat+7.5)
+      
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = MedianPropSquared_iucn, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+    } else if(str_detect(deparse(substitute(model_data)), regex('GBIF', ignore_case = T))){
+      
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = MedianPropSquared_gbif, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+    }
+  }
+  
+  plot_out <- plot_out +
     geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Range position", y = "Parasite prevalence") +
@@ -1257,7 +1302,8 @@ plot_distprop <- function(model_list,
                           model_name = "LatQIMedQIDist",
                           model_data,
                           fixed_lat,
-                          raster_res = ""){
+                          raster_res = "",
+                          add_points = FALSE){
   # Prep fixed values
   meanLat   <- mean(abs(model_data$Latitude))
   
@@ -1308,7 +1354,29 @@ plot_distprop <- function(model_list,
                                                       "Host x parasite")))
   
   # plot
-  ggplot(plot_data, aes(x = CorrectedDist, y = model_out, color = model_name)) +
+  plot_out <- ggplot(plot_data, aes(x = CorrectedDist, y = model_out, color = model_name)) 
+  if(add_points){
+    latitude_subset <- model_data %>% 
+      filter(abs(Latitude) >= fixed_lat-7.5, abs(Latitude) <= fixed_lat+7.5)
+    
+    if(raster_res == ""){
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = CorrectedDistPropSquared, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+      
+    } else if(raster_res == "_5"){
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = CorrectedDistPropSquared_5, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+      
+    } else if(raster_res == "_20"){
+      plot_out <- plot_out +
+        geom_point(data = latitude_subset, aes(x = CorrectedDistPropSquared_20, y = Prevalence), 
+                   alpha = 0.2, colour = "#b1b3c1")
+    }
+  }
+  
+  plot_out <- plot_out +
     geom_line(linewidth = 2, lineend = "round") +
     custom_theme +
     labs(x = "Niche position", y = "Parasite prevalence") +
